@@ -1535,7 +1535,17 @@ gboolean spice_session_get_gl_scanout_enabled(SpiceSession *session)
  **/
 SpiceSession *spice_session_new(void)
 {
-    return SPICE_SESSION(g_object_new(SPICE_TYPE_SESSION, NULL));
+    SpiceSession *self = SPICE_SESSION(g_object_new(SPICE_TYPE_SESSION, NULL));
+    SpiceSessionPrivate *priv = self->priv;
+    GError *err = NULL;
+
+    priv->usb_manager = spice_usb_device_manager_get(self, &err);
+    if (err != NULL) {
+        SPICE_DEBUG("Could not initialize SpiceUsbDeviceManager - %s", err->message);
+        g_clear_error(&err);
+    }
+
+    return self;
 }
 
 G_GNUC_INTERNAL
