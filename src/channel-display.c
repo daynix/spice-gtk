@@ -565,6 +565,7 @@ void spice_display_channel_change_preferred_compression(SpiceChannel *channel, g
     spice_msg_out_send_internal(out);
 }
 
+#if 0
 static void spice_display_send_client_preferred_video_codecs(SpiceChannel *channel,
                                                              const GArray *codecs)
 {
@@ -584,6 +585,7 @@ static void spice_display_send_client_preferred_video_codecs(SpiceChannel *chann
     spice_msg_out_send_internal(out);
     g_free(msg);
 }
+#endif
 
 /**
  * spice_display_change_preferred_video_codec_type:
@@ -615,6 +617,7 @@ void spice_display_change_preferred_video_codec_type(SpiceChannel *channel, gint
  */
 void spice_display_channel_change_preferred_video_codec_type(SpiceChannel *channel, gint codec_type)
 {
+#if 0
     GArray *codecs;
 
     g_return_if_fail(SPICE_IS_DISPLAY_CHANNEL(channel));
@@ -635,6 +638,7 @@ void spice_display_channel_change_preferred_video_codec_type(SpiceChannel *chann
     g_array_append_val(codecs, codec_type);
     spice_display_send_client_preferred_video_codecs(channel, codecs);
     g_array_unref(codecs);
+#endif
 }
 
 /**

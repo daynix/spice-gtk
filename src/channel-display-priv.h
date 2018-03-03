@@ -182,10 +182,11 @@ static const struct {
      */
     { SPICE_DISPLAY_CAP_CODEC_H264, "h264",
       "h264parse ! avdec_h264", "video/x-h264" },
-
+#if 0
     /* SPICE_VIDEO_CODEC_TYPE_VP9 */
     { SPICE_DISPLAY_CAP_CODEC_VP9, "vp9",
       "vp9dec", "video/x-vp9" },
+#endif
 };
 
 G_STATIC_ASSERT(G_N_ELEMENTS(gst_opts) <= SPICE_VIDEO_CODEC_TYPE_ENUM_END);

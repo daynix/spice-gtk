@@ -225,7 +225,7 @@ static const char *agent_caps[] = {
     [ VD_AGENT_CAP_MAX_CLIPBOARD       ] = "max-clipboard",
     [ VD_AGENT_CAP_AUDIO_VOLUME_SYNC   ] = "volume-sync",
     [ VD_AGENT_CAP_MONITORS_CONFIG_POSITION ] = "monitors config position",
-    [ VD_AGENT_CAP_FILE_XFER_DISABLED ] = "file transfer disabled",
+//    [ VD_AGENT_CAP_FILE_XFER_DISABLED ] = "file transfer disabled",
 };
 #define NAME(_a, _i) ((_i) < SPICE_N_ELEMENTS(_a) ? (_a[(_i)] ?: "?") : "?")
 
@@ -1338,7 +1338,7 @@ static void agent_announce_caps(SpiceMainChannel *channel)
     VD_AGENT_SET_CAPABILITY(caps->caps, VD_AGENT_CAP_CLIPBOARD_BY_DEMAND);
     VD_AGENT_SET_CAPABILITY(caps->caps, VD_AGENT_CAP_CLIPBOARD_SELECTION);
     VD_AGENT_SET_CAPABILITY(caps->caps, VD_AGENT_CAP_MONITORS_CONFIG_POSITION);
-    VD_AGENT_SET_CAPABILITY(caps->caps, VD_AGENT_CAP_FILE_XFER_DETAILED_ERRORS);
+//    VD_AGENT_SET_CAPABILITY(caps->caps, VD_AGENT_CAP_FILE_XFER_DETAILED_ERRORS);
 
     agent_msg_queue(channel, VD_AGENT_ANNOUNCE_CAPABILITIES, size, caps);
     g_free(caps);
@@ -1905,6 +1905,7 @@ static void main_agent_handle_xfer_status(SpiceMainChannel *channel,
         error = g_error_new_literal(SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                                     _("The spice agent reported an error during the file transfer"));
         break;
+#if 0
     case VD_AGENT_FILE_XFER_STATUS_NOT_ENOUGH_SPACE: {
         uint64_t *free_space = SPICE_ALIGNED_CAST(uint64_t *, msg->data);
         gchar *free_space_str = g_format_size(*free_space);
@@ -1929,6 +1930,7 @@ static void main_agent_handle_xfer_status(SpiceMainChannel *channel,
         error = g_error_new_literal(SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                                     _("File transfer is disabled."));
         break;
+#endif
     case VD_AGENT_FILE_XFER_STATUS_SUCCESS:
         break;
     default:
@@ -3327,11 +3329,14 @@ void spice_main_channel_file_copy_async(SpiceMainChannel *channel,
         error = g_error_new(SPICE_CLIENT_ERROR,
                             SPICE_CLIENT_ERROR_FAILED,
                             "The agent is not connected");
-    } else if (test_agent_cap(channel, VD_AGENT_CAP_FILE_XFER_DISABLED)) {
+    } 
+#if 0
+    else if (test_agent_cap(channel, VD_AGENT_CAP_FILE_XFER_DISABLED)) {
         error = g_error_new(SPICE_CLIENT_ERROR,
                             SPICE_CLIENT_ERROR_FAILED,
                             _("The file transfer is disabled"));
     }
+#endif
 
     xfer_op = g_new0(FileTransferOperation, 1);
     xfer_op->channel = channel;
