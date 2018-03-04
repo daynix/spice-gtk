@@ -897,10 +897,12 @@ static const GtkRadioActionEntry video_codec_type_entries[] = {
         .label = "vp8",
         .value = SPICE_VIDEO_CODEC_TYPE_VP8,
     },{
+#if 0
         .name  = "vp9",
         .label = "vp9",
         .value = SPICE_VIDEO_CODEC_TYPE_VP9,
     },{
+#endif
         .name  = "h264",
         .label = "h264",
         .value = SPICE_VIDEO_CODEC_TYPE_H264,
@@ -1081,13 +1083,14 @@ static SpiceWindow *create_spice_window(spice_connection *conn, SpiceChannel *ch
     gtk_action_group_add_radio_actions(win->ag, video_codec_type_entries,
                                        G_N_ELEMENTS(video_codec_type_entries), -1,
                                        G_CALLBACK(video_codec_type_cb), win->display_channel);
+#if 0
     if (!spice_channel_test_capability(win->display_channel,
                                        SPICE_DISPLAY_CAP_PREF_VIDEO_CODEC_TYPE)) {
         GtkAction *video_codec_type_menu_action =
             gtk_action_group_get_action(win->ag, "VideoCodecTypeMenu");
         gtk_action_set_sensitive(video_codec_type_menu_action, FALSE);
     }
-
+#endif
     gtk_ui_manager_insert_action_group(win->ui, win->ag, 0);
     gtk_window_add_accel_group(GTK_WINDOW(win->toplevel),
                                gtk_ui_manager_get_accel_group(win->ui));
