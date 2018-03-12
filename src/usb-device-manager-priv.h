@@ -32,7 +32,7 @@ void spice_usb_device_manager_stop_event_listening(
     SpiceUsbDeviceManager *manager);
 
 #ifdef USE_USBREDIR
-#include <libusb.h>
+#include "usb-backend.h"
 void spice_usb_device_manager_device_error(
     SpiceUsbDeviceManager *manager, SpiceUsbDevice *device, GError *err);
 
