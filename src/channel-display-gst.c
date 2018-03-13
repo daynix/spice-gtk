@@ -211,6 +211,7 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
         decoder->pending_samples--;
 
         GstBuffer *buffer = gst_sample_get_buffer(sample);
+        guint num_frames_dropped = 0;
 
         /* gst_app_sink_pull_sample() sometimes returns the same buffer twice
          * or buffers that have a modified, and thus unrecognizable, PTS.
@@ -238,12 +239,15 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
                     /* The GStreamer pipeline dropped the corresponding
                      * buffer.
                      */
-                    SPICE_DEBUG("the GStreamer pipeline dropped a frame");
+                    num_frames_dropped++;
                     free_gst_frame(gstframe);
                 }
                 break;
             }
             l = l->next;
+        }
+        if (num_frames_dropped != 0) {
+            SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
         }
         if (!l) {
             spice_warning("got an unexpected decoded buffer!");
