@@ -1545,6 +1545,63 @@ static void display_session_mm_time_reset_cb(SpiceSession *session, gpointer dat
 
 #define STREAM_PLAYBACK_SYNC_DROP_SEQ_LEN_LIMIT 5
 
+static void display_stream_stats_debug(display_stream *st)
+{
+    guint64 drops_duration_total = 0;
+    guint32 i, num_out_frames;
+    gdouble avg_late_time = 0.0;
+
+    if (st->num_input_frames == 0) {
+        return;
+    }
+
+    num_out_frames = st->num_input_frames - st->arrive_late_count - st->num_drops_on_playback;
+
+    if (st->arrive_late_count != 0) {
+        avg_late_time = st->arrive_late_time / ((double)st->arrive_late_count);
+    }
+
+    CHANNEL_DEBUG(st->channel,
+        "%s: id=%u #in-frames=%u out/in=%.2f "
+        "#drops-on-receive=%u avg-late-time(ms)=%.2f "
+        "#drops-on-playback=%u",
+        __FUNCTION__,
+        st->id,
+        st->num_input_frames,
+        num_out_frames / (double)st->num_input_frames,
+        st->arrive_late_count,
+        avg_late_time,
+        st->num_drops_on_playback);
+
+    if (st->num_drops_seqs) {
+        CHANNEL_DEBUG(st->channel,
+                      "%s: #drops-sequences=%u ==>",
+                      __FUNCTION__,
+                      st->num_drops_seqs);
+    }
+
+    for (i = 0; i < st->num_drops_seqs; i++) {
+        drops_sequence_stats *stats = &g_array_index(st->drops_seqs_stats_arr,
+                                                     drops_sequence_stats,
+                                                     i);
+        drops_duration_total += stats->duration;
+        CHANNEL_DEBUG(st->channel,
+                      "%s: \t len=%u start-ms=%u duration-ms=%u",
+                      __FUNCTION__,
+                      stats->len,
+                      stats->start_mm_time - st->first_frame_mm_time,
+                      stats->duration);
+    }
+
+    if (st->num_drops_seqs) {
+        CHANNEL_DEBUG(st->channel,
+                      "%s: drops-total-duration=%"G_GUINT64_FORMAT" ==>",
+                      __FUNCTION__,
+                      drops_duration_total);
+    }
+}
+
+
 static void display_stream_stats_save(display_stream *st,
                                       guint32 server_mmtime,
                                       guint32 client_mmtime)
@@ -1673,39 +1730,9 @@ static void display_handle_stream_clip(SpiceChannel *channel, SpiceMsgIn *in)
 
 static void display_stream_destroy(gpointer st_pointer)
 {
-    int i;
     display_stream *st = st_pointer;
 
-    if (st->num_input_frames > 0) {
-        guint64 drops_duration_total = 0;
-        guint32 num_out_frames = st->num_input_frames - st->arrive_late_count - st->num_drops_on_playback;
-        CHANNEL_DEBUG(st->channel, "%s: id=%u #in-frames=%u out/in=%.2f "
-            "#drops-on-receive=%u avg-late-time(ms)=%.2f "
-            "#drops-on-playback=%u", __FUNCTION__,
-            st->id,
-            st->num_input_frames,
-            num_out_frames / (double)st->num_input_frames,
-            st->arrive_late_count,
-            st->arrive_late_count ? st->arrive_late_time / ((double)st->arrive_late_count): 0,
-            st->num_drops_on_playback);
-        if (st->num_drops_seqs) {
-            CHANNEL_DEBUG(st->channel, "%s: #drops-sequences=%u ==>", __FUNCTION__, st->num_drops_seqs);
-        }
-        for (i = 0; i < st->num_drops_seqs; i++) {
-            drops_sequence_stats *stats = &g_array_index(st->drops_seqs_stats_arr,
-                                                         drops_sequence_stats,
-                                                         i);
-            drops_duration_total += stats->duration;
-            CHANNEL_DEBUG(st->channel, "%s: \t len=%u start-ms=%u duration-ms=%u", __FUNCTION__,
-                          stats->len,
-                          stats->start_mm_time - st->first_frame_mm_time,
-                          stats->duration);
-        }
-        if (st->num_drops_seqs) {
-            CHANNEL_DEBUG(st->channel, "%s: drops-total-duration=%"G_GUINT64_FORMAT" ==>", __FUNCTION__, drops_duration_total);
-        }
-    }
-
+    display_stream_stats_debug(st);
     g_array_free(st->drops_seqs_stats_arr, TRUE);
 
     if (st->video_decoder) {
