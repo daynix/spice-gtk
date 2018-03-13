@@ -1545,6 +1545,45 @@ static void display_session_mm_time_reset_cb(SpiceSession *session, gpointer dat
 
 #define STREAM_PLAYBACK_SYNC_DROP_SEQ_LEN_LIMIT 5
 
+static void display_stream_stats_save(display_stream *st,
+                                      guint32 server_mmtime,
+                                      guint32 client_mmtime)
+{
+    gint32 latency = server_mmtime - client_mmtime;
+
+    if (!st->num_input_frames) {
+        st->first_frame_mm_time = server_mmtime;
+    }
+    st->num_input_frames++;
+
+    if (latency < 0) {
+        CHANNEL_DEBUG(st->channel, "stream data too late by %u ms (ts: %u, mmtime: %u)",
+                      client_mmtime - server_mmtime, server_mmtime, client_mmtime);
+        st->arrive_late_time += client_mmtime - server_mmtime;
+        st->arrive_late_count++;
+
+        /* Late frames are counted as drops in the stats but aren't necessarily dropped - depends
+         * on codec and decoder
+         */
+        if (!st->cur_drops_seq_stats.len) {
+            st->cur_drops_seq_stats.start_mm_time = server_mmtime;
+        }
+        st->cur_drops_seq_stats.len++;
+        st->playback_sync_drops_seq_len++;
+        return;
+    }
+
+    CHANNEL_DEBUG(st->channel, "video latency: %d", latency);
+    if (st->cur_drops_seq_stats.len) {
+        st->cur_drops_seq_stats.duration = server_mmtime -
+                                           st->cur_drops_seq_stats.start_mm_time;
+        g_array_append_val(st->drops_seqs_stats_arr, st->cur_drops_seq_stats);
+        memset(&st->cur_drops_seq_stats, 0, sizeof(st->cur_drops_seq_stats));
+        st->num_drops_seqs++;
+    }
+    st->playback_sync_drops_seq_len = 0;
+}
+
 static SpiceFrame *spice_frame_new(display_stream *st,
                                    SpiceMsgIn *in,
                                    guint32 server_mmtime)
@@ -1588,45 +1627,16 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
         op->multi_media_time = mmtime + 100; /* workaround... */
     }
 
-    if (!st->num_input_frames) {
-        st->first_frame_mm_time = op->multi_media_time;
-    }
-    st->num_input_frames++;
-
     latency = latency_report = op->multi_media_time - mmtime;
-    if (latency < 0) {
-        CHANNEL_DEBUG(channel, "stream data too late by %u ms (ts: %u, mmtime: %u)",
-                      mmtime - op->multi_media_time, op->multi_media_time, mmtime);
-        st->arrive_late_time += mmtime - op->multi_media_time;
-        st->arrive_late_count++;
-
-        /* Late frames are counted as drops in the stats but aren't necessarily dropped - depends
-         * on codec and decoder
-         */
-        if (!st->cur_drops_seq_stats.len) {
-            st->cur_drops_seq_stats.start_mm_time = op->multi_media_time;
-        }
-        st->cur_drops_seq_stats.len++;
-        st->playback_sync_drops_seq_len++;
-    } else {
+    if (latency > 0) {
         SpiceSession *s = spice_channel_get_session(channel);
 
         if (st->surface->streaming_mode && !spice_session_is_playback_active(s)) {
             CHANNEL_DEBUG(channel, "video latency: %d, set to 0 since there is no playback", latency);
             latency = 0;
-        } else {
-            CHANNEL_DEBUG(channel, "video latency: %d", latency);
         }
-
-        if (st->cur_drops_seq_stats.len) {
-            st->cur_drops_seq_stats.duration = op->multi_media_time -
-                                               st->cur_drops_seq_stats.start_mm_time;
-            g_array_append_val(st->drops_seqs_stats_arr, st->cur_drops_seq_stats);
-            memset(&st->cur_drops_seq_stats, 0, sizeof(st->cur_drops_seq_stats));
-            st->num_drops_seqs++;
-        }
-        st->playback_sync_drops_seq_len = 0;
     }
+    display_stream_stats_save(st, op->multi_media_time, mmtime);
 
     /* Let the video decoder queue the frames so it can optimize their
      * decoding and best decide if/when to drop them when they are late,
