@@ -1,6 +1,8 @@
 [submodule "spice-common"]
 	path = spice-common
-	url = ../spice-common
+	url = https://anongit.freedesktop.org/git/spice/spice-common
+	ignore = dirty
 [submodule "src/keycodemapdb"]
+	ignore = dirty
 	path = src/keycodemapdb
 	url = https://gitlab.com/keycodemap/keycodemapdb.git
