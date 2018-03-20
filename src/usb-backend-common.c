@@ -106,8 +106,10 @@ struct _SpiceUsbBackendChannel
     uint8_t *hello;
     int read_buf_size;
     int hello_size;
+    uint32_t host_caps;
     uint32_t hello_done_host   : 1;
     uint32_t hello_done_parser : 1;
+    uint32_t hello_sent        : 1;
     SpiceUsbBackendDevice *attached;
     SpiceUsbBackendChannelInitData data;
     struct {
@@ -734,6 +736,14 @@ static int usbredir_write_callback(void *user_data, uint8_t *data, int count)
     SpiceUsbBackendChannel *ch = user_data;
     int res;
     SPICE_DEBUG("%s ch %p, %d bytes", __FUNCTION__, ch, count);
+    if (!ch->hello_sent) {
+        ch->hello_sent = 1;
+        if (count == 80) {
+            memcpy(&ch->host_caps, data + 76, 4);
+            SPICE_DEBUG("%s ch %p, sending first hello, caps %08X",
+                __FUNCTION__, ch, ch->host_caps);
+        }
+    }
     res = ch->data.write_callback(ch->data.user_data, data, count);
     return res;
 }
@@ -1229,15 +1239,26 @@ static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch)
         parser->filter_reject_func = usbredir_filter_reject;
         parser->filter_filter_func = usbredir_filter_filter;
         parser->device_disconnect_ack_func = usbredir_device_disconnect_ack;
-        usbredirparser_caps_set_cap(caps, usb_redir_cap_connect_device_version);
+        if (ch->host_caps & (1 << usb_redir_cap_connect_device_version)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_connect_device_version);
+        }
         usbredirparser_caps_set_cap(caps, usb_redir_cap_filter);
-        usbredirparser_caps_set_cap(caps, usb_redir_cap_device_disconnect_ack);
-        usbredirparser_caps_set_cap(caps, usb_redir_cap_ep_info_max_packet_size);
-        usbredirparser_caps_set_cap(caps, usb_redir_cap_64bits_ids);
-        usbredirparser_caps_set_cap(caps, usb_redir_cap_32bits_bulk_length);
-
-        usbredirparser_init(parser, PACKAGE_STRING,
-            caps, USB_REDIR_CAPS_SIZE, flags);
+        if (ch->host_caps & (1 << usb_redir_cap_device_disconnect_ack)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_device_disconnect_ack);
+        }
+        if (ch->host_caps & (1 << usb_redir_cap_ep_info_max_packet_size)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_ep_info_max_packet_size);
+        }
+        if (ch->host_caps & (1 << usb_redir_cap_64bits_ids)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_64bits_ids);
+        }
+        if (ch->host_caps & (1 << usb_redir_cap_32bits_bulk_length)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_32bits_bulk_length);
+        }
+        if (ch->host_caps & (1 << usb_redir_cap_bulk_streams)) {
+            usbredirparser_caps_set_cap(caps, usb_redir_cap_bulk_streams);
+        }
+        usbredirparser_init(parser, PACKAGE_STRING, caps, USB_REDIR_CAPS_SIZE, flags);
     }
 
     return parser;
@@ -1346,11 +1367,6 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_initialize(
     }
 
     if (ok) {
-        ch->hiddenparser = create_parser(ch);
-        ok = ch->hiddenparser != NULL;
-    }
-
-    if (ok) {
         ch->usbredirhost = ch->hiddenhost;
     }
 
@@ -1369,12 +1385,8 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_initialize(
 void spice_usb_backend_channel_up(SpiceUsbBackendChannel *ch)
 {
     SPICE_DEBUG("%s %p, host %p, parser %p", __FUNCTION__, ch, ch->usbredirhost, ch->parser);
-    if (ch->usbredirhost) {
-        usbredirhost_write_guest_data(ch->usbredirhost);
-    }
-    if (ch->parser) {
-        usbredirparser_do_write(ch->parser);
-    }
+    usbredirhost_write_guest_data(ch->usbredirhost);
+    ch->hiddenparser = create_parser(ch);
 }
 
 void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch)
