@@ -352,9 +352,9 @@ static void initialize_own_devices(void)
         own_devices.devices[i].device_info.address = i;
         own_devices.devices[i].device_info.vid = CD_DEV_VID;
         own_devices.devices[i].device_info.pid = CD_DEV_PID;
-        own_devices.devices[i].device_info.class = CD_DEV_CLASS;
-        own_devices.devices[i].device_info.subclass = CD_DEV_SUBCLASS;
-        own_devices.devices[i].device_info.protocol = CD_DEV_PROTOCOL;
+        own_devices.devices[i].device_info.class = 0;
+        own_devices.devices[i].device_info.subclass = 0;
+        own_devices.devices[i].device_info.protocol = 0;
     }
 }
 
@@ -446,6 +446,7 @@ static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
             d->mutex = g_mutex;
             d->d.libusb_device = device;
             if (fill_usb_info(d)) {
+                SPICE_DEBUG("created dev %p, usblib dev %p", d, device);
                 be->hp_callback(be->hp_user_data, d, val);
             } else {
                 g_free(d);
@@ -998,7 +999,7 @@ static void usbredir_control_packet(void *priv,
         // device already detached
         response.h.status = usb_redir_ioerror;
         response.h.length = 0;
-    } else if (reqtype == LIBUSB_REQUEST_TYPE_STANDARD) {
+    } else if (reqtype == (LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_RECIPIENT_DEVICE)) {
         switch (h->request) {
             case LIBUSB_REQUEST_GET_DESCRIPTOR:
                 get_device_descriptor(ch->attached, &response.h);
@@ -1011,7 +1012,28 @@ static void usbredir_control_packet(void *priv,
         // should be clear stall request
         response.h.length = 0;
         response.h.status = 0;
-    } else {
+    } else if (reqtype == (LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE)) {
+        response.h.length = 0;
+        response.h.status = 0;
+        switch (h->request) {
+            case 0xFF:
+                // mass-storage class request 'reset'
+                break;
+            case 0xFE:
+                // mass-storage class request 'get max lun'
+                // returning one byte
+                if (!h->length) {
+                    response.h.status = usb_redir_stall;
+                } else {
+                    response.h.length = 1;
+                    response.buffer[0] = MAX_LUN_PER_DEVICE;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    else {
      response.h.length = 0;
      response.h.status = usb_redir_stall;
  }
