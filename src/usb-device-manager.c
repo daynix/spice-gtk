@@ -91,7 +91,7 @@ enum {
     PROP_AUTO_CONNECT_FILTER,
     PROP_REDIRECT_ON_CONNECT,
     PROP_FREE_CHANNELS,
-    PROP_CD_SHARE_ON_CONNECT
+    PROP_SHARE_CD
 };
 
 enum
@@ -108,7 +108,6 @@ struct _SpiceUsbDeviceManagerPrivate {
     gboolean auto_connect;
     gchar *auto_connect_filter;
     gchar *redirect_on_connect;
-    const gchar *cd_share_on_connect;
 #ifdef USE_USBREDIR
     SpiceUsbBackend *context;
     int event_listeners;
@@ -179,8 +178,6 @@ static void spice_usb_device_manager_hotplug_cb(
     SpiceUsbBackendDevice *bdev,
     gboolean added);
 #endif
-static void spice_usb_device_manager_check_redir_on_connect(
-    SpiceUsbDeviceManager *self, SpiceChannel *channel);
 
 static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev);
 static SpiceUsbDevice *spice_usb_device_ref(SpiceUsbDevice *device);
@@ -443,8 +440,9 @@ static void spice_usb_device_manager_get_property(GObject     *gobject,
     case PROP_REDIRECT_ON_CONNECT:
         g_value_set_string(value, priv->redirect_on_connect);
         break;
-    case PROP_CD_SHARE_ON_CONNECT:
-        g_value_set_string(value, priv->cd_share_on_connect);
+    case PROP_SHARE_CD:
+        /* get_property is not needed */
+        g_value_set_string(value, "");
         break;
     case PROP_FREE_CHANNELS: {
         int free_channels = 0;
@@ -536,11 +534,14 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
         priv->redirect_on_connect = g_strdup(filter);
         break;
     }
-    case PROP_CD_SHARE_ON_CONNECT:
-        priv->cd_share_on_connect = g_value_get_string(value);
-        SPICE_DEBUG("cd_share_on_connect set to %s", priv->cd_share_on_connect);
-        spice_usb_backend_add_cd(priv->cd_share_on_connect, priv->context);
+    case PROP_SHARE_CD:
+    {
+        const gchar *name = g_value_get_string(value);
+        /* the string is temporary, no need to keep it */
+        SPICE_DEBUG("share_cd set to %s", name);
+        spice_usb_backend_add_cd(name, priv->context);
         break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, pspec);
         break;
@@ -638,11 +639,10 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
     * share via CD sharing after a Spice connection has been established.
     *
     */
-    pspec = g_param_spec_string("cd-share-on-connect", "CD share on connect",
-        "File name or wildcard to share", NULL,
+    pspec = g_param_spec_string("cd-share", "Share ISO file as CD",
+        "File nameto share", NULL,
         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-    g_object_class_install_property(gobject_class, PROP_CD_SHARE_ON_CONNECT,
-        pspec);
+    g_object_class_install_property(gobject_class, PROP_SHARE_CD, pspec);
 
     /**
      * SpiceUsbDeviceManager:free-channels:
@@ -814,8 +814,6 @@ static void channel_new(SpiceSession *session, SpiceChannel *channel,
                                        self->priv->context);
     spice_channel_connect(channel);
     g_ptr_array_add(self->priv->channels, channel);
-
-    spice_usb_device_manager_check_redir_on_connect(self, channel);
 
     /*
      * add a reference to ourself, to make sure the backend device context is
@@ -1151,7 +1149,7 @@ void spice_usb_device_manager_stop_event_listening(
         g_atomic_int_set(&priv->event_thread_run, FALSE);
 }
 
-static void spice_usb_device_manager_check_redir_on_connect(
+void spice_usb_device_manager_check_redir_on_connect(
     SpiceUsbDeviceManager *self, SpiceChannel *channel)
 {
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
