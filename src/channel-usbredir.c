@@ -729,9 +729,13 @@ static void spice_usbredir_channel_up(SpiceChannel *c)
 {
     SpiceUsbredirChannel *channel = SPICE_USBREDIR_CHANNEL(c);
     SpiceUsbredirChannelPrivate *priv = channel->priv;
+    SpiceSession *session = spice_channel_get_session(c);
+    SpiceUsbDeviceManager *manager = spice_usb_device_manager_get(session, NULL);
 
     /* Flush any pending writes */
     spice_usb_backend_channel_up(priv->host);
+    /* Check which existing device can be redirected right now */
+    spice_usb_device_manager_check_redir_on_connect(manager, c);
 }
 
 static int try_handle_compressed_msg(SpiceMsgCompressedData *compressed_data_msg,
