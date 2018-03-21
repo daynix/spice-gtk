@@ -58,7 +58,7 @@ static void *g_mutex;
 
 typedef struct _SpiceUsbLU
 {
-    const char *filename;
+    char *filename;
     union {
         void *handle;
         int  fd;
@@ -222,7 +222,10 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
         NULL);
     if (unit->file_desc.handle != INVALID_HANDLE_VALUE) {
        unit->stream = g_win32_input_stream_new(unit->file_desc.handle, TRUE);
-       unit->filename = filename;
+       if (unit->filename) {
+           g_free(unit->filename);
+       }
+       unit->filename = g_strdup(filename);
        b = unit->stream != NULL;
        if (!b) {
            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
@@ -244,7 +247,10 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
         O_RDONLY | O_NONBLOCK);
     if (unit->file_desc.fd > 0) {
         unit->stream = g_unix_input_stream_new(unit->file_desc.fd, TRUE);
-        unit->filename = filename;
+        if (unit->filename) {
+            g_free(unit->filename);
+        }
+        unit->filename = g_strdup(filename);
         b = unit->stream != NULL;
         if (!b) {
             SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
@@ -260,6 +266,39 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
 }
 #endif
 
+static void close_stream(SpiceUsbLU *unit)
+{
+    if (unit->stream) {
+        g_input_stream_close(unit->stream, NULL, NULL);
+        unit->stream = NULL;
+    }
+}
+
+/* Note that this function must be re-entrant safe, as it can get called
+from both the main thread as well as from the usb event handling thread */
+static void usbredir_write_flush_callback(void *user_data)
+{
+    SpiceUsbBackendChannel *ch = user_data;
+    gboolean b = ch->data.is_channel_ready(ch->data.user_data);
+    if (b) {
+        if (ch->usbredirhost) {
+            SPICE_DEBUG("%s ch %p -> usbredirhost", __FUNCTION__, ch);
+            usbredirhost_write_guest_data(ch->usbredirhost);
+        }
+        else if (ch->parser) {
+            SPICE_DEBUG("%s ch %p -> usbredirparser", __FUNCTION__, ch);
+            usbredirparser_do_write(ch->parser);
+        }
+        else {
+            b = FALSE;
+        }
+    }
+
+    if (!b) {
+        SPICE_DEBUG("%s ch %p (not ready)", __FUNCTION__, ch);
+    }
+}
+
 void cd_usb_bulk_msd_read_callback(void *user_data, uint32_t length, int status)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
@@ -274,12 +313,11 @@ void cd_usb_bulk_msd_read_callback(void *user_data, uint32_t length, int status)
         usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
             &ch->current_read.hout, length ? data : NULL, length);
         usbredirparser_free_packet_data(ch->parser, data);
-        usbredirparser_do_write(ch->parser);
+        usbredir_write_flush_callback(ch);
     } else {
         SPICE_DEBUG("broken device<->channel relationship!");
     }
 }
-
 
 static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, int unit)
 {
@@ -298,6 +336,9 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
         params.block_size = CD_DEV_BLOCK_SIZE;
         params.stream = d->units[unit].stream;
         b = !cd_usb_bulk_msd_realize(d->d.msc, &params);
+        if (!b) {
+            close_stream(&d->units[unit]);
+        }
     }
     return b;
 }
@@ -682,11 +723,15 @@ int spice_usb_backend_device_check_filter(
         return usbredirhost_check_device_filter(
             rules, count, dev->d.libusb_device, 0);
     } else {
+        uint8_t cls, subcls, proto;
+        cls = CD_DEV_CLASS;
+        subcls = CD_DEV_SUBCLASS;
+        proto = CD_DEV_PROTOCOL;
         return usbredirfilter_check(rules, count,
             dev->device_info.class,
             dev->device_info.subclass,
             dev->device_info.protocol,
-            NULL, NULL, NULL, 0, dev->device_info.vid,
+            &cls, &subcls, &proto, 1, dev->device_info.vid,
             dev->device_info.pid, USB2_BCD, 0);
     }
 }
@@ -747,21 +792,6 @@ static int usbredir_write_callback(void *user_data, uint8_t *data, int count)
     }
     res = ch->data.write_callback(ch->data.user_data, data, count);
     return res;
-}
-
-
-/* Note that this function must be re-entrant safe, as it can get called
-from both the main thread as well as from the usb event handling thread */
-static void usbredir_write_flush_callback(void *user_data)
-{
-    SpiceUsbBackendChannel *ch = user_data;
-    gboolean b = ch->data.is_channel_ready(ch->data.user_data);
-    if (b && ch->usbredirhost) {
-        SPICE_DEBUG("%s ch %p", __FUNCTION__, ch);
-        usbredirhost_write_guest_data(ch->usbredirhost);
-    } else {
-        SPICE_DEBUG("%s ch %p (not ready)", __FUNCTION__, ch);
-    }
 }
 
 #if USBREDIR_VERSION >= 0x000701
@@ -1042,7 +1072,7 @@ static void usbredir_control_packet(void *priv,
         response.h.length, response.h.status);
     usbredirparser_send_control_packet(ch->parser, id, &response.h,
         response.h.length ? response.buffer : NULL, response.h.length);
-    usbredirparser_do_write(ch->parser);
+    usbredir_write_flush_callback(ch);
     usbredirparser_free_packet_data(ch->parser, data);
 }
 
@@ -1062,7 +1092,7 @@ static void usbredir_bulk_packet(void *priv,
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
         usbredirparser_free_packet_data(ch->parser, data);
-        usbredirparser_do_write(ch->parser);
+        usbredir_write_flush_callback(ch);
         return;
     }
 
@@ -1088,7 +1118,7 @@ static void usbredir_bulk_packet(void *priv,
         usbredirparser_free_packet_data(ch->parser, data);
     }
 
-    usbredirparser_do_write(ch->parser);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_device_reset(void *priv)
@@ -1126,7 +1156,7 @@ static void usbredir_set_configuration(void *priv,
         ch->attached->configured = h.configuration != 0;
     }
     usbredirparser_send_configuration_status(ch->parser, id, &h);
-    usbredirparser_do_write(ch->parser);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_get_configuration(void *priv, uint64_t id)
@@ -1137,7 +1167,7 @@ static void usbredir_get_configuration(void *priv, uint64_t id)
     h.configuration = ch->attached && ch->attached->configured;
     SPICE_DEBUG("%s ch %p, cfg %d", __FUNCTION__, ch, h.configuration);
     usbredirparser_send_configuration_status(ch->parser, id, &h);
-    usbredirparser_do_write(ch->parser);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_set_alt_setting(void *priv,
@@ -1166,7 +1196,7 @@ static void usbredir_cancel_data(void *priv, uint64_t id)
             usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
                 &ch->current_read.hout, NULL, 0);
             usbredirparser_free_packet_data(ch->parser, data);
-            usbredirparser_do_write(ch->parser);
+            usbredir_write_flush_callback(ch);
         }
     }
 }
@@ -1225,8 +1255,7 @@ static void usbredir_hello(void *priv,
         device_connect.device_version_bcd = USB2_BCD;
         device_connect.speed = usb_redir_speed_high;
         usbredirparser_send_device_connect(ch->parser, &device_connect);
-
-        usbredirparser_do_write(ch->parser);
+        usbredir_write_flush_callback(ch);
     }
 }
 
@@ -1330,7 +1359,7 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch, SpiceUsbBa
         } else {
             // CD redir detach
             usbredirparser_send_device_disconnect(ch->parser);
-            usbredirparser_do_write(ch->parser);
+            usbredir_write_flush_callback(ch);
         }
         SPICE_DEBUG("%s ch %p, detach done", __FUNCTION__, ch);
         ch->attached->attached_to = NULL;
@@ -1350,7 +1379,7 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch, SpiceUsbBa
             SPICE_DEBUG("%s sending cached hello to parser", __FUNCTION__);
             ch->hello_done_parser = 1;
             spice_usb_backend_provide_read_data(ch, ch->hello, ch->hello_size);
-            usbredirparser_do_write(ch->parser);
+            usbredir_write_flush_callback(ch);
         }
     }
     return b;
