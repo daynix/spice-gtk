@@ -21,6 +21,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #ifdef USE_USBREDIR
 
 #include <glib-object.h>
+#include <inttypes.h>
 #include <gio/gio.h>
 #include <errno.h>
 #include <libusb.h>
@@ -106,10 +107,13 @@ struct _SpiceUsbBackendChannel
     uint8_t *hello;
     int read_buf_size;
     int hello_size;
+    struct usbredirfilter_rule *rules;
+    int rules_count;
     uint32_t host_caps;
     uint32_t hello_done_host   : 1;
     uint32_t hello_done_parser : 1;
     uint32_t hello_sent        : 1;
+    uint32_t rejected          : 1;
     SpiceUsbBackendDevice *attached;
     SpiceUsbBackendChannelInitData data;
     struct {
@@ -830,7 +834,7 @@ int spice_usb_backend_provide_read_data(SpiceUsbBackendChannel *ch, uint8_t *dat
             fn = (readproc_t)usbredirparser_do_read;
             param = ch->parser;
         }
-        res = fn ? fn(param) : USB_REDIR_ERROR_DEV_REJECTED;
+        res = fn ? fn(param) : USB_REDIR_ERROR_IO;
         switch (res)
         {
         case usbredirhost_read_io_error:
@@ -851,6 +855,10 @@ int spice_usb_backend_provide_read_data(SpiceUsbBackendChannel *ch, uint8_t *dat
     } else {
         res = USB_REDIR_ERROR_READ_PARSE;
         SPICE_DEBUG("%s ch %p, %d bytes, already has data", __FUNCTION__, ch, count);
+    }
+    if (ch->rejected) {
+        ch->rejected = 0;
+        res = USB_REDIR_ERROR_DEV_REJECTED;
     }
     return res;
 }
@@ -1171,23 +1179,37 @@ static void usbredir_get_configuration(void *priv, uint64_t id)
 }
 
 static void usbredir_set_alt_setting(void *priv,
-    uint64_t id, struct usb_redir_set_alt_setting_header *set_alt_setting)
+    uint64_t id, struct usb_redir_set_alt_setting_header *s)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SPICE_DEBUG("%s not implemented %p", __FUNCTION__, ch);
+    struct usb_redir_alt_setting_status_header sh;
+    sh.status = (!s->interface && !s->alt) ? 0 : usb_redir_stall;
+    sh.interface = s->interface;
+    sh.alt = s->alt;
+    SPICE_DEBUG("%s ch %p, %d:%d", __FUNCTION__, ch, s->interface, s->alt);
+    usbredirparser_send_alt_setting_status(ch->parser, id, &sh);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_get_alt_setting(void *priv,
-    uint64_t id, struct usb_redir_get_alt_setting_header *get_alt_setting)
+    uint64_t id, struct usb_redir_get_alt_setting_header *s)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SPICE_DEBUG("%s not implemented %p", __FUNCTION__, ch);
+    struct usb_redir_alt_setting_status_header sh;
+    sh.status = (s->interface == 0) ? 0 : usb_redir_stall;
+    sh.interface = s->interface;
+    sh.alt = 0;
+    SPICE_DEBUG("%s ch %p, if %d", __FUNCTION__, ch, s->interface);
+    usbredirparser_send_alt_setting_status(ch->parser, id, &sh);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_cancel_data(void *priv, uint64_t id)
 {
     SpiceUsbBackendChannel *ch = priv;
     if (ch->current_read.data) {
+        SPICE_DEBUG("%s ch %p id %" PRIu64 "current read %" PRIu64,
+            __FUNCTION__, ch, id, ch->current_read.id);
         if (!cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
             uint8_t *data = ch->current_read.data;
             ch->current_read.data = NULL;
@@ -1204,15 +1226,26 @@ static void usbredir_cancel_data(void *priv, uint64_t id)
 static void usbredir_filter_reject(void *priv)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SPICE_DEBUG("%s not implemented %p", __FUNCTION__, ch);
+    SPICE_DEBUG("%s %p", __FUNCTION__, ch);
+    ch->rejected = 1;
 }
 
 /* Note that the ownership of the rules array is passed on to the callback. */
 static void usbredir_filter_filter(void *priv,
-    struct usbredirfilter_rule *rules, int rules_count)
+    struct usbredirfilter_rule *r, int count)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SPICE_DEBUG("%s not implemented %p", __FUNCTION__, ch);
+    SPICE_DEBUG("%s ch %p %d filters", __FUNCTION__, ch, count);
+    ch->rules = r;
+    ch->rules_count = count;
+    if (count) {
+        int i;
+        for (i = 0; i < count; i++) {
+            SPICE_DEBUG("%s class %d, %X:%X",
+                r[i].allow ? "allowed" : "denied", r[i].device_class,
+                (uint32_t)r[i].vendor_id, (uint32_t)r[i].product_id);
+        }
+    }
 }
 
 static void usbredir_device_disconnect_ack(void *priv)
@@ -1459,19 +1492,24 @@ void spice_usb_backend_channel_get_guest_filter(
     const struct usbredirfilter_rule **r,
     int *count)
 {
+    int i;
     *r = NULL;
     *count = 0;
     if (ch->usbredirhost) {
-        int i;
         usbredirhost_get_guest_filter(ch->usbredirhost, r, count);
-        if (*count) {
-            SPICE_DEBUG("%s ch %p: %d filters", __FUNCTION__, ch, *count);
-        }
-        for (i = 0; i < *count; i++) {
-            SPICE_DEBUG("%s class %d, %X:%X",
-                r[i]->allow ? "allowed" : "denied", r[i]->device_class,
-                (uint32_t)r[i]->vendor_id, (uint32_t)r[i]->product_id);
-        }
+    }
+    if (*r == NULL) {
+        *r = ch->rules;
+        *count = ch->rules_count;
+    }
+
+    if (*count) {
+        SPICE_DEBUG("%s ch %p: %d filters", __FUNCTION__, ch, *count);
+    }
+    for (i = 0; i < *count; i++) {
+        SPICE_DEBUG("%s class %d, %X:%X",
+            r[i]->allow ? "allowed" : "denied", r[i]->device_class,
+            (uint32_t)r[i]->vendor_id, (uint32_t)r[i]->product_id);
     }
 }
 
