@@ -33,7 +33,7 @@ static char *smartcard_db = NULL;
 static char *smartcard_certificates = NULL;
 static char *usbredir_auto_redirect_filter = NULL;
 static char *usbredir_redirect_on_connect = NULL;
-static char *cd_share_on_connect = NULL;
+static gchar **cd_share_files = NULL;
 static gboolean smartcard = FALSE;
 static gboolean disable_audio = FALSE;
 static gboolean disable_usbredir = FALSE;
@@ -219,8 +219,8 @@ GOptionGroup* spice_get_option_group(void)
           N_("Filter selecting USB devices to be auto-redirected when plugged in"), N_("<filter-string>") },
         { "spice-usbredir-redirect-on-connect", '\0', 0, G_OPTION_ARG_STRING, &usbredir_redirect_on_connect,
           N_("Filter selecting USB devices to redirect on connect"), N_("<filter-string>") },
-        { "spice-share-cd-on-connect", '\0', 0, G_OPTION_ARG_STRING, &cd_share_on_connect,
-          N_("ISO file name or wildcard to share on connect"), N_("<filename>") },
+        { "spice-share-cd", '\0', 0, G_OPTION_ARG_STRING_ARRAY, &cd_share_files,
+          N_("ISO file name to share"), N_("<filename> (repeat allowed)") },
         { "spice-cache-size", '\0', 0, G_OPTION_ARG_INT, &cache_size,
           N_("Image cache size (deprecated)"), N_("<bytes>") },
         { "spice-glz-window-size", '\0', 0, G_OPTION_ARG_INT, &glz_window_size,
@@ -311,11 +311,17 @@ void spice_set_session_option(SpiceSession *session)
             g_object_set(m, "redirect-on-connect",
                          usbredir_redirect_on_connect, NULL);
     }
-    if (cd_share_on_connect) {
+    if (cd_share_files) {
         SpiceUsbDeviceManager *m = spice_usb_device_manager_get(session, NULL);
-        if (m)
-            g_object_set(m, "cd-share-on-connect",
-                cd_share_on_connect, NULL);
+        if (m) {
+            gchar **name = cd_share_files;
+            while (name && *name) {
+                g_object_set(m, "cd-share", *name, NULL);
+                name++;
+            }
+        }
+        g_strfreev(cd_share_files);
+        cd_share_files = NULL;
     }
     if (disable_usbredir)
         g_object_set(session, "enable-usbredir", FALSE, NULL);
