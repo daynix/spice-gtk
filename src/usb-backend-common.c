@@ -469,7 +469,8 @@ gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be)
         SPICE_DEBUG("%s << libusb %d", __FUNCTION__, res);
     }
     else {
-        b = FALSE;
+        b = TRUE;
+        g_usleep(1000000);
     }
     SPICE_DEBUG("%s <<", __FUNCTION__);
     return b;
@@ -545,15 +546,17 @@ void spice_usb_backend_finalize(SpiceUsbBackend *be)
 SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
 {
     SPICE_DEBUG("%s >>", __FUNCTION__);
-    libusb_device **devlist, **dev;
+    libusb_device **devlist = NULL, **dev;
     SpiceUsbBackendDevice *d, **list;
 
     int n = 0, i, index;
 
-    libusb_get_device_list(be->libusbContext, &devlist);
+    if (be->libusbContext) {
+        libusb_get_device_list(be->libusbContext, &devlist);
+    }
 
     // add all the libusb device that not present in our list
-    for (dev = devlist; *dev; dev++) {
+    for (dev = devlist; dev && *dev; dev++) {
         n++;
     }
 
@@ -571,7 +574,7 @@ SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
 
     index = 0;
 
-    for (dev = devlist; *dev; dev++) {
+    for (dev = devlist; dev && *dev; dev++) {
         d = g_new0(SpiceUsbBackendDevice, 1);
         if (d) {
             d->isLibUsb = 1;
@@ -601,7 +604,9 @@ SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
     }
     usbredir_unlock_lock(g_mutex);
 
-    libusb_free_device_list(devlist, 0);
+    if (devlist) {
+        libusb_free_device_list(devlist, 0);
+    }
 
     SPICE_DEBUG("%s <<", __FUNCTION__);
     return list;
@@ -1482,10 +1487,18 @@ void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch)
     if (ch->parser) {
         usbredirparser_destroy(ch->parser);
     }
+    if (ch->hello) {
+        g_free(ch->hello);
+    }
+
+    if (ch->rules) {
+        // is it ok to g_free the memory that was allocated by parser?
+        g_free(ch->rules);
+    }
+
     g_free(ch);
     SPICE_DEBUG("%s << %p", __FUNCTION__, ch);
 }
-
 
 void spice_usb_backend_channel_get_guest_filter(
     SpiceUsbBackendChannel *ch,
