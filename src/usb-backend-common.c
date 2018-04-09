@@ -37,6 +37,8 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include "win-usb-dev.h"
 #else
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 #endif
 
 #define MAX_LUN_PER_DEVICE      1
@@ -62,6 +64,8 @@ typedef struct _SpiceUsbLU
     GFile *file_object;
     GFileInputStream *stream;
     uint64_t size;
+    uint32_t blockSize;
+    uint32_t padding;
 } SpiceUsbLU;
 
 struct _SpiceUsbBackendDevice
@@ -224,7 +228,21 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
     if (h != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER size = {0};
         if (!GetFileSizeEx(h, &size)) {
-            // try alternate method to get the size from the device
+            uint64_t buffer[256];
+            unsigned long ret;
+            if (DeviceIoControl(h,
+                IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+                NULL,
+                0,
+                buffer,
+                sizeof(buffer),
+                &ret,
+                NULL))
+            {
+                DISK_GEOMETRY_EX *pg = (DISK_GEOMETRY_EX *)buffer;
+                unit->blockSize = pg->Geometry.BytesPerSector;
+                size = pg->DiskSize;
+            }
         }
         unit->size = size.QuadPart;
         if (unit->filename) {
@@ -239,8 +257,6 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
             SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
             g_object_unref(unit->file_object);
             unit->file_object = NULL;
-        } else {
-            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 "", __FUNCTION__, filename, unit->size);
         }
     } else {
         SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
@@ -257,7 +273,9 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
     if (fd > 0) {
         struct stat file_stat;
         if (fstat(fd, &file_stat)) {
-            // try alternate methods
+            file_stat.st_size = 0;
+            ioctl(fd, BLKGETSIZE64, &file_stat.st_size);
+            ioctl(fd, BLKSSZGET, &unit->blockSize);
         }
         unit->size = file_stat.st_size;
         if (unit->filename) {
@@ -272,8 +290,6 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
             SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
             g_object_unref(unit->file_object);
             unit->file_object = NULL;
-        } else {
-            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 "", __FUNCTION__, filename, unit->size);
         }
     }
     else {
@@ -350,14 +366,17 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
             return FALSE;
         }
     }
+    d->units[unit].blockSize = CD_DEV_BLOCK_SIZE;
     b = open_stream(&d->units[unit], filename);
     if (b) {
         cd_usb_bulk_unit_parameters params = { 0 };
         params.user_data = d;
         params.lun = unit;
-        params.block_size = CD_DEV_BLOCK_SIZE;
+        params.block_size = d->units[unit].blockSize;
         params.stream = d->units[unit].stream;
         params.size = d->units[unit].size;
+        SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
+            __FUNCTION__, filename, params.size, params.block_size);
         b = !cd_usb_bulk_msd_realize(d->d.msc, &params);
         if (!b) {
             close_stream(&d->units[unit]);
