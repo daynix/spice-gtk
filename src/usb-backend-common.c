@@ -272,7 +272,7 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
         O_RDONLY | O_NONBLOCK);
     if (fd > 0) {
         struct stat file_stat;
-        if (fstat(fd, &file_stat)) {
+        if (fstat(fd, &file_stat) || file_stat.st_size == 0) {
             file_stat.st_size = 0;
             ioctl(fd, BLKGETSIZE64, &file_stat.st_size);
             ioctl(fd, BLKSSZGET, &unit->blockSize);
