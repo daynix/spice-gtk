@@ -26,6 +26,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <libusb.h>
 #include <string.h>
+#include <fcntl.h>
 #include "usbredirhost.h"
 #include "usbredirparser.h"
 #include "spice-util.h"
@@ -33,11 +34,9 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include "cd-usb-bulk-msd.h"
 #if defined(G_OS_WIN32)
 #include <windows.h>
-#include <gio/gwin32inputstream.h>
 #include "win-usb-dev.h"
 #else
-#include <fcntl.h>
-#include <gio/gunixinputstream.h>
+#include <sys/stat.h>
 #endif
 
 #define MAX_LUN_PER_DEVICE      1
@@ -60,11 +59,9 @@ static void *g_mutex;
 typedef struct _SpiceUsbLU
 {
     char *filename;
-    union {
-        void *handle;
-        int  fd;
-    } file_desc;
-    GInputStream *stream;
+    GFile *file_object;
+    GFileInputStream *stream;
+    uint64_t size;
 } SpiceUsbLU;
 
 struct _SpiceUsbBackendDevice
@@ -217,49 +214,66 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
 static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
 {
     gboolean b = FALSE;
-    unit->file_desc.handle = CreateFileA(
+    HANDLE h = CreateFileA(
         filename,
         GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL, OPEN_EXISTING,
         FILE_FLAG_OVERLAPPED,
         NULL);
-    if (unit->file_desc.handle != INVALID_HANDLE_VALUE) {
-       unit->stream = g_win32_input_stream_new(unit->file_desc.handle, TRUE);
-       if (unit->filename) {
+    if (h != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER size = {0};
+        if (!GetFileSizeEx(h, &size)) {
+            // try alternate method to get the size from the device
+        }
+        unit->size = size.QuadPart;
+        if (unit->filename) {
            g_free(unit->filename);
-       }
-       unit->filename = g_strdup(filename);
-       b = unit->stream != NULL;
-       if (!b) {
-           SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-           CloseHandle(unit->file_desc.handle);
-           unit->file_desc.handle = NULL;
-       }
+        }
+        CloseHandle(h);
+        unit->filename = g_strdup(filename);
+        unit->file_object = g_file_new_for_path(filename);
+        unit->stream = g_file_read(unit->file_object, NULL, NULL);
+        b = unit->stream != NULL;
+        if (!b) {
+            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
+            g_object_unref(unit->file_object);
+            unit->file_object = NULL;
+        } else {
+            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 "", __FUNCTION__, filename, unit->size);
+        }
     } else {
         SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
     }
-
     return b;
 }
 #else
 static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
 {
     gboolean b = FALSE;
-    unit->file_desc.fd = open(
+    int fd = open(
         filename,
         O_RDONLY | O_NONBLOCK);
-    if (unit->file_desc.fd > 0) {
-        unit->stream = g_unix_input_stream_new(unit->file_desc.fd, TRUE);
+    if (fd > 0) {
+        struct stat file_stat;
+        if (fstat(fd, &file_stat)) {
+            // try alternate methods
+        }
+        unit->size = file_stat.st_size;
         if (unit->filename) {
             g_free(unit->filename);
         }
+        close(fd);
         unit->filename = g_strdup(filename);
+        unit->file_object = g_file_new_for_path(filename);
+        unit->stream = g_file_read(unit->file_object, NULL, NULL);
         b = unit->stream != NULL;
         if (!b) {
             SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-            close(unit->file_desc.fd);
-            unit->file_desc.handle = NULL;
+            g_object_unref(unit->file_object);
+            unit->file_object = NULL;
+        } else {
+            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 "", __FUNCTION__, filename, unit->size);
         }
     }
     else {
@@ -273,8 +287,12 @@ static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
 static void close_stream(SpiceUsbLU *unit)
 {
     if (unit->stream) {
-        g_input_stream_close(unit->stream, NULL, NULL);
+        g_object_unref(unit->stream);
         unit->stream = NULL;
+    }
+    if (unit->file_object) {
+        g_object_unref(unit->file_object);
+        unit->file_object = NULL;
     }
 }
 
@@ -339,6 +357,7 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
         params.lun = unit;
         params.block_size = CD_DEV_BLOCK_SIZE;
         params.stream = d->units[unit].stream;
+        params.size = d->units[unit].size;
         b = !cd_usb_bulk_msd_realize(d->d.msc, &params);
         if (!b) {
             close_stream(&d->units[unit]);

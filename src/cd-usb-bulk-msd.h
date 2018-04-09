@@ -28,7 +28,8 @@ typedef struct _cd_usb_bulk_unit_parameters
     const char *product;
     const char *version;
     const char *serial;
-    GInputStream *stream;
+    uint64_t size;
+    GFileInputStream *stream;
 } cd_usb_bulk_unit_parameters;
 
 /* called on completed read data bulk transfer
