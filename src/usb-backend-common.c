@@ -339,15 +339,31 @@ static void usbredir_write_flush_callback(void *user_data)
     }
 }
 
-void cd_usb_bulk_msd_read_complete(
-    void *user_data, uint8_t *data, uint32_t length, int status)
+void cd_usb_bulk_msd_read_complete(void *user_data,
+    uint8_t *data, uint32_t length, cd_usb_bulk_status status)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
     SpiceUsbBackendChannel *ch = d->attached_to;
     if (ch && ch->attached == d && ch->parser) {
         ch->read_pending = 0;
         ch->current_read.hout.length = length;
-        ch->current_read.hout.status = status ? usb_redir_stall : 0;
+
+        switch (status) {
+        case BULK_STATUS_GOOD:
+            ch->current_read.hout.status = 0;
+            break;
+        case BULK_STATUS_CANCELED:
+            ch->current_read.hout.status = usb_redir_cancelled;
+            break;
+        case BULK_STATUS_ERROR:
+            ch->current_read.hout.status = usb_redir_ioerror;
+            break;
+        case BULK_STATUS_STALL:
+        default:
+            ch->current_read.hout.status = usb_redir_stall;
+            break;
+        }
+
         SPICE_DEBUG("%s: responding with len %u, status %d",
             __FUNCTION__, length, ch->current_read.hout.status);
         usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
@@ -358,11 +374,17 @@ void cd_usb_bulk_msd_read_complete(
     }
 }
 
+/* device reset completion callback */
+void cd_usb_bulk_msd_reset_complete(void *user_data, int status)
+{
+    // SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
+}
+
 static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, int unit)
 {
     gboolean b = FALSE;
     if (!d->d.msc) {
-        d->d.msc = cd_usb_bulk_msd_alloc(MAX_LUN_PER_DEVICE);
+        d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);
         if (!d->d.msc) {
             return FALSE;
         }
@@ -370,20 +392,19 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
     d->units[unit].blockSize = CD_DEV_BLOCK_SIZE;
     b = open_stream(&d->units[unit], filename);
     if (b) {
-        cd_usb_bulk_unit_parameters params = { 0 };
-        params.user_data = d;
-        params.lun = unit;
-        params.block_size = d->units[unit].blockSize;
-        params.stream = d->units[unit].stream;
+        cd_scsi_device_parameters params = { 0 };
         params.size = d->units[unit].size;
+        params.block_size = d->units[unit].blockSize;
         if (params.block_size == CD_DEV_BLOCK_SIZE &&
             params.size > CD_DEV_MAX_SIZE &&
             params.size % DVD_DEV_BLOCK_SIZE == 0) {
             params.block_size = DVD_DEV_BLOCK_SIZE;
         }
+        params.stream = d->units[unit].stream;
         SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
             __FUNCTION__, filename, params.size, params.block_size);
-        b = !cd_usb_bulk_msd_realize(d->d.msc, &params);
+
+        b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &params);
         if (!b) {
             close_stream(&d->units[unit]);
         }
@@ -1140,7 +1161,7 @@ static void usbredir_bulk_packet(void *priv,
     SpiceUsbBackendChannel *ch = priv;
     SpiceUsbBackendDevice *d = ch->attached;
     struct usb_redir_bulk_packet_header hout = *h;
-    SPICE_DEBUG("%s %p: ep %X, len %d", __FUNCTION__, ch, h->endpoint, h->length);
+    SPICE_DEBUG("%s %p: ep %X, data %p, len %d", __FUNCTION__, ch, h->endpoint, data, h->length);
     if (!d || !d->d.msc) {
         SPICE_DEBUG("%s: device not attached or not realized", __FUNCTION__);
         hout.status = usb_redir_ioerror;
@@ -1152,7 +1173,7 @@ static void usbredir_bulk_packet(void *priv,
         ch->current_read.hout = *h;
         ch->read_pending = 1;
         ch->current_read.id = id;
-        int res = cd_usb_bulk_msd_read(d->d.msc, data_len);
+        int res = cd_usb_bulk_msd_read(d->d.msc, h->length);
         if (res) {
             SPICE_DEBUG("%s: error on bulk read", __FUNCTION__);
             ch->read_pending = 0;
