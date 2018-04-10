@@ -55,6 +55,8 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #define CD_DEV_SUBCLASS         6
 #define CD_DEV_PROTOCOL         0x50
 #define CD_DEV_BLOCK_SIZE       0x200
+#define CD_DEV_MAX_SIZE         737280000
+#define DVD_DEV_BLOCK_SIZE      0x800
 
 static void *g_mutex;
 
@@ -375,6 +377,11 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
         params.block_size = d->units[unit].blockSize;
         params.stream = d->units[unit].stream;
         params.size = d->units[unit].size;
+        if (params.block_size == CD_DEV_BLOCK_SIZE &&
+            params.size > CD_DEV_MAX_SIZE &&
+            params.size % DVD_DEV_BLOCK_SIZE == 0) {
+            params.block_size = DVD_DEV_BLOCK_SIZE;
+        }
         SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
             __FUNCTION__, filename, params.size, params.block_size);
         b = !cd_usb_bulk_msd_realize(d->d.msc, &params);
