@@ -82,11 +82,11 @@ int cd_usb_bulk_msd_write(void *device,
 }
 
 int cd_usb_bulk_msd_read(void *device,
-    uint8_t *buf, uint32_t max_len)
+    uint32_t max_len)
 {
     bulk_msd_device *dev = (bulk_msd_device *)device;
     uint32_t lun = 0;
-    cd_usb_bulk_msd_read_callback(dev->units[lun].params.user_data, 0, -1);
+    cd_usb_bulk_msd_read_complete(dev->units[lun].params.user_data, NULL, 0, -1);
     return 0;
 }
 

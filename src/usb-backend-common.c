@@ -117,12 +117,12 @@ struct _SpiceUsbBackendChannel
     uint32_t hello_done_parser : 1;
     uint32_t hello_sent        : 1;
     uint32_t rejected          : 1;
+    uint32_t read_pending      : 1;
     SpiceUsbBackendDevice *attached;
     SpiceUsbBackendChannelInitData data;
     struct {
         struct usb_redir_bulk_packet_header hout;
         uint64_t id;
-        uint8_t *data;
     } current_read;
 };
 
@@ -339,20 +339,19 @@ static void usbredir_write_flush_callback(void *user_data)
     }
 }
 
-void cd_usb_bulk_msd_read_callback(void *user_data, uint32_t length, int status)
+void cd_usb_bulk_msd_read_complete(
+    void *user_data, uint8_t *data, uint32_t length, int status)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
     SpiceUsbBackendChannel *ch = d->attached_to;
     if (ch && ch->attached == d && ch->parser) {
-        uint8_t *data = ch->current_read.data;
-        ch->current_read.data = NULL;
+        ch->read_pending = 0;
         ch->current_read.hout.length = length;
         ch->current_read.hout.status = status ? usb_redir_stall : 0;
         SPICE_DEBUG("%s: responding with len %u, status %d",
             __FUNCTION__, length, ch->current_read.hout.status);
         usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
             &ch->current_read.hout, length ? data : NULL, length);
-        usbredirparser_free_packet_data(ch->parser, data);
         usbredir_write_flush_callback(ch);
     } else {
         SPICE_DEBUG("broken device<->channel relationship!");
@@ -1149,33 +1148,27 @@ static void usbredir_bulk_packet(void *priv,
         SPICE_DEBUG("%s: responding (a) with ZLP status %d", __FUNCTION__, hout.status);
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
-        usbredirparser_free_packet_data(ch->parser, data);
-        usbredir_write_flush_callback(ch);
-        return;
-    }
-
-    if (h->endpoint & LIBUSB_ENDPOINT_IN) {
+    } else if (h->endpoint & LIBUSB_ENDPOINT_IN) {
         ch->current_read.hout = *h;
-        ch->current_read.data = data;
+        ch->read_pending = 1;
         ch->current_read.id = id;
-        int res = cd_usb_bulk_msd_read(d->d.msc, data, data_len);
+        int res = cd_usb_bulk_msd_read(d->d.msc, data_len);
         if (res) {
             SPICE_DEBUG("%s: error on bulk read", __FUNCTION__);
+            ch->read_pending = 0;
             hout.length = 0;
             hout.status = usb_redir_stall;
             SPICE_DEBUG("%s: responding (b) with ZLP status %d", __FUNCTION__, hout.status);
             usbredirparser_send_bulk_packet(ch->parser, id,
                 &hout, NULL, 0);
-            usbredirparser_free_packet_data(ch->parser, data);
         }
-    }
-    else {
+    } else {
         cd_usb_bulk_msd_write(d->d.msc, data, data_len);
         SPICE_DEBUG("%s: responding status %d", __FUNCTION__, hout.status);
         usbredirparser_send_bulk_packet(ch->parser, id, &hout, NULL, 0);
-        usbredirparser_free_packet_data(ch->parser, data);
     }
 
+    usbredirparser_free_packet_data(ch->parser, data);
     usbredir_write_flush_callback(ch);
 }
 
@@ -1257,17 +1250,15 @@ static void usbredir_get_alt_setting(void *priv,
 static void usbredir_cancel_data(void *priv, uint64_t id)
 {
     SpiceUsbBackendChannel *ch = priv;
-    if (ch->current_read.data) {
+    if (ch->read_pending) {
         SPICE_DEBUG("%s ch %p id %" PRIu64 "current read %" PRIu64,
             __FUNCTION__, ch, id, ch->current_read.id);
         if (!cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
-            uint8_t *data = ch->current_read.data;
-            ch->current_read.data = NULL;
+            ch->read_pending = 0;
             ch->current_read.hout.length = 0;
             ch->current_read.hout.status = usb_redir_cancelled;
             usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
                 &ch->current_read.hout, NULL, 0);
-            usbredirparser_free_packet_data(ch->parser, data);
             usbredir_write_flush_callback(ch);
         }
     }

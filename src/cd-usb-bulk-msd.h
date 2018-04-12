@@ -36,9 +36,8 @@ typedef struct _cd_usb_bulk_unit_parameters
 user_data - user_data in unit parameters structure
 status - error code
 */
-void cd_usb_bulk_msd_read_callback(void *user_data,
-    uint32_t length,
-    int status);
+void cd_usb_bulk_msd_read_complete(void *user_data,
+    uint8_t *data, uint32_t length, int status);
 
 /* MSD backend api */
 void *cd_usb_bulk_msd_alloc(int max_lun);
@@ -73,8 +72,7 @@ max_len - length of available buffer to fill
 If data available immediately, should call cd_usb_bulk_msd_read_callback()
 returns: 0 - success, -1 - error
 */
-int cd_usb_bulk_msd_read(void *device,
-    uint8_t *buf, uint32_t max_len);
+int cd_usb_bulk_msd_read(void *device, uint32_t max_len);
 
 /* cancels pending read data bulk transfer
 returns: error code
