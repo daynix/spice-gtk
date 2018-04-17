@@ -1134,7 +1134,7 @@ static void usbredir_control_packet(void *priv,
                     response.h.status = usb_redir_stall;
                 } else {
                     response.h.length = 1;
-                    response.buffer[0] = MAX_LUN_PER_DEVICE;
+                    response.buffer[0] = MAX_LUN_PER_DEVICE - 1;
                 }
                 break;
             default:
