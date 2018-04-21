@@ -246,10 +246,16 @@ static int parse_usb_msd_cmd(usb_cd_bulk_msd_device *cd, uint8_t *buf, uint32_t 
 
     if (usb_req->usb_req_len == 0) {
         cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CSW); /* no data - return status */
+        scsi_req->buf = NULL;
+        scsi_req->buf_len = 0;
     } else if (cbw->flags & 0x80) {
         cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_DATAIN); /* read command */
+        scsi_req->buf = cd->data_buf;
+        scsi_req->buf_len = cd->data_buf_len;
     } else {
         cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_DATAOUT); /* write command */
+        scsi_req->buf = NULL;
+        scsi_req->buf_len = 0;
     }
 
     scsi_req->cdb_len = ((uint32_t)cbw->cmd_len) & 0x1F;
@@ -258,9 +264,6 @@ static int parse_usb_msd_cmd(usb_cd_bulk_msd_device *cd, uint8_t *buf, uint32_t 
 
     scsi_req->tag = usb_req->usb_tag;
     scsi_req->lun = usb_req->lun;
-
-    scsi_req->buf = cd->data_buf;
-    scsi_req->buf_len = cd->data_buf_len;
 
     SPICE_DEBUG("CMD lun:%" G_GUINT32_FORMAT " tag:0x%x flags:%08x "
         "cdb_len:%" G_GUINT32_FORMAT " req_len:%" G_GUINT32_FORMAT,
@@ -426,9 +429,17 @@ int cd_usb_bulk_msd_write(void *device, uint8_t *buf_out, uint32_t buf_out_len)
     usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
 
     switch (cd->state) {
-    case USB_CD_STATE_CBW: /* Command Block */        
+    case USB_CD_STATE_CBW: /* Command Block */
         parse_usb_msd_cmd(cd, buf_out, buf_out_len);
+        if (cd->state == USB_CD_STATE_DATAIN || cd->state == USB_CD_STATE_CSW) {
+            cd_scsi_dev_request_submit(cd->scsi_target, &cd->usb_req.scsi_req);
+        }
+        break;
+    case USB_CD_STATE_DATAOUT: /* Data-Out for a Write cmd */
+        cd->usb_req.scsi_req.buf = buf_out;
+        cd->usb_req.scsi_req.buf_len = buf_out_len;
         cd_scsi_dev_request_submit(cd->scsi_target, &cd->usb_req.scsi_req);
+        cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CSW); /* Status next */
         break;
     default:
         SPICE_DEBUG("Unexpected write state: %s, len %" G_GUINT32_FORMAT,
