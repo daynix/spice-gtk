@@ -252,8 +252,10 @@ libspice_client_glib_2_0_la_SOURCES =			\
 	usb-device-manager-priv.h			\
 	usb-backend-common.c                            \
 	usb-backend.h                                   \
-	cd-usb-bulk-msd.c                            \
-	cd-usb-bulk-msd.h                                   \
+	cd-usb-bulk-msd.c                    \
+	cd-usb-bulk-msd.h                    \
+	cd-scsi.c                            \
+	cd-scsi.h                            \
 	usbutil.c					\
 	usbutil.h					\
 	$(USB_ACL_HELPER_SRCS)				\
