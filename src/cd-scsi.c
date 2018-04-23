@@ -973,7 +973,8 @@ static void cd_scsi_cmd_read_toc(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-#define CD_MODE_PAGE_LEN_HEADER                 8
+#define CD_MODE_PARAM_6_LEN_HEADER              4
+#define CD_MODE_PARAM_10_LEN_HEADER             8
 
 #define CD_MODE_PAGE_NUM_CAPS_MECH_STATUS       0x2a
 #define CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO    26
@@ -997,7 +998,7 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     int long_lba, dbd, page, sub_page, pc;
-    uint32_t resp_len = CD_MODE_PAGE_LEN_HEADER;
+    uint32_t resp_len = CD_MODE_PARAM_10_LEN_HEADER;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -1035,7 +1036,11 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
 
 static void cd_scsi_cmd_mode_select_6(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    uint32_t page_format, save_pages, list_len;
+    uint8_t *block_desc_data, *mode_data;
+    uint32_t page_format, save_pages, list_len; /* cdb */
+    uint32_t num_blocks = 0, block_len = 0; /* block descriptor */
+    uint32_t mode_len, medium_type, dev_param, block_desc_len; /* mode param header */
+    uint32_t page_num = 0, page_len = 0; /* mode page */
 
     page_format = (req->cdb[1] >> 4) & 0x1;
     save_pages = req->cdb[1] & 0x1;
@@ -1049,13 +1054,38 @@ static void cd_scsi_cmd_mode_select_6(cd_scsi_lu *dev, cd_scsi_request *req)
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
         return;
     }
-    
+
+    mode_len = req->buf[0];
+    medium_type = req->buf[1];
+    dev_param = req->buf[2];
+    block_desc_len = req->buf[3];
+
+    if (block_desc_len) {
+        block_desc_data = &req->buf[CD_MODE_PARAM_6_LEN_HEADER];
+        num_blocks = (block_desc_data[3] << 16) | (block_desc_data[2] << 8) | block_desc_data[3];
+        block_len = (block_desc_data[5] << 16) | (block_desc_data[6] << 8) | block_desc_data[7];
+    }
+
+    if (mode_len) {
+        mode_data = &req->buf[CD_MODE_PARAM_6_LEN_HEADER];
+        if (block_desc_len) {
+            mode_data += block_desc_len;
+        }
+        page_num = mode_data[0] & 0x3f;
+        page_len = mode_data[1];
+    }
+
     SPICE_DEBUG("mode_select_6, lun:%" G_GUINT32_FORMAT
                 " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
-                " list_len:%" G_GUINT32_FORMAT " data_len:%" G_GUINT32_FORMAT,
-                req->lun, page_format, save_pages, list_len, req->buf_len);
-
-    
+                " list_len:%" G_GUINT32_FORMAT " data_len:%" G_GUINT32_FORMAT
+                " mode_len:%" G_GUINT32_FORMAT " medium:%" G_GUINT32_FORMAT
+                " dev_param:%" G_GUINT32_FORMAT " blk_desc_len:%" G_GUINT32_FORMAT
+                " num_blocks:%" G_GUINT32_FORMAT " block_len:%" G_GUINT32_FORMAT
+                " page_num:%" G_GUINT32_FORMAT " page_len:%" G_GUINT32_FORMAT,
+                req->lun, page_format, save_pages, list_len, req->buf_len,
+                mode_len, medium_type, dev_param, block_desc_len,
+                num_blocks, block_len,
+                page_num, page_len);
 
     cd_scsi_cmd_complete_good(dev, req);
 }

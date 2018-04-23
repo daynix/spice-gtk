@@ -54,7 +54,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #define CD_DEV_CLASS            8
 #define CD_DEV_SUBCLASS         6
 #define CD_DEV_PROTOCOL         0x50
-#define CD_DEV_BLOCK_SIZE       0x200
+#define CD_DEV_BLOCK_SIZE       0x800 // 0x200
 #define CD_DEV_MAX_SIZE         737280000
 #define DVD_DEV_BLOCK_SIZE      0x800
 
@@ -1187,6 +1187,7 @@ static void usbredir_bulk_packet(void *priv,
         }
     } else {
         cd_usb_bulk_msd_write(d->d.msc, data, data_len);
+        hout.status = usb_redir_success;
         SPICE_DEBUG("%s: responding status %d", __FUNCTION__, hout.status);
         usbredirparser_send_bulk_packet(ch->parser, id, &hout, NULL, 0);
     }
