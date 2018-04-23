@@ -1187,6 +1187,7 @@ static void usbredir_bulk_packet(void *priv,
         }
     } else {
         cd_usb_bulk_msd_write(d->d.msc, data, data_len);
+        hout.status = usb_redir_success;
         SPICE_DEBUG("%s: responding status %d", __FUNCTION__, hout.status);
         usbredirparser_send_bulk_packet(ch->parser, id, &hout, NULL, 0);
     }
