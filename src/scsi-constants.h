@@ -33,7 +33,7 @@
 #define FORMAT_UNIT           0x04
 #define READ_BLOCK_LIMITS     0x05
 #define INITIALIZE_ELEMENT_STATUS 0x07
-#define REASSIGN_BLOCKS       0x07
+#define REASSIGN_BLOCKS_      0x07
 #define READ_6                0x08
 #define WRITE_6               0x0a
 #define SET_CAPACITY          0x0b
