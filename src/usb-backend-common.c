@@ -54,7 +54,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #define CD_DEV_CLASS            8
 #define CD_DEV_SUBCLASS         6
 #define CD_DEV_PROTOCOL         0x50
-#define CD_DEV_BLOCK_SIZE       0x800 // 0x200
+#define CD_DEV_BLOCK_SIZE       0x200
 #define CD_DEV_MAX_SIZE         737280000
 #define DVD_DEV_BLOCK_SIZE      0x800
 
@@ -397,7 +397,6 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
         params.size = d->units[unit].size;
         params.block_size = d->units[unit].blockSize;
         if (params.block_size == CD_DEV_BLOCK_SIZE &&
-            params.size > CD_DEV_MAX_SIZE &&
             params.size % DVD_DEV_BLOCK_SIZE == 0) {
             params.block_size = DVD_DEV_BLOCK_SIZE;
         }
@@ -1172,6 +1171,10 @@ static void usbredir_bulk_packet(void *priv,
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
     } else if (h->endpoint & LIBUSB_ENDPOINT_IN) {
+        if (ch->read_pending) {
+            SPICE_DEBUG("%s: there is already pending read", __FUNCTION__);
+            cd_usb_bulk_msd_read_complete(d, NULL, 0, BULK_STATUS_ERROR);
+        }
         ch->current_read.hout = *h;
         ch->read_pending = 1;
         ch->current_read.id = id;
