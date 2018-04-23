@@ -1171,6 +1171,10 @@ static void usbredir_bulk_packet(void *priv,
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
     } else if (h->endpoint & LIBUSB_ENDPOINT_IN) {
+        if (ch->read_pending) {
+            SPICE_DEBUG("%s: there is already pending read", __FUNCTION__);
+            cd_usb_bulk_msd_read_complete(d, NULL, 0, BULK_STATUS_ERROR);
+        }
         ch->current_read.hout = *h;
         ch->read_pending = 1;
         ch->current_read.id = id;
