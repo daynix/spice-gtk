@@ -1276,7 +1276,8 @@ static void cd_scsi_read_async_complete(GObject *src_object,
     dev->cancel_id = 0;
 
     g_assert(stream == dev->stream);
-    finished = g_input_stream_read_all_finish(G_INPUT_STREAM(stream), result, &bytes_read, &error);
+    bytes_read = g_input_stream_read_finish(G_INPUT_STREAM(stream), result, &error);
+    finished = bytes_read > 0;
     if (finished) {
         req->in_len = (bytes_read <= req->req_len) ? bytes_read : req->req_len;
         req->status = GOOD;
@@ -1286,10 +1287,10 @@ static void cd_scsi_read_async_complete(GObject *src_object,
     }
     else {
         if (error != NULL) {
-            SPICE_ERROR("g_input_stream_read_all_finish failed: %s", error->message);
+            SPICE_ERROR("g_input_stream_read_finish failed: %s", error->message);
             g_clear_error (&error);
         } else {
-            SPICE_ERROR("g_input_stream_read_all_finish failed (no err provided)");
+            SPICE_ERROR("g_input_stream_read_finish failed (no err provided)");
         }
         req->in_len = 0;
         req->status = GOOD;
@@ -1343,7 +1344,7 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
                     NULL, /* cancellable */
                     NULL); /* error */
 
-    g_input_stream_read_all_async(G_INPUT_STREAM(stream),
+    g_input_stream_read_async(G_INPUT_STREAM(stream),
                                   req->buf, /* buffer to fill */
                                   req->req_len,
                                   G_PRIORITY_DEFAULT,
