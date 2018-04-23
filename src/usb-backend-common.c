@@ -347,6 +347,7 @@ void cd_usb_bulk_msd_read_complete(void *user_data,
     if (ch && ch->attached == d && ch->parser) {
         ch->read_pending = 0;
         ch->current_read.hout.length = length;
+        ch->current_read.hout.length_high = length >> 16;
 
         switch (status) {
         case BULK_STATUS_GOOD:
@@ -1162,11 +1163,11 @@ static void usbredir_bulk_packet(void *priv,
     SpiceUsbBackendDevice *d = ch->attached;
     struct usb_redir_bulk_packet_header hout = *h;
     SPICE_DEBUG("%s %p: ep %X, hlen %d, data %p, len %d", __FUNCTION__, 
-                ch, h->endpoint, h->length, data, data_len);
+                ch, h->endpoint, h->length + h->length_high * 0x10000, data, data_len);
     if (!d || !d->d.msc) {
         SPICE_DEBUG("%s: device not attached or not realized", __FUNCTION__);
         hout.status = usb_redir_ioerror;
-        hout.length = 0;
+        hout.length = hout.length_high = 0;
         SPICE_DEBUG("%s: responding (a) with ZLP status %d", __FUNCTION__, hout.status);
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
@@ -1174,11 +1175,11 @@ static void usbredir_bulk_packet(void *priv,
         ch->current_read.hout = *h;
         ch->read_pending = 1;
         ch->current_read.id = id;
-        int res = cd_usb_bulk_msd_read(d->d.msc, h->length);
+        int res = cd_usb_bulk_msd_read(d->d.msc, h->length + h->length_high * 0x10000);
         if (res) {
             SPICE_DEBUG("%s: error on bulk read", __FUNCTION__);
             ch->read_pending = 0;
-            hout.length = 0;
+            hout.length = hout.length_high = 0;
             hout.status = usb_redir_stall;
             SPICE_DEBUG("%s: responding (b) with ZLP status %d", __FUNCTION__, hout.status);
             usbredirparser_send_bulk_packet(ch->parser, id,
@@ -1278,6 +1279,7 @@ static void usbredir_cancel_data(void *priv, uint64_t id)
         if (!cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
             ch->read_pending = 0;
             ch->current_read.hout.length = 0;
+            ch->current_read.hout.length_high = 0;
             ch->current_read.hout.status = usb_redir_cancelled;
             usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
                 &ch->current_read.hout, NULL, 0);
