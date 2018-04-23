@@ -32,6 +32,7 @@
 #define MAX_LUNS   32
 
 /* MMC-specific opcode assignment */
+#define SEND_KEY            0xa3
 #define REPORT_KEY          0xa4
 #define GET_PERFORMANCE     0xac
 
@@ -39,6 +40,7 @@ typedef struct _cd_scsi_lu
 {
     uint32_t lun;
     gboolean present;
+    gboolean prevent_media_removal;
 
     uint64_t size;
     uint32_t block_size;
@@ -220,8 +222,10 @@ static uint32_t cd_scsi_build_fixed_sense(uint8_t *buf, const scsi_short_sense *
 static inline void cd_scsi_req_init(cd_scsi_request *req)
 {
     req->req_state = SCSI_REQ_IDLE;
-    req->status = GOOD;
     req->xfer_dir = SCSI_XFER_NONE;
+    req->priv_data = NULL;
+    req->in_len = 0;
+    req->status = GOOD;
 }
 
 static inline void cd_scsi_dev_sense_reset(cd_scsi_lu *dev)
@@ -324,6 +328,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->cancellable = g_cancellable_new();
     dev->cancel_id = 0;
     dev->present = TRUE;
+    dev->prevent_media_removal = FALSE;
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -390,6 +395,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
     }
     dev = &st->units[lun];
 
+    dev->prevent_media_removal = FALSE;
     cd_scsi_dev_sense_power_on(dev);
     cd_scsi_read_cancel(dev);
 
@@ -827,11 +833,100 @@ static void cd_scsi_cmd_get_read_disc_information(cd_scsi_lu *dev, cd_scsi_reque
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define RTI_ADDR_TYPE_LBA           0x00
+#define RTI_ADDR_TYPE_TRACK_NUM     0x01
+#define RTI_ADDR_TYPE_SESSION_NUM   0x02
+
+#define RTI_TRACK_NUM_LEAD_IN       0x00
+#define RTI_TRACK_NUM_INVISIBLE     0xff
+
+#define TIB_LEN                     0x36
+
+#define TIB_TRACK_MODE_CD           0x04
+#define TIB_DATA_MODE_ISO_10149     0x01
+
+#define TIB_LRA_VALID               (0x01 << 1)
+
 static void cd_scsi_cmd_get_read_track_information(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT, req->lun);
+    uint8_t *outbuf = req->buf;
+    uint32_t track_size = dev->num_blocks;
+    uint32_t last_addr = track_size - 1;
+    uint32_t track_num = 1;
+    uint32_t session_num = 1;
+    uint32_t addr_type;
+    uint32_t addr_num;
+
     req->xfer_dir = SCSI_XFER_FROM_DEV;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+
+    addr_type = req->cdb[1] & 0x3;
+    addr_num = (req->cdb[2] << 24) | (req->cdb[3] << 16) |
+               (req->cdb[4] << 8) | req->cdb[5];
+
+    switch (addr_type) {
+    case RTI_ADDR_TYPE_LBA:
+        if (addr_num > last_addr) {
+            SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
+                        " addr_type LBA: %" G_GUINT32_FORMAT " invalid LBA: %" G_GUINT32_FORMAT,
+                        req->lun, addr_type, addr_num);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            return;
+        }
+        break;
+    case RTI_ADDR_TYPE_TRACK_NUM:
+        if (addr_num != track_num) {
+            SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
+                        " addr_type track: %" G_GUINT32_FORMAT " invalid track: %" G_GUINT32_FORMAT,
+                        req->lun, addr_type, addr_num);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            return;
+        }
+        break;
+    case RTI_ADDR_TYPE_SESSION_NUM:
+        if (addr_num != session_num) {
+            SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
+                        " addr_type session: %" G_GUINT32_FORMAT " invalid session: %" G_GUINT32_FORMAT,
+                        req->lun, addr_type, addr_num);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            return;
+        }
+        break;
+    default:
+        SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
+                    "invalid addr_type: %" G_GUINT32_FORMAT " addr_num: %" G_GUINT32_FORMAT,
+                    req->lun, addr_type, addr_num);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
+
+    req->req_len = (req->cdb[7] << 8) | req->cdb[8];
+    req->in_len = (req->req_len < TIB_LEN) ? req->req_len : TIB_LEN;
+
+    memset(outbuf, 0, TIB_LEN);
+    outbuf[1] = TIB_LEN - 2;
+    outbuf[2] = session_num;
+    outbuf[3] = track_num;
+    outbuf[5] = TIB_TRACK_MODE_CD & 0x0f;
+    outbuf[6] = TIB_DATA_MODE_ISO_10149 & 0x0f;
+    outbuf[7] = TIB_LRA_VALID;
+
+    /* Track size */
+    outbuf[24] = (track_size >> 24) & 0xff;
+    outbuf[25] = (track_size >> 16) & 0xff;
+    outbuf[26] = (track_size >> 8) & 0xff;
+    outbuf[27] = (track_size) & 0xff;
+
+    /* Last recorded address */
+    outbuf[28] = (last_addr >> 24) & 0xff;
+    outbuf[29] = (last_addr >> 16) & 0xff;
+    outbuf[30] = (last_addr >> 8) & 0xff;
+    outbuf[31] = (last_addr) & 0xff;
+
+    SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT 
+                "addr_type: %" G_GUINT32_FORMAT " addr_num: %" G_GUINT32_FORMAT,
+                req->lun, addr_type, addr_num);
+
+    cd_scsi_cmd_complete_good(dev, req);
 }
 
 #define READ_TOC_TRACK_DESC_LEN     8
@@ -930,8 +1025,62 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
-    SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT " long_lba %d, dbd %d, page %d, sub_page %d, pc %d",
-        req->lun, long_lba, dbd, page, sub_page, pc);
+    SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT
+                " long_lba %d, dbd %d, page %d, sub_page %d, pc %d; "
+                "resp_len %" G_GUINT32_FORMAT,
+                req->lun, long_lba, dbd, page, sub_page, pc, resp_len);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+static void cd_scsi_cmd_mode_select_6(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint32_t page_format, save_pages, list_len;
+
+    page_format = (req->cdb[1] >> 4) & 0x1;
+    save_pages = req->cdb[1] & 0x1;
+    list_len = req->cdb[4];
+
+    if (list_len > req->buf_len) {
+        SPICE_DEBUG("mode_select_6, lun:%" G_GUINT32_FORMAT
+                    " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
+                    " list_len:%" G_GUINT32_FORMAT " exceeds data_len:%" G_GUINT32_FORMAT,
+                    req->lun, page_format, save_pages, list_len, req->buf_len);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        return;
+    }
+    
+    SPICE_DEBUG("mode_select_6, lun:%" G_GUINT32_FORMAT
+                " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
+                " list_len:%" G_GUINT32_FORMAT " data_len:%" G_GUINT32_FORMAT,
+                req->lun, page_format, save_pages, list_len, req->buf_len);
+
+    
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint32_t page_format, save_pages, list_len;
+
+    page_format = (req->cdb[1] >> 4) & 0x1;
+    save_pages = req->cdb[1] & 0x1;
+    list_len = (req->cdb[7] << 8) | req->cdb[8];
+
+    if (list_len > req->buf_len) {
+        SPICE_DEBUG("mode_select_10, lun:%" G_GUINT32_FORMAT
+                    " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
+                    " list_len:%" G_GUINT32_FORMAT " exceeds data_len:%" G_GUINT32_FORMAT,
+                    req->lun, page_format, save_pages, list_len, req->buf_len);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        return;
+    }
+
+    SPICE_DEBUG("mode_select_10, lun:%" G_GUINT32_FORMAT
+                " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
+                " list_len:%" G_GUINT32_FORMAT " data_len:%" G_GUINT32_FORMAT,
+                req->lun, page_format, save_pages, list_len, req->buf_len);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -1225,7 +1374,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 static uint32_t cd_scsi_cmd_get_event_resp_add_media(cd_scsi_lu *dev, uint8_t *outbuf)
 {
     outbuf[0] = CD_MEDIA_EVENT_NO_CHANGE & 0x0f;
-    outbuf_[1] = CD_MEDIA_STATUS_MEDIA_PRESENT;
+    outbuf[1] = CD_MEDIA_STATUS_MEDIA_PRESENT;
 
     return CD_GET_EVENT_LEN_MEDIA;
 }
@@ -1256,6 +1405,28 @@ static void cd_scsi_cmd_get_event_status_notification(cd_scsi_lu *dev, cd_scsi_r
     SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT 
                 " imm:%" G_GUINT32_FORMAT " class_req:%02x",
                 req->lun, immed, class_req);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+#define CD_MEDIUM_REMOVAL_REQ_ALLOW                 0x00
+#define CD_MEDIUM_REMOVAL_REQ_PREVENT               0x01
+#define CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER         0x02
+#define CD_MEDIUM_REMOVAL_REQ_PREVENT_CHANGER       0x03
+
+static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint32_t prevent;
+
+    req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    prevent = req->cdb[4] & 0x03;
+    dev->prevent_media_removal = (prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW || 
+                                  prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER);
+    req->in_len = 0;
+
+    SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent:0x%02x",
+                req->lun, prevent);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -1326,8 +1497,9 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
     GFileInputStream *stream = dev->stream;
 
     SPICE_DEBUG("read_async_start, lun:%" G_GUINT32_FORMAT 
-                " offset: %" G_GUINT64_FORMAT " len: %" G_GUINT64_FORMAT, 
-                req->lun, req->req_len, req->offset);
+                " lba: %" G_GUINT64_FORMAT " offset: %" G_GUINT64_FORMAT
+                " cnt: %" G_GUINT64_FORMAT " len: %" G_GUINT64_FORMAT, 
+                req->lun, req->lba, req->offset, req->count, req->req_len);
 
     dev->cancel_id = g_cancellable_connect(dev->cancellable,
                                            G_CALLBACK(cd_scsi_read_async_canceled),
@@ -1358,25 +1530,47 @@ static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     req->cdb_len = scsi_cdb_length(req->cdb);
 
-    req->count = scsi_cdb_xfer_length(req->cdb, req->cdb_len); /* xfer in blocks */
-    req->req_len = req->count * dev->block_size;
-
     req->lba = scsi_cdb_lba(req->cdb, req->cdb_len);
     req->offset = req->lba * dev->block_size;
+
+    req->count = scsi_cdb_xfer_length(req->cdb, req->cdb_len); /* xfer in blocks */
+    req->req_len = req->count * dev->block_size;
 
     cd_scsi_read_async_start(dev, req);
 }
 
 static void cd_scsi_cmd_report_key(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    SPICE_DEBUG("report_key, lun:%" G_GUINT32_FORMAT, req->lun);
-    req->xfer_dir = SCSI_XFER_FROM_DEV;
+    SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
+    req->xfer_dir = SCSI_XFER_NONE;
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
+static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
+    req->xfer_dir = SCSI_XFER_NONE;
+    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+}
+
+#define CD_PERF_DATA_TYPE_PERFORMANCE       0x00
+#define CD_PERF_DATA_TYPE_UNUSABLE_AREA     0x01
+#define CD_PERF_DATA_TYPE_DEFECT_STATUS     0x02
+#define CD_PERF_DATA_TYPE_WRITE_SPEED       0x03
+
 static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT, req->lun);
+    uint32_t data_type, max_num_descr;
+
+    req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    data_type = req->cdb[1] & 0x0f;
+    max_num_descr = (req->cdb[8] << 8) | req->cdb[9];
+
+    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " data_type:%" G_GUINT32_FORMAT
+                " max_num:%" G_GUINT32_FORMAT,
+                req->lun, data_type, max_num_descr);
     req->xfer_dir = SCSI_XFER_FROM_DEV;
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
@@ -1456,7 +1650,6 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     case READ_TOC:
         cd_scsi_cmd_read_toc(dev, req);
         break;
-
     case GET_EVENT_STATUS_NOTIFICATION:
         cd_scsi_cmd_get_event_status_notification(dev, req);
         break;
@@ -1469,11 +1662,23 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     case MODE_SENSE_10:
         cd_scsi_cmd_mode_sense_10(dev, req);
         break;
+    case MODE_SELECT:
+        cd_scsi_cmd_mode_select_6(dev, req);
+        break;
+    case MODE_SELECT_10:
+        cd_scsi_cmd_mode_select_10(dev, req);
+        break;
     case GET_CONFIGURATION:
         cd_scsi_cmd_get_configuration(dev, req);
         break;
+    case ALLOW_MEDIUM_REMOVAL:
+        cd_scsi_cmd_allow_medium_removal(dev, req);
+        break;
     case REPORT_KEY:
         cd_scsi_cmd_report_key(dev, req);
+        break;
+    case SEND_KEY:
+        cd_scsi_cmd_send_key(dev, req);
         break;
     case GET_PERFORMANCE:
         cd_scsi_cmd_get_performance(dev, req);

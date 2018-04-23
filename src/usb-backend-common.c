@@ -1161,7 +1161,8 @@ static void usbredir_bulk_packet(void *priv,
     SpiceUsbBackendChannel *ch = priv;
     SpiceUsbBackendDevice *d = ch->attached;
     struct usb_redir_bulk_packet_header hout = *h;
-    SPICE_DEBUG("%s %p: ep %X, data %p, len %d", __FUNCTION__, ch, h->endpoint, data, h->length);
+    SPICE_DEBUG("%s %p: ep %X, hlen %d, data %p, len %d", __FUNCTION__, 
+                ch, h->endpoint, h->length, data, data_len);
     if (!d || !d->d.msc) {
         SPICE_DEBUG("%s: device not attached or not realized", __FUNCTION__);
         hout.status = usb_redir_ioerror;
