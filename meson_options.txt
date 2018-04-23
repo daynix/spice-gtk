@@ -1,0 +1,102 @@
+option('gtk',
+    type : 'boolean',
+    value : true,
+    description: 'Enable gtk+')
+
+option('webdav',
+    type : 'boolean',
+    value : true,
+    description: 'Enable webdav support')
+
+option('pulse',
+    type : 'boolean',
+    value : true,
+    description: 'Enable the PulseAudio backend')
+
+option('gstaudio',
+    type : 'boolean',
+    value : true,
+    description : 'Enable the GStreamer 1.0 audio backend')
+
+option('gstvideo',
+    type : 'boolean',
+    value : true,
+    description : 'Enable GStreamer video support')
+
+option('builtin-mjpeg',
+    type : 'boolean',
+    value : true,
+    description : 'Enable the builtin mjpeg video decoder')
+
+option('usbredir',
+    type : 'boolean',
+    value : true,
+    description : 'Enable usbredir support')
+
+option('polkit',
+    type : 'boolean',
+    value : true,
+    description : 'Enable PolicyKit support for the USB acl helper')
+
+option('pie',
+    type : 'boolean',
+    value : true,
+    description : 'Enable position-independent-executable support for the USB acl helper')
+
+option('usb-acl-helper-dir',
+    type : 'string',
+    value : '',
+    description : 'Directory where the USB ACL helper binary should be installed')
+
+option('usb-ids-path',
+    type : 'string',
+    value : '',
+    description : 'Specify the path to usb.ids')
+
+option('coroutine',
+    type : 'combo',
+    choices : ['ucontext', 'gthread', 'winfiber'],
+    description : 'Use ucontext or GThread for coroutines')
+
+option('introspection',
+    type : 'boolean',
+    value : true,
+    description: 'Check for GObject instrospection requirements')
+
+option('vapi',
+    type : 'boolean',
+    value : true,
+    description: 'Check for vala requirements')
+
+option('dbus',
+    type : 'boolean',
+    value : true,
+    description: 'Enable dbus support for desktop integration (disabling automount)')
+
+option('alignment-checks',
+    type : 'boolean',
+    value : false,
+    description : 'Enable runtime checks for cast alignment')
+
+option('lz4',
+    type : 'boolean',
+    value : true,
+    description: 'Enable lz4 compression support')
+
+option('sasl',
+    type : 'boolean',
+    value : true,
+    description : 'Use cyrus SASL authentication')
+
+option('celt051',
+    type : 'feature',
+    description: 'Enable celt051 audio codec')
+
+option('opus',
+    type : 'feature',
+    description: 'Enable Opus audio codec')
+
+option('smartcard',
+    type : 'boolean',
+    value : true,
+    description : 'Enable smartcard support')

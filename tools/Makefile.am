@@ -1,5 +1,7 @@
 bin_PROGRAMS = spicy-stats spicy-screenshot
 
+EXTRA_DIST = meson.build
+
 TOOLS_CPPFLAGS =			\
 	-DSPICE_COMPILATION		\
 	-I$(top_builddir)/src		\

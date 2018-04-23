@@ -25,6 +25,7 @@ CLEANFILES = $(GLIBGENS) $(KEYMAPS)
 BUILT_SOURCES = $(GLIBGENS) $(KEYMAPS)
 
 EXTRA_DIST =					\
+	meson.build				\
 	decode-glz-tmpl.c			\
 	$(KEYMAPS)				\
 	$(KEYMAP_CSV)				\

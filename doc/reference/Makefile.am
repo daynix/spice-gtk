@@ -66,6 +66,8 @@ GTKDOC_LIBS = $(top_builddir)/src/libspice-client-glib-2.0.la $(top_builddir)/sr
 
 include $(top_srcdir)/gtk-doc.make
 
+EXTRA_DIST += meson.build
+
 # Comment this out if you want 'make check' to test you doc status
 # and run some sanity checks
 if ENABLE_GTK_DOC

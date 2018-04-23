@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+if git ls-files --error-unmatch ${MESON_SOURCE_ROOT}/subprojects/spice-common > /dev/null 2>&1; then
+    git --git-dir="${MESON_SOURCE_ROOT}/.git" submodule update --init --recursive
+fi

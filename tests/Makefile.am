@@ -1,5 +1,7 @@
 NULL =
 
+EXTRA_DIST = meson.build
+
 noinst_PROGRAMS =
 TESTS = test-coroutine				\
 	test-util				\

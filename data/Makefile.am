@@ -1,6 +1,7 @@
 NULL=
 
 EXTRA_DIST =						\
+	meson.build					\
 	org.spice-space.lowlevelusbaccess.policy	\
 	$(NULL)
 

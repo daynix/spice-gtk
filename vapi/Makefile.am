@@ -15,6 +15,7 @@ dist_vapi_DATA += spice-client-gtk-3.0.deps
 endif
 
 EXTRA_DIST =						\
+	meson.build					\
 	spice-client-gtk-3.0.deps			\
 	SpiceClientGLib-2.0.metadata			\
 	$(NULL)

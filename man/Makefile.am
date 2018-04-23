@@ -5,6 +5,7 @@ dist_man_MANS =					\
 	$(NULL)
 
 EXTRA_DIST =					\
+	meson.build				\
 	spice-client.pod			\
 	$(NULL)
 
