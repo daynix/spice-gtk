@@ -10,6 +10,15 @@
 #define FIXED_SENSE_CURRENT 0x70
 #define FIXED_SENSE_LEN 18
 
+#if defined(G_OS_WIN32)
+#include <winsock2.h>
+#include <windows.h>
+/* Windows is always LE at the moment */
+#define le32toh(x)          (x)
+#define htole32(x)          (x)
+#define htobe32(x)          htonl(x)
+#endif
+
 typedef struct _scsi_short_sense
 {
     uint8_t key;
