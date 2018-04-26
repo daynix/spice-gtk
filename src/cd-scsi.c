@@ -646,7 +646,6 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         buflen += serial_len;
         break;
     }
-
     case 0x83: /* Device identification page, mandatory */
     {
         int serial_len = strlen(dev->serial);
@@ -683,10 +682,21 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define INQUIRY_STANDARD_LEN                96
+
+#define INQUIRY_REMOVABLE_MEDIUM            0x80
+#define INQUIRY_VERSION_SPC3                0x05
+#define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
+
+#define INQUIRY_VERSION_DESC_SAM2           0x040
+#define INQUIRY_VERSION_DESC_SPC3           0x300
+#define INQUIRY_VERSION_DESC_MMC3           0x2A0
+#define INQUIRY_VERSION_DESC_SBC2           0x320
+
+
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    int buflen;
 
     if (req->cdb[2] != 0) {
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
@@ -695,43 +705,32 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
         return;
     }
 
-    /* PAGE CODE == 0 */
-    buflen = req->req_len;
-    if (buflen > SCSI_MAX_INQUIRY_LEN) {
-        buflen = SCSI_MAX_INQUIRY_LEN;
-    }
-
     outbuf[0] = TYPE_ROM;
-    outbuf[1] = 0x80; /* SCSI_DISK_F_REMOVABLE */
+    outbuf[1] = INQUIRY_REMOVABLE_MEDIUM;
+    outbuf[2] = INQUIRY_VERSION_SPC3;
+    outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
 
-    strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
+    outbuf[4] = INQUIRY_STANDARD_LEN - 4;
+
+    /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
+
     strpadcpy((char *) &outbuf[8], 8, dev->vendor, ' ');
-
-    memset(&outbuf[32], 0, 4);
+    strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
-    /*
-     * We claim conformance to SPC-3, which is required for guests
-     * to ask for modern features like READ CAPACITY(16) or the
-     * block characteristics VPD page by default.  Not all of SPC-3
-     * is actually implemented, but we're good enough.
-     */
-    outbuf[2] = 5;
-    outbuf[3] = 2; /* Format 2, no HiSup: | 0x10 */
 
-    if (buflen > 36) {
-        outbuf[4] = buflen - 5; /* Additional Length = (Len - 1) - 4 */
-    } else {
-        /* If the allocation length of CDB is too small,
-               the additional length is not adjusted */
-        outbuf[4] = 36 - 5;
-    }
+    outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
+    outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
-    /* Sync data transfer and no TCQ.  */
-    outbuf[7] = 0x10; // tcq ? 0x02 : 0
+    outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
+    outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
 
-//02A0h MMC-3
+    outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
+    outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
 
-    req->in_len = buflen;
+    outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
+    outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+
+    req->in_len = (req->req_len < INQUIRY_STANDARD_LEN) ? req->req_len : INQUIRY_STANDARD_LEN;
     
     SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
                 req->lun, req->in_len);
@@ -744,6 +743,7 @@ static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
     req->req_len = req->cdb[4] | (req->cdb[3] << 8);
+    memset(req->buf, 0, req->req_len);
 
     if (req->cdb[1] & 0x1) {
         /* Vital product data */
