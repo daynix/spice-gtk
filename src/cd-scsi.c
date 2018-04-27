@@ -32,6 +32,7 @@
 #define MAX_LUNS   32
 
 /* MMC-specific opcode assignment */
+#define SEND_EVENT          0xa2
 #define SEND_KEY            0xa3
 #define REPORT_KEY          0xa4
 #define GET_PERFORMANCE     0xac
@@ -39,7 +40,8 @@
 typedef struct _cd_scsi_lu
 {
     uint32_t lun;
-    gboolean present;
+    gboolean realized;
+    gboolean loaded;
     gboolean prevent_media_removal;
 
     uint64_t size;
@@ -294,9 +296,9 @@ static inline gboolean cd_scsi_target_lun_legal(cd_scsi_target *st, uint32_t lun
     return (lun < st->max_luns) ? TRUE : FALSE;
 }
 
-static inline gboolean cd_scsi_target_lun_present(cd_scsi_target *st, uint32_t lun)
+static inline gboolean cd_scsi_target_lun_realized(cd_scsi_target *st, uint32_t lun)
 {
-    return (st->num_luns == 0 || !st->units[lun].present) ? FALSE : TRUE;
+    return (st->num_luns == 0 || !st->units[lun].realized) ? FALSE : TRUE;
 }
 
 int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_parameters *params)
@@ -308,8 +310,8 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
         SPICE_ERROR("Realize, illegal lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
-    if (cd_scsi_target_lun_present(st, lun)) {
-        SPICE_ERROR("Realize, already present lun:%" G_GUINT32_FORMAT, lun);
+    if (cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Realize, already realized lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
     dev = &st->units[lun];
@@ -322,12 +324,13 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->version = g_strdup(params->version);
     dev->serial = g_strdup(params->serial);
     dev->stream = params->stream;
+    dev->loaded = TRUE;
 
     dev->num_blocks = params->size / params->block_size;
 
     dev->cancellable = g_cancellable_new();
     dev->cancel_id = 0;
-    dev->present = TRUE;
+    dev->realized = TRUE;
     dev->prevent_media_removal = FALSE;
 
     cd_scsi_dev_sense_power_on(dev);
@@ -350,7 +353,7 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
         SPICE_ERROR("Unrealize, illegal lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
-    if (!cd_scsi_target_lun_present(st, lun)) {
+    if (!cd_scsi_target_lun_realized(st, lun)) {
         SPICE_ERROR("Unrealize, absent lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
@@ -373,7 +376,8 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
         dev->serial = NULL;
     }
 
-    dev->present = FALSE;
+    dev->loaded = FALSE;
+    dev->realized = FALSE;
     st->num_luns --;
 
     SPICE_DEBUG("Unrealize lun:%" G_GUINT32_FORMAT, lun);
@@ -389,7 +393,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
         SPICE_ERROR("Device reset, illegal lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
-    if (!cd_scsi_target_lun_present(st, lun)) {
+    if (!cd_scsi_target_lun_realized(st, lun)) {
         SPICE_ERROR("Device reset, absent lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
@@ -409,7 +413,7 @@ int cd_scsi_target_reset(void *scsi_target)
     uint32_t lun;
 
     for (lun = 0; lun < st->max_luns; lun++) {
-        if (st->units[lun].present) {
+        if (st->units[lun].realized) {
             cd_scsi_dev_reset(scsi_target, lun);
         }
     }
@@ -569,7 +573,7 @@ static void cd_scsi_cmd_report_luns(cd_scsi_target *st, cd_scsi_lu *dev,
 
     if (num_luns > 0) {
         for (lun = 0; lun < num_luns; lun++) {
-            if (st->units[lun].present) {
+            if (st->units[lun].realized) {
                 out_buf[buflen++] = (uint8_t)(num_luns >> 24);
                 out_buf[buflen++] = (uint8_t)(num_luns >> 16);
                 out_buf[buflen++] = (uint8_t)(num_luns >> 8);
@@ -642,7 +646,6 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         buflen += serial_len;
         break;
     }
-
     case 0x83: /* Device identification page, mandatory */
     {
         int serial_len = strlen(dev->serial);
@@ -679,10 +682,21 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define INQUIRY_STANDARD_LEN                96
+
+#define INQUIRY_REMOVABLE_MEDIUM            0x80
+#define INQUIRY_VERSION_SPC3                0x05
+#define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
+
+#define INQUIRY_VERSION_DESC_SAM2           0x040
+#define INQUIRY_VERSION_DESC_SPC3           0x300
+#define INQUIRY_VERSION_DESC_MMC3           0x2A0
+#define INQUIRY_VERSION_DESC_SBC2           0x320
+
+
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    int buflen;
 
     if (req->cdb[2] != 0) {
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
@@ -691,41 +705,32 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
         return;
     }
 
-    /* PAGE CODE == 0 */
-    buflen = req->req_len;
-    if (buflen > SCSI_MAX_INQUIRY_LEN) {
-        buflen = SCSI_MAX_INQUIRY_LEN;
-    }
-
     outbuf[0] = TYPE_ROM;
-    outbuf[1] = 0x80; /* SCSI_DISK_F_REMOVABLE */
+    outbuf[1] = INQUIRY_REMOVABLE_MEDIUM;
+    outbuf[2] = INQUIRY_VERSION_SPC3;
+    outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
 
-    strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
+    outbuf[4] = INQUIRY_STANDARD_LEN - 4;
+
+    /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
+
     strpadcpy((char *) &outbuf[8], 8, dev->vendor, ' ');
-
-    memset(&outbuf[32], 0, 4);
+    strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
-    /*
-     * We claim conformance to SPC-3, which is required for guests
-     * to ask for modern features like READ CAPACITY(16) or the
-     * block characteristics VPD page by default.  Not all of SPC-3
-     * is actually implemented, but we're good enough.
-     */
-    outbuf[2] = 5;
-    outbuf[3] = 2; /* Format 2, no HiSup: | 0x10 */
 
-    if (buflen > 36) {
-        outbuf[4] = buflen - 5; /* Additional Length = (Len - 1) - 4 */
-    } else {
-        /* If the allocation length of CDB is too small,
-               the additional length is not adjusted */
-        outbuf[4] = 36 - 5;
-    }
+    outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
+    outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
-    /* Sync data transfer and no TCQ.  */
-    outbuf[7] = 0x10; // tcq ? 0x02 : 0
+    outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
+    outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
 
-    req->in_len = buflen;
+    outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
+    outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
+
+    outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
+    outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+
+    req->in_len = (req->req_len < INQUIRY_STANDARD_LEN) ? req->req_len : INQUIRY_STANDARD_LEN;
     
     SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
                 req->lun, req->in_len);
@@ -738,6 +743,7 @@ static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
     req->req_len = req->cdb[4] | (req->cdb[3] << 8);
+    memset(req->buf, 0, req->req_len);
 
     if (req->cdb[1] & 0x1) {
         /* Vital product data */
@@ -1439,6 +1445,74 @@ static void cd_scsi_cmd_get_event_status_notification(cd_scsi_lu *dev, cd_scsi_r
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define CD_EXT_REQ_EVENT_FORMAT_NO_CHG          0x00
+#define CD_EXT_REQ_EVENT_FORMAT_LU_KEY_DOWN     0x01
+#define CD_EXT_REQ_EVENT_FORMAT_LU_KEY_UP       0x02
+#define CD_EXT_REQ_EVENT_FORMAT_REQ_NOTIFY      0x03
+
+#define CD_EXT_REQ_STATUS_READY                 0x00
+#define CD_EXT_REQ_STATUS_OTHER_PREVENT         0x01
+
+#define CD_EXT_REQ_CODE_NO_REQUEST              0x00
+#define CD_EXT_REQ_CODE_OVERRUN                 0x01
+#define CD_EXT_REQ_CODE_PLAY                    0x101
+#define CD_EXT_REQ_CODE_REWIND                  0x102
+#define CD_EXT_REQ_CODE_FAST_FW                 0x103
+#define CD_EXT_REQ_CODE_PAUSE                   0x104
+#define CD_EXT_REQ_CODE_STOP                    0x106
+#define CD_EXT_REQ_CODE_ASCII_BASE              0x200 /* SCSII value is LSB */
+
+static void cd_scsi_cmd_send_event(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint8_t *param, *event;
+    uint32_t immed, param_list_len;
+    uint32_t event_param_len, notification_class;
+    uint32_t ext_req_event, ext_req_status, pers_prevent, ext_req_code;
+
+    req->xfer_dir = SCSI_XFER_TO_DEV;
+
+    immed = req->cdb[1] & 0x01;
+    param_list_len = (req->cdb[8] << 8) | req->cdb[9];
+
+    if (req->buf_len < param_list_len) {
+        SPICE_DEBUG("send_event, lun:%" G_GUINT32_FORMAT
+                    " invalid param list len:0x%x, buf_len:0x%x",
+                    req->lun, param_list_len, req->buf_len);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        return;
+    }
+    param = req->buf;
+    event_param_len = (param[0] << 8) | param[1];
+
+    notification_class = param[2] & 0x07;
+    if (notification_class != CD_GET_EVENT_CLASS_EXTERNAL_REQ) {
+        SPICE_DEBUG("send_event, lun:%" G_GUINT32_FORMAT 
+                    " invalid notification class:0x%x",
+                    req->lun, notification_class);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
+
+    event = param + CD_GET_EVENT_HEADER_LEN;
+    ext_req_event = event[0] & 0xff;    
+    ext_req_status = event[1] & 0x0f;
+    pers_prevent = event[1] & 0x80;
+    ext_req_code = (event[2] << 8) | event[3];    
+
+    SPICE_DEBUG("send_event, lun:0x%" G_GUINT32_FORMAT
+                " immed:%" G_GUINT32_FORMAT " param_len:%" G_GUINT32_FORMAT
+                " ext_req_event:0x%x ext_req_status:0x%x"
+                " pers_prevent:0x%x ext_req_code:0x%x",
+                req->lun, immed, event_param_len, ext_req_event, 
+                ext_req_status, pers_prevent, ext_req_code);
+
+    /* ToDo: process the event */
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+
+
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW                 0x00
 #define CD_MEDIUM_REMOVAL_REQ_PREVENT               0x01
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER         0x02
@@ -1457,6 +1531,238 @@ static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *r
 
     SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent:0x%02x",
                 req->lun, prevent);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+static void cd_scsi_cmd_report_key(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
+    req->xfer_dir = SCSI_XFER_NONE;
+    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+}
+
+static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
+    req->xfer_dir = SCSI_XFER_NONE;
+    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+}
+
+#define CD_START_STOP_FLAG_IMMED                    0x01 /* byte 0 */
+
+#define CD_START_STOP_FLAG_START                    0x01 /* byte 1 */
+#define CD_START_STOP_FLAG_LOEJ                     0x02
+
+#define CD_START_STOP_POWER_COND_START_VALID        0x00
+#define CD_START_STOP_POWER_COND_ACTIVE             0x01
+#define CD_START_STOP_POWER_COND_IDLE               0x02
+#define CD_START_STOP_POWER_COND_STANDBY            0x03
+#define CD_START_STOP_POWER_COND_LU_CONTROL         0x07
+#define CD_START_STOP_POWER_COND_FORCE_IDLE_0       0x0a
+#define CD_START_STOP_POWER_COND_FORCE_STANDBY_0    0x0b
+
+static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint32_t immed, start, loej, power_cond;
+
+    req->xfer_dir = SCSI_XFER_NONE;
+    req->in_len = 0;
+
+    immed = req->cdb[1] & CD_GET_EVENT_STATUS_IMMED;
+    start = req->cdb[4] & CD_START_STOP_POWER_COND_START_VALID;
+    loej = req->cdb[4] & CD_START_STOP_FLAG_LOEJ;
+    power_cond = req->cdb[4] >> 4;
+
+    SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
+                " immed:%" G_GUINT32_FORMAT " start:%" G_GUINT32_FORMAT
+                " loej:%" G_GUINT32_FORMAT " power_cond:0x%x",
+                req->lun, immed, start, loej, power_cond);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+#define CD_PERF_TYPE_PERFORMANCE                0x00
+#define CD_PERF_TYPE_UNUSABLE_AREA              0x01
+#define CD_PERF_TYPE_DEFECT_STATUS              0x02
+#define CD_PERF_TYPE_WRITE_SPEED                0x03
+
+#define CD_PERF_TYPE_PERFORMANCE_HEADER_LEN     8
+#define CD_PERF_TYPE_PERFORMANCE_DESCR_LEN      16
+
+#define CD_PERF_TYPE_PERFORMANCE_REPORT_NOMINAL 0x00
+#define CD_PERF_TYPE_PERFORMANCE_REPORT_ALL     0x01
+#define CD_PERF_TYPE_PERFORMANCE_REPORT_EXCEPT  0x10
+
+static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_request *req, 
+                                                     uint32_t start_lba,
+                                                     uint32_t data_type,
+                                                     uint32_t max_num_descr)
+{
+    uint8_t *outbuf = req->buf, *perf_desc;
+    uint32_t resp_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN +
+                        CD_PERF_TYPE_PERFORMANCE_DESCR_LEN;
+    uint32_t perf_data_len = resp_len - 4; /* not incl. Perf Data Length */
+    uint32_t perf_kb = 10000;
+    uint32_t end_lba = dev->num_blocks - 1;
+    uint32_t except, write, tolerance;
+
+    except = data_type & 0x03;
+    if (except != CD_PERF_TYPE_PERFORMANCE_REPORT_ALL) {
+        start_lba = 0;
+    }
+    write = (data_type >> 2) & 0x01;
+    tolerance = (data_type >> 3) & 0x03;
+
+    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " performance type:0x00 data_type:0x%x"
+                " except:0x%x write:0x%x tolerance:0x%x"
+                " max_num:%" G_GUINT32_FORMAT,
+                req->lun, data_type, except, write,
+                tolerance, max_num_descr);
+    
+    if (write) {
+        SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " performance type:0x00 data_type:0x%x - write unsupported",
+                req->lun, data_type);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
+
+    memset(outbuf, 0, resp_len);
+
+    outbuf[0] = (perf_data_len >> 24) & 0xff;
+    outbuf[1] = (perf_data_len >> 16) & 0xff;
+    outbuf[2] = (perf_data_len >> 8) & 0xff;
+    outbuf[3] = perf_data_len & 0xff;
+
+    perf_desc = outbuf + CD_PERF_TYPE_PERFORMANCE_HEADER_LEN;
+
+    perf_desc[0] = (start_lba >> 24) & 0xff;
+    perf_desc[1] = (start_lba >> 16) & 0xff;
+    perf_desc[2] = (start_lba >> 8) & 0xff;
+    perf_desc[3] = start_lba & 0xff;
+
+    perf_desc[4] = (perf_kb >> 24) & 0xff;
+    perf_desc[5] = (perf_kb >> 16) & 0xff;
+    perf_desc[6] = (perf_kb >> 8) & 0xff;
+    perf_desc[7] = perf_kb & 0xff;
+
+    perf_desc[8] = (end_lba >> 24) & 0xff;
+    perf_desc[9] = (end_lba >> 16) & 0xff;
+    perf_desc[10] = (end_lba >> 8) & 0xff;
+    perf_desc[11] = end_lba & 0xff;
+
+    perf_desc[12] = (perf_kb >> 24) & 0xff;
+    perf_desc[13] = (perf_kb >> 16) & 0xff;
+    perf_desc[14] = (perf_kb >> 8) & 0xff;
+    perf_desc[15] = perf_kb & 0xff;
+
+    req->req_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN +
+                   (max_num_descr * CD_PERF_TYPE_PERFORMANCE_DESCR_LEN);
+
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
+}
+
+static void cd_scsi_get_performance_resp_empty(cd_scsi_lu *dev, cd_scsi_request *req,
+                                               uint32_t type, uint32_t data_type,
+                                               uint32_t max_num_descr)
+{
+    uint8_t *outbuf = req->buf;
+
+    memset(outbuf, 0, CD_PERF_TYPE_PERFORMANCE_HEADER_LEN);
+    req->in_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN;
+
+    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " type:0x%x data_type:0x%x - sending empty response",
+                req->lun, type, data_type);
+}
+
+static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint32_t data_type, max_num_descr, start_lba, type;
+
+    req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    data_type = req->cdb[1] & 0x0f;
+    start_lba = (req->cdb[2] << 24) |
+                (req->cdb[3] << 16) |
+                (req->cdb[4] << 8) |
+                 req->cdb[5];
+    max_num_descr = (req->cdb[8] << 8) | req->cdb[9];
+    type = req->cdb[10];
+
+    switch (type) {
+    case CD_PERF_TYPE_PERFORMANCE:
+        cd_scsi_get_performance_resp_performance(dev, req, start_lba,
+                                                 data_type, max_num_descr);
+        break;
+    case CD_PERF_TYPE_UNUSABLE_AREA:
+    case CD_PERF_TYPE_DEFECT_STATUS:
+    case CD_PERF_TYPE_WRITE_SPEED:
+        cd_scsi_get_performance_resp_empty(dev, req, type, 
+                                           data_type, max_num_descr);
+        break;
+    default:
+        SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " illegal type:0x%x"
+                " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
+                req->lun, type, data_type, max_num_descr);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
+#define CD_MECHANISM_STATUS_HDR_LEN     8
+
+#define CD_CHANGER_FAULT_FLAG           0x80
+
+#define CD_CHANGER_READY                0x00
+#define CD_CHANGER_LOADING              0x01
+#define CD_CHANGER_UNLOADING            0x02
+#define CD_CHANGER_INITIALIZING         0x03
+
+#define CD_MECHANISM_STATE_IDLE         0x00
+#define CD_MECHANISM_STATE_PLAYING      0x01
+#define CD_MECHANISM_STATE_SCANNING     0x02
+/* ACTIVE: with Initiator, Composite or Other ports
+  (i.e. READ, PLAY CD, SCAN during PLAY CD) */
+#define CD_MECHANISM_STATE_ACTIVE       0x03
+#define CD_MECHANISM_STATE_NO_INFO      0x07
+
+#define CD_MECHANISM_STATUS_SLOT_LEN    4
+
+#define CD_MECHANISM_SLOT_DISK_CHANGED  0x01
+#define CD_MECHANISM_SLOT_DISK_PRESENT  0x80
+#define CD_MECHANISM_SLOT_DISK_CWP_V    0x02
+#define CD_MECHANISM_SLOT_DISK_CWP      0x01
+
+static void cd_scsi_cmd_mechanism_status(cd_scsi_lu *dev, cd_scsi_request *req)
+{
+    uint8_t *outbuf = req->buf, *slot;
+    uint32_t resp_len = CD_MECHANISM_STATUS_HDR_LEN;
+
+    req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    req->req_len = (req->cdb[8] << 8) | req->cdb[9];   
+    memset(outbuf, 0, req->req_len);
+
+    outbuf[0] = 0x01; /* current slot */
+    outbuf[0] |= (CD_CHANGER_READY << 4);
+    outbuf[1] |= (CD_MECHANISM_STATE_IDLE << 4);
+
+    /* Slot table response descriptor */
+    slot = outbuf + CD_MECHANISM_STATUS_HDR_LEN;
+    if (dev->loaded) {
+        slot[0] |= 0x80;
+    }
+    resp_len += CD_MECHANISM_STATUS_SLOT_LEN;
+
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
+
+    SPICE_DEBUG("mechanism_status, lun:%" G_GUINT32_FORMAT, req->lun);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -1569,42 +1875,6 @@ static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_read_async_start(dev, req);
 }
 
-static void cd_scsi_cmd_report_key(cd_scsi_lu *dev, cd_scsi_request *req)
-{
-    SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
-    req->xfer_dir = SCSI_XFER_NONE;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
-}
-
-static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
-{
-    SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
-    req->xfer_dir = SCSI_XFER_NONE;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
-}
-
-#define CD_PERF_DATA_TYPE_PERFORMANCE       0x00
-#define CD_PERF_DATA_TYPE_UNUSABLE_AREA     0x01
-#define CD_PERF_DATA_TYPE_DEFECT_STATUS     0x02
-#define CD_PERF_DATA_TYPE_WRITE_SPEED       0x03
-
-static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
-{
-    uint32_t data_type, max_num_descr;
-
-    req->xfer_dir = SCSI_XFER_FROM_DEV;
-
-    data_type = req->cdb[1] & 0x0f;
-    max_num_descr = (req->cdb[8] << 8) | req->cdb[9];
-
-    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
-                " data_type:%" G_GUINT32_FORMAT
-                " max_num:%" G_GUINT32_FORMAT,
-                req->lun, data_type, max_num_descr);
-    req->xfer_dir = SCSI_XFER_FROM_DEV;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
-}
-
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
 {
     cd_scsi_target *st = (cd_scsi_target *)scsi_target;
@@ -1626,7 +1896,7 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
         cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
         goto done;
     }
-    if (!cd_scsi_target_lun_present(st, lun)) {
+    if (!cd_scsi_target_lun_realized(st, lun)) {
         SPICE_ERROR("request_submit, absent lun:%" G_GUINT32_FORMAT, lun);
         cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
         goto done;
@@ -1704,14 +1974,23 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     case ALLOW_MEDIUM_REMOVAL:
         cd_scsi_cmd_allow_medium_removal(dev, req);
         break;
+    case SEND_EVENT:
+        cd_scsi_cmd_send_event(dev, req);
+        break;
     case REPORT_KEY:
         cd_scsi_cmd_report_key(dev, req);
         break;
     case SEND_KEY:
         cd_scsi_cmd_send_key(dev, req);
         break;
+    case START_STOP:
+        cd_scsi_cmd_start_stop_unit(dev, req);
+        break;
     case GET_PERFORMANCE:
         cd_scsi_cmd_get_performance(dev, req);
+        break;
+    case MECHANISM_STATUS:
+        cd_scsi_cmd_mechanism_status(dev, req);
         break;
     default:
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
@@ -1737,3 +2016,4 @@ void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
 {
     cd_scsi_req_init(req);
 }
+
