@@ -37,8 +37,11 @@
 #define REPORT_KEY          0xa4
 #define GET_PERFORMANCE     0xac
 
+struct _cd_scsi_target; /* forward declaration */
+
 typedef struct _cd_scsi_lu
 {
+    struct _cd_scsi_target *tgt;
     uint32_t lun;
     gboolean realized;
     gboolean loaded;
@@ -54,22 +57,29 @@ typedef struct _cd_scsi_lu
     char *serial;
 
     GFileInputStream *stream;
-    GCancellable *cancellable;
-    gulong cancel_id;
 
     scsi_short_sense short_sense; /* currently held sense of the scsi device */
     uint8_t fixed_sense[FIXED_SENSE_LEN];
 } cd_scsi_lu;
 
+typedef enum _cd_scsi_target_state
+{
+    CD_SCSI_TGT_STATE_RUNNING,
+    CD_SCSI_TGT_STATE_RESET,
+} cd_scsi_target_state;
+
 typedef struct _cd_scsi_target
 {
     void *user_data;
+
+    cd_scsi_target_state state;
+    cd_scsi_request *cur_req;
+    GCancellable *cancellable;
+
     uint32_t num_luns;
     uint32_t max_luns;
     cd_scsi_lu units[MAX_LUNS];
 } cd_scsi_target;
-
-static void cd_scsi_read_cancel(cd_scsi_lu *dev);
 
 /* Predefined sense codes */
 
@@ -278,6 +288,9 @@ void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns)
     st = g_malloc0(sizeof(*st));
 
     st->user_data = target_user_data;
+    st->state = CD_SCSI_TGT_STATE_RUNNING;
+    st->cur_req = NULL;
+    st->cancellable = g_cancellable_new();
     st->max_luns = max_luns;
 
     return (void *)st;
@@ -315,6 +328,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
         return -1;
     }
     dev = &st->units[lun];
+    dev->tgt = st;
     dev->lun = lun;
 
     dev->size = params->size;
@@ -328,8 +342,6 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
 
     dev->num_blocks = params->size / params->block_size;
 
-    dev->cancellable = g_cancellable_new();
-    dev->cancel_id = 0;
     dev->realized = TRUE;
     dev->prevent_media_removal = FALSE;
 
@@ -401,24 +413,46 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
 
     dev->prevent_media_removal = FALSE;
     cd_scsi_dev_sense_power_on(dev);
-    cd_scsi_read_cancel(dev);
 
     SPICE_DEBUG("Device reset lun:%" G_GUINT32_FORMAT, lun);
     return 0;
 }
 
-int cd_scsi_target_reset(void *scsi_target)
+static void cd_scsi_target_do_reset(cd_scsi_target *st)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
     uint32_t lun;
 
     for (lun = 0; lun < st->max_luns; lun++) {
         if (st->units[lun].realized) {
-            cd_scsi_dev_reset(scsi_target, lun);
+            cd_scsi_dev_reset(st, lun);
         }
     }
 
-    SPICE_DEBUG("Target reset");
+    SPICE_DEBUG("Target reset complete");
+    st->state = CD_SCSI_TGT_STATE_RUNNING;
+    cd_scsi_target_reset_complete(st->user_data);
+}
+
+int cd_scsi_target_reset(void *scsi_target)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+
+    if (st->state == CD_SCSI_TGT_STATE_RESET) {
+        SPICE_DEBUG("Target already in reset");
+        return -1;
+    }
+
+    st->state = CD_SCSI_TGT_STATE_RESET;
+
+    if (st->cur_req != NULL) {
+        cd_scsi_dev_request_cancel(scsi_target, st->cur_req);
+        if (st->cur_req != NULL) {
+            SPICE_DEBUG("Target reset in progress...");
+            return 0;
+        }
+    }
+
+    cd_scsi_target_do_reset(st);
     return 0;
 }
 
@@ -768,8 +802,8 @@ static void cd_scsi_cmd_read_capacity(cd_scsi_lu *dev, cd_scsi_request *req)
     *last_blk_out = htobe32(last_blk);
     *blk_size_out = htobe32(blk_size);
 
-    SPICE_DEBUG("Read capacity, Device reset lun:%" G_GUINT32_FORMAT 
-                " last: %" G_GUINT32_FORMAT " blk_sz: %" G_GUINT32_FORMAT, 
+    SPICE_DEBUG("Read capacity, lun:%" G_GUINT32_FORMAT
+                " last_blk: %" G_GUINT32_FORMAT " blk_sz: %" G_GUINT32_FORMAT,
                 req->lun, last_blk, blk_size);
 
     req->in_len = 8;
@@ -1786,19 +1820,30 @@ static void cd_scsi_read_async_complete(GObject *src_object,
     gboolean finished;
 
     req->req_state = SCSI_REQ_COMPLETE;
-    dev->cancel_id = 0;
+    req->cancel_id = 0;
 
-    g_assert(stream == dev->stream);
+//    g_assert(stream == dev->stream);
+    if (stream != dev->stream) {
+        uint32_t opcode = (uint32_t)req->cdb[0];
+        SPICE_DEBUG("read_async_complete BAD STREAM, lun: %" G_GUINT32_FORMAT
+                    " req: %" G_GUINT64_FORMAT " op: 0x%02x",
+                    req->lun, req->req_len, opcode);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
+        cd_scsi_dev_request_complete(st->user_data, req);
+        return;
+    }
+
     bytes_read = g_input_stream_read_finish(G_INPUT_STREAM(stream), result, &error);
     finished = bytes_read > 0;
     if (finished) {
+        SPICE_DEBUG("read_async_complete, lun: %" G_GUINT32_FORMAT
+                    " finished: %d bytes_read: %" G_GUINT64_FORMAT
+                    " req: %"  G_GUINT64_FORMAT, 
+                    req->lun, finished, (uint64_t)bytes_read, req->req_len);
+
         req->in_len = (bytes_read <= req->req_len) ? bytes_read : req->req_len;
         req->status = GOOD;
-
-        SPICE_DEBUG("read_async_complete, lun:%" G_GUINT32_FORMAT " finished: %d bytes_read: %" G_GUINT64_FORMAT, 
-                    req->lun, finished, (uint64_t)bytes_read);
-    }
-    else {
+    } else {
         if (error != NULL) {
             SPICE_ERROR("g_input_stream_read_finish failed: %s", error->message);
             g_clear_error (&error);
@@ -1815,39 +1860,33 @@ static void cd_scsi_read_async_canceled(GCancellable *cancellable, gpointer user
 {
     cd_scsi_request *req = (cd_scsi_request *)user_data;
     cd_scsi_target *st = (cd_scsi_target *)req->priv_data;
-    cd_scsi_lu *dev = &st->units[req->lun];
 
-    g_assert(cancellable == dev->cancellable); 
-    g_cancellable_disconnect(cancellable, dev->cancel_id);
+    g_assert(cancellable == st->cancellable);
+    g_cancellable_disconnect(cancellable, req->cancel_id);
+    req->cancel_id = 0;
 
-    req->req_state = SCSI_REQ_CANCELED;
+    req->req_state = (st->state == CD_SCSI_TGT_STATE_RUNNING) ? SCSI_REQ_CANCELED : SCSI_REQ_DISPOSED;
     req->in_len = 0;
     req->status = GOOD;
 
     cd_scsi_dev_request_complete(st->user_data, req);
 }
 
-static void cd_scsi_read_cancel(cd_scsi_lu *dev)
-{
-    if (dev->cancel_id != 0) {
-        g_cancellable_cancel(dev->cancellable);
-    }
-}
-
 static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
 {
+    cd_scsi_target *st = dev->tgt;
     GFileInputStream *stream = dev->stream;
 
-    SPICE_DEBUG("read_async_start, lun:%" G_GUINT32_FORMAT 
+    SPICE_DEBUG("read_async_start, lun:%" G_GUINT32_FORMAT
                 " lba: %" G_GUINT64_FORMAT " offset: %" G_GUINT64_FORMAT
-                " cnt: %" G_GUINT64_FORMAT " len: %" G_GUINT64_FORMAT, 
+                " cnt: %" G_GUINT64_FORMAT " len: %" G_GUINT64_FORMAT,
                 req->lun, req->lba, req->offset, req->count, req->req_len);
 
-    dev->cancel_id = g_cancellable_connect(dev->cancellable,
+    req->cancel_id = g_cancellable_connect(st->cancellable,
                                            G_CALLBACK(cd_scsi_read_async_canceled),
                                            req, /* data */
                                            NULL); /* data destroy cb */
-    if (dev->cancel_id == 0) {
+    if (req->cancel_id == 0) {
         /* already canceled */
         return -1;
     }
@@ -1859,12 +1898,12 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
                     NULL); /* error */
 
     g_input_stream_read_async(G_INPUT_STREAM(stream),
-                                  req->buf, /* buffer to fill */
-                                  req->req_len,
-                                  G_PRIORITY_DEFAULT,
-                                  dev->cancellable,
-                                  cd_scsi_read_async_complete,
-                                  (gpointer)req); /* callback argument */
+                              req->buf, /* buffer to fill */
+                              req->req_len,
+                              G_PRIORITY_DEFAULT,
+                              st->cancellable,
+                              cd_scsi_read_async_complete,
+                              (gpointer)req); /* callback argument */
     return 0;
 }
 
@@ -1890,12 +1929,18 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
 
     SPICE_DEBUG("request_submit, lun: %" G_GUINT32_FORMAT " op: 0x%02x", lun, opcode);
 
+    if (st->cur_req != NULL) {
+        SPICE_ERROR("request_submit, request not idle");
+        cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
+        goto done;
+    }
     if (req->req_state != SCSI_REQ_IDLE) {
-        SPICE_ERROR("Submit, request not idle");
+        SPICE_ERROR("request_submit, prev request outstanding");
         cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
         goto done;
     }
     req->req_state = SCSI_REQ_RUNNING;
+    st->cur_req = req;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("request_submit, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -2018,8 +2063,33 @@ done:
     }
 }
 
+void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *req)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+
+    if (st->cur_req == req) {
+        if (req->req_state == SCSI_REQ_RUNNING) {
+            SPICE_DEBUG("request_cancel: lun: %" G_GUINT32_FORMAT
+                         " op: 0x%02x len: %" G_GUINT64_FORMAT,
+                        req->lun, (unsigned int)req->cdb[0], req->req_len);
+            g_cancellable_cancel(st->cancellable);
+        } else {
+            SPICE_DEBUG("request_cancel: request is not running");
+        }
+    } else {
+        SPICE_DEBUG("request_cancel: other request is outstanding");
+    }
+}
+
 void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
 {
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+
+    st->cur_req = NULL;
     cd_scsi_req_init(req);
+
+    if (st->state == CD_SCSI_TGT_STATE_RESET) {
+        cd_scsi_target_do_reset(st);
+    }
 }
 

@@ -42,6 +42,7 @@ typedef enum _cd_scsi_req_state
     SCSI_REQ_RUNNING,
     SCSI_REQ_COMPLETE,
     SCSI_REQ_CANCELED,
+    SCSI_REQ_DISPOSED,
 } cd_scsi_req_state;
 
 typedef struct _cd_scsi_request
@@ -59,7 +60,7 @@ typedef struct _cd_scsi_request
     /* internal */
     cd_scsi_req_state req_state;
     scsi_xfer_dir xfer_dir;
-
+    uint64_t cancel_id;
     void *priv_data;
 
     uint64_t lba; /* offset in logical blocks if relevant */
@@ -85,6 +86,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun);
 
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *request);
+void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *request);
 void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *request);
 
 int cd_scsi_dev_reset(void *scsi_target, uint32_t lun);
