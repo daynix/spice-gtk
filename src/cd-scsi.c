@@ -1587,12 +1587,34 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_PERF_TYPE_DEFECT_STATUS              0x02
 #define CD_PERF_TYPE_WRITE_SPEED                0x03
 
-#define CD_PERF_TYPE_PERFORMANCE_HEADER_LEN     8
+#define CD_PERF_HEADER_LEN                      8
+
 #define CD_PERF_TYPE_PERFORMANCE_DESCR_LEN      16
 
 #define CD_PERF_TYPE_PERFORMANCE_REPORT_NOMINAL 0x00
 #define CD_PERF_TYPE_PERFORMANCE_REPORT_ALL     0x01
 #define CD_PERF_TYPE_PERFORMANCE_REPORT_EXCEPT  0x10
+
+
+static void cd_scsi_get_performance_resp_empty(cd_scsi_lu *dev, cd_scsi_request *req,
+                                               uint32_t type, uint32_t data_type,
+                                               uint32_t max_num_descr)
+{
+    uint8_t *outbuf = req->buf;
+    uint32_t write = (data_type >> 2) & 0x01;
+
+    memset(outbuf, 0, CD_PERF_HEADER_LEN);
+    if (write) {
+        outbuf[4] = 0x02;
+    }
+    req->in_len = CD_PERF_HEADER_LEN;
+
+    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
+                " type:0x%x data_type:0x%x - sending empty response",
+                req->lun, type, data_type);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
 
 static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_request *req, 
                                                      uint32_t start_lba,
@@ -1600,7 +1622,7 @@ static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_re
                                                      uint32_t max_num_descr)
 {
     uint8_t *outbuf = req->buf, *perf_desc;
-    uint32_t resp_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN +
+    uint32_t resp_len = CD_PERF_HEADER_LEN +
                         CD_PERF_TYPE_PERFORMANCE_DESCR_LEN;
     uint32_t perf_data_len = resp_len - 4; /* not incl. Perf Data Length */
     uint32_t perf_kb = 10000;
@@ -1625,7 +1647,8 @@ static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_re
         SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
                 " performance type:0x00 data_type:0x%x - write unsupported",
                 req->lun, data_type);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_get_performance_resp_empty(dev, req, CD_PERF_TYPE_PERFORMANCE,
+                                           data_type, max_num_descr);
         return;
     }
 
@@ -1636,7 +1659,7 @@ static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_re
     outbuf[2] = (perf_data_len >> 8) & 0xff;
     outbuf[3] = perf_data_len & 0xff;
 
-    perf_desc = outbuf + CD_PERF_TYPE_PERFORMANCE_HEADER_LEN;
+    perf_desc = outbuf + CD_PERF_HEADER_LEN;
 
     perf_desc[0] = (start_lba >> 24) & 0xff;
     perf_desc[1] = (start_lba >> 16) & 0xff;
@@ -1658,24 +1681,12 @@ static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_re
     perf_desc[14] = (perf_kb >> 8) & 0xff;
     perf_desc[15] = perf_kb & 0xff;
 
-    req->req_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN +
+    req->req_len = CD_PERF_HEADER_LEN +
                    (max_num_descr * CD_PERF_TYPE_PERFORMANCE_DESCR_LEN);
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
-}
 
-static void cd_scsi_get_performance_resp_empty(cd_scsi_lu *dev, cd_scsi_request *req,
-                                               uint32_t type, uint32_t data_type,
-                                               uint32_t max_num_descr)
-{
-    uint8_t *outbuf = req->buf;
-
-    memset(outbuf, 0, CD_PERF_TYPE_PERFORMANCE_HEADER_LEN);
-    req->in_len = CD_PERF_TYPE_PERFORMANCE_HEADER_LEN;
-
-    SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
-                " type:0x%x data_type:0x%x - sending empty response",
-                req->lun, type, data_type);
+    cd_scsi_cmd_complete_good(dev, req);
 }
 
 static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
@@ -1697,22 +1708,17 @@ static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
         cd_scsi_get_performance_resp_performance(dev, req, start_lba,
                                                  data_type, max_num_descr);
         break;
-    case CD_PERF_TYPE_UNUSABLE_AREA:
-    case CD_PERF_TYPE_DEFECT_STATUS:
-    case CD_PERF_TYPE_WRITE_SPEED:
-        cd_scsi_get_performance_resp_empty(dev, req, type, 
-                                           data_type, max_num_descr);
-        break;
+    case CD_PERF_TYPE_UNUSABLE_AREA: /* not writable */
+    case CD_PERF_TYPE_DEFECT_STATUS: /* not restricted overwrite media */
+    case CD_PERF_TYPE_WRITE_SPEED: /* unsupported, irrelevant */
     default:
         SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
-                " illegal type:0x%x"
+                " unsupported type:0x%x"
                 " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
                 req->lun, type, data_type, max_num_descr);
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
-
-    cd_scsi_cmd_complete_good(dev, req);
 }
 
 #define CD_MECHANISM_STATUS_HDR_LEN     8
