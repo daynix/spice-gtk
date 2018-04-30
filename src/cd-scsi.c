@@ -573,11 +573,14 @@ static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
+    req->req_len = req->cdb[4];
+    req->in_len = (req->req_len < sizeof(dev->fixed_sense)) ?
+                   req->req_len : sizeof(dev->fixed_sense);
+
     if (dev->short_sense.key == NO_SENSE) {
         cd_scsi_build_fixed_sense(dev->fixed_sense, &dev->short_sense);
     }
     memcpy(req->buf, dev->fixed_sense, sizeof(dev->fixed_sense));
-    req->in_len = sizeof(dev->fixed_sense);
     cd_scsi_dev_sense_reset(dev); /* clear reported sense */
 
     cd_scsi_cmd_complete_good(dev, req);
@@ -1961,7 +1964,7 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
                 cd_scsi_sense_check_cond(dev, req, &dev->short_sense);
                 goto done;
             }
-        } else {
+        } else if (opcode != REQUEST_SENSE) {
             SPICE_DEBUG("request_submit, lun:%" G_GUINT32_FORMAT 
                         " pending sense: 0x%02x %02x %02x", 
                         lun, (int)dev->short_sense.key, (int)dev->short_sense.asc,
