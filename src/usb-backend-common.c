@@ -1281,12 +1281,6 @@ static void usbredir_cancel_data(void *priv, uint64_t id)
         SPICE_DEBUG("%s ch %p id %" PRIu64 "current read %" PRIu64,
             __FUNCTION__, ch, id, ch->current_read.id);
         if (!cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
-            ch->read_pending = 0;
-            ch->current_read.hout.length = 0;
-            ch->current_read.hout.length_high = 0;
-            ch->current_read.hout.status = usb_redir_cancelled;
-            usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
-                &ch->current_read.hout, NULL, 0);
             usbredir_write_flush_callback(ch);
         }
     }

@@ -279,22 +279,42 @@ static int parse_usb_msd_cmd(usb_cd_bulk_msd_device *cd, uint8_t *buf, uint32_t 
     return 0;
 }
 
-static void usb_cd_send_status(usb_cd_bulk_msd_device *cd)
+static void usb_cd_cmd_done(usb_cd_bulk_msd_device *cd)
 {
     usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
     cd_scsi_request *scsi_req = &usb_req->scsi_req;
 
+    cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CBW); /* Command next */
+    cd_scsi_dev_request_release(cd->scsi_target, scsi_req);
+}
+
+static void usb_cd_send_status(usb_cd_bulk_msd_device *cd)
+{
+    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
+
     SPICE_DEBUG("Command CSW tag:0x%x msd_status:%d len:%" G_GUINT64_FORMAT,
                 le32toh(usb_req->csw.tag), (int)usb_req->csw.status, sizeof(usb_req->csw));
 
-    g_assert(usb_req->csw.sig == htole32(0x53425355));
+    usb_cd_cmd_done(cd);
 
+    g_assert(usb_req->csw.sig == htole32(0x53425355));
     cd_usb_bulk_msd_read_complete(cd->usb_user_data,
                                   (uint8_t *)&usb_req->csw, sizeof(usb_req->csw),
                                   BULK_STATUS_GOOD);
+}
 
-    cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CBW); /* Command next */
-    cd_scsi_dev_request_release(cd->scsi_target, scsi_req);
+static void usb_cd_send_canceled(usb_cd_bulk_msd_device *cd)
+{
+    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
+
+    SPICE_DEBUG("Canceled cmd tag:0x%x, len:%" G_GUINT64_FORMAT,
+                le32toh(usb_req->csw.tag), sizeof(usb_req->csw));
+
+    usb_cd_cmd_done(cd);
+
+    cd_usb_bulk_msd_read_complete(cd->usb_user_data,
+                                  NULL, 0,
+                                  BULK_STATUS_CANCELED);
 }
 
 static void usb_cd_send_data_in(usb_cd_bulk_msd_device *cd, uint32_t max_len)
@@ -388,25 +408,35 @@ void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *scsi_
 
     g_assert(scsi_req == &usb_req->scsi_req);
 
-    usb_req->scsi_in_len = (scsi_req->in_len <= usb_req->usb_req_len) ?
-                            scsi_req->in_len : usb_req->usb_req_len;
+    if (scsi_req->req_state == SCSI_REQ_COMPLETE) {
 
-    /* prepare CSW */
-    if (usb_req->usb_req_len > usb_req->scsi_in_len) {
-        usb_req->csw.residue = htole32(usb_req->usb_req_len - usb_req->scsi_in_len);
-    }
-    if (scsi_req->status != GOOD) {
-        usb_req->csw.status = (uint8_t)USB_MSD_STATUS_FAILED;
-    }
+        usb_req->scsi_in_len = (scsi_req->in_len <= usb_req->usb_req_len) ?
+                                scsi_req->in_len : usb_req->usb_req_len;
 
-    if (usb_req->bulk_in_len) {        
-        /* bulk-in request arrived while scsi was still running */
-        if (cd->state == USB_CD_STATE_DATAIN) {
-            usb_cd_send_data_in(cd, usb_req->bulk_in_len);            
-        } else if (cd->state == USB_CD_STATE_CSW) {
-            usb_cd_send_status(cd);
+        /* prepare CSW */
+        if (usb_req->usb_req_len > usb_req->scsi_in_len) {
+            usb_req->csw.residue = htole32(usb_req->usb_req_len - usb_req->scsi_in_len);
         }
-        usb_req->bulk_in_len = 0;
+        if (scsi_req->status != GOOD) {
+            usb_req->csw.status = (uint8_t)USB_MSD_STATUS_FAILED;
+        }
+
+        if (usb_req->bulk_in_len) {
+            /* bulk-in request arrived while scsi was still running */
+            if (cd->state == USB_CD_STATE_DATAIN) {
+                usb_cd_send_data_in(cd, usb_req->bulk_in_len);
+            } else if (cd->state == USB_CD_STATE_CSW) {
+                usb_cd_send_status(cd);
+            }
+            usb_req->bulk_in_len = 0;
+        }
+    } else if (scsi_req->req_state == SCSI_REQ_CANCELED) {
+        usb_cd_send_canceled(cd);
+    } else {
+        g_assert(scsi_req->req_state == SCSI_REQ_DISPOSED);
+        SPICE_DEBUG("Disposed cmd tag:0x%x, len:%" G_GUINT64_FORMAT,
+                le32toh(usb_req->csw.tag), sizeof(usb_req->csw));
+        usb_cd_cmd_done(cd);
     }
 }
 
@@ -416,11 +446,7 @@ int cd_usb_bulk_msd_cancel_read(void *device)
     usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
     cd_scsi_request *scsi_req = &usb_req->scsi_req;
 
-    /* meanwhile cancel unconditionally - no async IO yet */
-    cd_usb_bulk_msd_read_complete(cd->usb_user_data,
-                                  NULL, 0,
-                                  BULK_STATUS_CANCELED);
-    cd_scsi_dev_request_release(cd->scsi_target, scsi_req);
+    cd_scsi_dev_request_cancel(cd->scsi_target, scsi_req);
     return 0;
 }
 
