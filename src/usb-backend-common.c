@@ -100,6 +100,12 @@ struct _SpiceUsbBackend
     libusb_hotplug_callback_handle hp_handle;
 };
 
+struct _read_bulk 
+{
+    struct usb_redir_bulk_packet_header hout;
+    uint64_t id;
+};
+
 struct _SpiceUsbBackendChannel
 {
     struct usbredirhost *usbredirhost;
@@ -117,13 +123,10 @@ struct _SpiceUsbBackendChannel
     uint32_t hello_done_parser : 1;
     uint32_t hello_sent        : 1;
     uint32_t rejected          : 1;
-    uint32_t read_pending      : 1;
     SpiceUsbBackendDevice *attached;
     SpiceUsbBackendChannelInitData data;
-    struct {
-        struct usb_redir_bulk_packet_header hout;
-        uint64_t id;
-    } current_read;
+    uint32_t num_reads;
+    struct _read_bulk read_bulk[64];
 };
 
 static const char *spice_usbutil_libusb_strerror(enum libusb_error error_code)
@@ -345,30 +348,43 @@ void cd_usb_bulk_msd_read_complete(void *user_data,
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
     SpiceUsbBackendChannel *ch = d->attached_to;
     if (ch && ch->attached == d && ch->parser) {
-        ch->read_pending = 0;
-        ch->current_read.hout.length = length;
-        ch->current_read.hout.length_high = length >> 16;
+        int nread;
+        uint32_t h_length, offset = 0;
 
-        switch (status) {
-        case BULK_STATUS_GOOD:
-            ch->current_read.hout.status = 0;
-            break;
-        case BULK_STATUS_CANCELED:
-            ch->current_read.hout.status = usb_redir_cancelled;
-            break;
-        case BULK_STATUS_ERROR:
-            ch->current_read.hout.status = usb_redir_ioerror;
-            break;
-        case BULK_STATUS_STALL:
-        default:
-            ch->current_read.hout.status = usb_redir_stall;
-            break;
+        for (nread = 0; nread <ch->num_reads; nread++) {
+            h_length = (ch->read_bulk[nread].hout.length_high << 16) | 
+                        ch->read_bulk[nread].hout.length; 
+            if (h_length > length) {
+                h_length = length;
+                ch->read_bulk[nread].hout.length = length;
+                ch->read_bulk[nread].hout.length_high = length >> 16;
+            }
+
+            switch (status) {
+            case BULK_STATUS_GOOD:
+                ch->read_bulk[nread].hout.status = 0;
+                break;
+            case BULK_STATUS_CANCELED:
+                ch->read_bulk[nread].hout.status = usb_redir_cancelled;
+                break;
+            case BULK_STATUS_ERROR:
+                ch->read_bulk[nread].hout.status = usb_redir_ioerror;
+                break;
+            case BULK_STATUS_STALL:
+            default:
+                ch->read_bulk[nread].hout.status = usb_redir_stall;
+                break;
+            }
+
+            SPICE_DEBUG("%s: responding with hlen %u out of len %u, status %d",
+                __FUNCTION__, h_length, length, ch->read_bulk[nread].hout.status);
+            usbredirparser_send_bulk_packet(ch->parser, ch->read_bulk[nread].id,
+                &ch->read_bulk[nread].hout, h_length ? (data + offset) : NULL, h_length);
+
+            offset += h_length;
+            length -= h_length;
         }
-
-        SPICE_DEBUG("%s: responding with len %u, status %d",
-            __FUNCTION__, length, ch->current_read.hout.status);
-        usbredirparser_send_bulk_packet(ch->parser, ch->current_read.id,
-            &ch->current_read.hout, length ? data : NULL, length);
+        ch->num_reads = 0;
         usbredir_write_flush_callback(ch);
     } else {
         SPICE_DEBUG("broken device<->channel relationship!");
@@ -1161,8 +1177,9 @@ static void usbredir_bulk_packet(void *priv,
     SpiceUsbBackendChannel *ch = priv;
     SpiceUsbBackendDevice *d = ch->attached;
     struct usb_redir_bulk_packet_header hout = *h;
-    SPICE_DEBUG("%s %p: ep %X, hlen %d, data %p, len %d", __FUNCTION__, 
-                ch, h->endpoint, h->length + h->length_high * 0x10000, data, data_len);
+    uint32_t h_length = (h->length_high << 16) | h->length;
+    SPICE_DEBUG("%s %p: ep %X, sid %uX, rid %lX, hlen %d, data %p, len %d", __FUNCTION__, 
+                ch, h->endpoint, h->stream_id, (long unsigned)id, (int)h_length, data, data_len);
     if (!d || !d->d.msc) {
         SPICE_DEBUG("%s: device not attached or not realized", __FUNCTION__);
         hout.status = usb_redir_ioerror;
@@ -1171,17 +1188,18 @@ static void usbredir_bulk_packet(void *priv,
         usbredirparser_send_bulk_packet(ch->parser, id,
             &hout, NULL, 0);
     } else if (h->endpoint & LIBUSB_ENDPOINT_IN) {
-        if (ch->read_pending) {
-            SPICE_DEBUG("%s: there is already pending read", __FUNCTION__);
-            cd_usb_bulk_msd_read_complete(d, NULL, 0, BULK_STATUS_ERROR);
+        if (ch->num_reads > 0) {
+            SPICE_DEBUG("%s: already %u pending reads", __FUNCTION__, ch->num_reads);
+            //cd_usb_bulk_msd_read_complete(d, NULL, 0, BULK_STATUS_ERROR);
         }
-        ch->current_read.hout = *h;
-        ch->read_pending = 1;
-        ch->current_read.id = id;
-        int res = cd_usb_bulk_msd_read(d->d.msc, h->length + h->length_high * 0x10000);
+        ch->read_bulk[ch->num_reads].hout = *h;
+        ch->read_bulk[ch->num_reads].id = id;
+        ch->num_reads++;
+
+        int res = cd_usb_bulk_msd_read(d->d.msc, h_length);
         if (res) {
             SPICE_DEBUG("%s: error on bulk read", __FUNCTION__);
-            ch->read_pending = 0;
+            ch->num_reads = 0;
             hout.length = hout.length_high = 0;
             hout.status = usb_redir_stall;
             SPICE_DEBUG("%s: responding (b) with ZLP status %d", __FUNCTION__, hout.status);
@@ -1277,10 +1295,19 @@ static void usbredir_get_alt_setting(void *priv,
 static void usbredir_cancel_data(void *priv, uint64_t id)
 {
     SpiceUsbBackendChannel *ch = priv;
-    if (ch->read_pending) {
-        SPICE_DEBUG("%s ch %p id %" PRIu64 "current read %" PRIu64,
-            __FUNCTION__, ch, id, ch->current_read.id);
-        if (!cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
+    if (ch->num_reads > 0) {
+        SPICE_DEBUG("%s ch %p id %" PRIu64 "num_reads %" PRIu32,
+            __FUNCTION__, ch, id, ch->num_reads);
+        if (cd_usb_bulk_msd_cancel_read(ch->attached->d.msc)) {
+            int nread;
+            for (nread = 0; nread < ch->num_reads; nread++) {
+                ch->read_bulk[nread].hout.length = 0;
+                ch->read_bulk[nread].hout.length_high = 0;
+                ch->read_bulk[nread].hout.status = usb_redir_cancelled;
+                usbredirparser_send_bulk_packet(ch->parser, ch->read_bulk[nread].id,
+                    &ch->read_bulk[nread].hout, NULL, 0);
+            }
+            ch->num_reads = 0;
             usbredir_write_flush_callback(ch);
         }
     }

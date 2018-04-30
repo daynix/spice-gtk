@@ -369,8 +369,10 @@ int cd_usb_bulk_msd_read(void *device, uint32_t max_len)
         if (cd_scsi_get_req_state(scsi_req) == SCSI_REQ_COMPLETE) {
             usb_cd_send_status(cd);
         } else {
-            usb_req->bulk_in_len = max_len;
-            SPICE_DEBUG("msd_read, req incomplete, saved len %" G_GUINT32_FORMAT, max_len);
+            usb_req->bulk_in_len += max_len;
+            SPICE_DEBUG("msd_read CSW, req incomplete, added len %" G_GUINT32_FORMAT
+                        " saved len %" G_GUINT32_FORMAT, 
+                        max_len, usb_req->bulk_in_len);
         }
         break;
 
@@ -378,8 +380,10 @@ int cd_usb_bulk_msd_read(void *device, uint32_t max_len)
         if (cd_scsi_get_req_state(scsi_req) == SCSI_REQ_COMPLETE) {
             usb_cd_send_data_in(cd, max_len);
         } else {
-            usb_req->bulk_in_len = max_len;
-            SPICE_DEBUG("msd_read, req incomplete, saved len %" G_GUINT32_FORMAT, max_len);
+            usb_req->bulk_in_len += max_len;
+            SPICE_DEBUG("msd_read DATAIN, req incomplete, added len %" G_GUINT32_FORMAT
+                        " saved len %" G_GUINT32_FORMAT, 
+                        max_len, usb_req->bulk_in_len);
         }
         break;
 
