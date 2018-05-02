@@ -85,7 +85,11 @@ int cd_usb_bulk_msd_write(void *device,
 
 /* perform a read data bulk transfer
    max_len - length of available buffer to fill
-   If data available immediately, should call cd_usb_bulk_msd_read_callback()
+   If data available immediately, should call cd_usb_bulk_msd_read_complete()
+     and return success
+   If fatal error detected immediately, should call cd_usb_bulk_msd_read_complete()
+     with error code and return success
+
    returns: 0 - success, -1 - error
 */
 int cd_usb_bulk_msd_read(void *device, uint32_t max_len);
