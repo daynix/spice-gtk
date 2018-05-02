@@ -1025,6 +1025,29 @@ struct usbredirparser {
 };
 #endif
 
+static void *get_device_string(SpiceUsbBackendDevice *d, uint16_t index, uint8_t *len)
+{
+    static WCHAR s0[2] = { 0x304, 0x409 };
+    static WCHAR s1[8] = { 0x310, 'R', 'e', 'd', ' ', 'H', 'a', 't' };
+    static WCHAR s2[9] = { 0x312, 'S', 'p', 'i', 'c', 'e', ' ', 'C', 'D' };
+    static WCHAR s3[4] = { 0x308, 'X', '0', '0' };
+    void *p = NULL;
+    switch (index)
+    {
+        case 0:
+            p = s0; *len = sizeof(s0); break;
+        case 1:
+            p = s1; *len = sizeof(s1); break;
+        case 2:
+            p = s2; *len = sizeof(s2); break;
+        case 3:
+            s3[2] = '0' + d->device_info.address / 10;
+            s3[3] = '0' + d->device_info.address % 10;
+            p = s3; *len = sizeof(s3); break;
+    }
+    return p;
+}
+
 static void get_device_descriptor(SpiceUsbBackendDevice *d,
     struct usb_redir_control_packet_header *h)
 {
@@ -1043,9 +1066,9 @@ static void get_device_descriptor(SpiceUsbBackendDevice *d,
         .idVendor = CD_DEV_VID,
         .idProduct = CD_DEV_PID,
         .bcdDevice = 0x100,
-        .iManufacturer = 0,
-        .iProduct = 0,
-        .iSerialNumber = 0,
+        .iManufacturer = 1,
+        .iProduct = 2,
+        .iSerialNumber = 3,
         .bNumConfigurations = 1
     };
     static const uint8_t cfg[] =
@@ -1091,6 +1114,9 @@ static void get_device_descriptor(SpiceUsbBackendDevice *d,
         case LIBUSB_DT_CONFIG:
             p = cfg;
             len = sizeof(cfg);
+            break;
+        case LIBUSB_DT_STRING:
+            p = get_device_string(d, h->value & 0xff, &len);
             break;
     }
     if (p && len) {
