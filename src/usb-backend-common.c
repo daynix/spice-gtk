@@ -1035,10 +1035,10 @@ struct usbredirparser {
 
 static void *get_device_string(SpiceUsbBackendDevice *d, uint16_t index, uint8_t *len)
 {
-    static WCHAR s0[2] = { 0x304, 0x409 };
-    static WCHAR s1[8] = { 0x310, 'R', 'e', 'd', ' ', 'H', 'a', 't' };
-    static WCHAR s2[9] = { 0x312, 'S', 'p', 'i', 'c', 'e', ' ', 'C', 'D' };
-    static WCHAR s3[4] = { 0x308, 'X', '0', '0' };
+    static uint16_t s0[2] = { 0x304, 0x409 };
+    static uint16_t s1[8] = { 0x310, 'R', 'e', 'd', ' ', 'H', 'a', 't' };
+    static uint16_t s2[9] = { 0x312, 'S', 'p', 'i', 'c', 'e', ' ', 'C', 'D' };
+    static uint16_t s3[4] = { 0x308, 'X', '0', '0' };
     void *p = NULL;
     switch (index)
     {
