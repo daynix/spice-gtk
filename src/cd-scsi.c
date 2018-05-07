@@ -50,6 +50,8 @@ typedef struct _cd_scsi_lu
     gboolean prevent_media_removal;
     gboolean cd_rom;
 
+    uint32_t claim_version;
+
     uint64_t size;
     uint32_t block_size;
     uint32_t num_blocks;
@@ -339,6 +341,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->loaded = TRUE;
     dev->prevent_media_removal = FALSE;
     dev->cd_rom = FALSE;
+    dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
     dev->size = params->size;
     dev->block_size = params->block_size;
@@ -724,9 +727,13 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 }
 
 #define INQUIRY_STANDARD_LEN                96
+#define INQUIRY_STANDARD_LEN_NO_VER         57
 
 #define INQUIRY_REMOVABLE_MEDIUM            0x80
+
+#define INQUIRY_VERSION_NONE                0x00
 #define INQUIRY_VERSION_SPC3                0x05
+
 #define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
 
 #define INQUIRY_VERSION_DESC_SAM2           0x040
@@ -738,6 +745,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
+    uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
 
     if (req->cdb[2] != 0) {
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
@@ -748,10 +756,10 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 
     outbuf[0] = TYPE_ROM;
     outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
-    outbuf[2] = INQUIRY_VERSION_SPC3;
+    outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
 
-    outbuf[4] = INQUIRY_STANDARD_LEN - 4;
+    outbuf[4] = resp_len - 4;
 
     /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
 
@@ -759,19 +767,21 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
 
-    outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
-    outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
+    if (dev->claim_version > 0) {
+        outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
+        outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
-    outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
-    outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
+        outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
+        outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
 
-    outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
-    outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
+        outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
+        outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
 
-    outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
-    outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+        outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
+        outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+    }
 
-    req->in_len = (req->req_len < INQUIRY_STANDARD_LEN) ? req->req_len : INQUIRY_STANDARD_LEN;
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
     
     SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
                 req->lun, req->in_len);
