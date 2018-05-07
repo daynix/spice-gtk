@@ -46,6 +46,7 @@ typedef struct _cd_scsi_lu
     gboolean realized;
     gboolean loaded;
     gboolean prevent_media_removal;
+    gboolean cd_rom;
 
     uint64_t size;
     uint32_t block_size;
@@ -344,6 +345,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
 
     dev->realized = TRUE;
     dev->prevent_media_removal = FALSE;
+    dev->cd_rom = FALSE;
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -1162,7 +1164,10 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
 
 #define CD_PROFILE_DESC_LEN                 4
 #define CD_PROFILE_CURRENT                  0x01
-#define CD_PROFILE_CD_ROM_NUM               0x08
+
+#define CD_PROFILE_NUM_CD_ROM               0x08
+#define CD_PROFILE_NUM_DVD_ROM              0x10
+
 
 /* Profiles List */
 #define CD_FEATURE_NUM_PROFILES_LIST        0x00
@@ -1207,20 +1212,31 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
                                                   uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_HEADER_LEN;
-    uint32_t add_len  = CD_PROFILE_DESC_LEN; /* single profile */
+    uint32_t add_len  = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
+    uint32_t profile_num = CD_PROFILE_NUM_DVD_ROM;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_PROFILES_LIST, start_feature, req_type)) {
         return 0;
     }
     outbuf[1] = CD_FEATURE_NUM_PROFILES_LIST;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
+
+    /* DVD-ROM profile descriptor */
+    profile[0] = (profile_num >> 8) & 0xff;
+    profile[1] = profile_num & 0xff;
+    profile[2] = (!dev->cd_rom) ? CD_PROFILE_CURRENT : 0;
+
+    /* next profile */
+    profile += CD_PROFILE_DESC_LEN;
+    add_len += CD_PROFILE_DESC_LEN;
+
+    /* CD-ROM profile descriptor */
+    profile_num = CD_PROFILE_NUM_CD_ROM;
+    profile[0] = (profile_num >> 8) & 0xff;
+    profile[1] = profile_num & 0xff;
+    profile[2] = dev->cd_rom ? CD_PROFILE_CURRENT : 0;
+
     outbuf[3] = add_len;
-
-    /* profile descriptor */
-    profile[0] = (CD_PROFILE_CD_ROM_NUM >> 8) & 0xff;
-    profile[1] = CD_PROFILE_CD_ROM_NUM & 0xff;
-    profile[2] = CD_PROFILE_CURRENT;
-
     return CD_FEATURE_HEADER_LEN + add_len;
 }
 
@@ -1346,6 +1362,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t req_type, start_feature, resp_len;
+    uint32_t profile_num = (!dev->cd_rom) ? CD_PROFILE_NUM_DVD_ROM : CD_PROFILE_NUM_CD_ROM;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -1355,7 +1372,9 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 
     memset(outbuf, 0, req->req_len);
 
-    outbuf[7] = CD_PROFILE_CD_ROM_NUM;
+    outbuf[6] = (profile_num >> 8) & 0xff;
+    outbuf[7] = profile_num & 0xff;
+
     resp_len = CD_FEATURE_HEADER_LEN;
 
     switch (req_type) {
