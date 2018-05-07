@@ -43,7 +43,9 @@ typedef struct _cd_scsi_lu
 {
     struct _cd_scsi_target *tgt;
     uint32_t lun;
+
     gboolean realized;
+    gboolean removable;
     gboolean loaded;
     gboolean prevent_media_removal;
     gboolean cd_rom;
@@ -332,6 +334,12 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->tgt = st;
     dev->lun = lun;
 
+    dev->realized = TRUE;
+    dev->removable = TRUE;
+    dev->loaded = TRUE;
+    dev->prevent_media_removal = FALSE;
+    dev->cd_rom = FALSE;
+
     dev->size = params->size;
     dev->block_size = params->block_size;
     dev->vendor = g_strdup(params->vendor);
@@ -339,13 +347,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->version = g_strdup(params->version);
     dev->serial = g_strdup(params->serial);
     dev->stream = params->stream;
-    dev->loaded = TRUE;
-
     dev->num_blocks = params->size / params->block_size;
-
-    dev->realized = TRUE;
-    dev->prevent_media_removal = FALSE;
-    dev->cd_rom = FALSE;
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -745,7 +747,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     }
 
     outbuf[0] = TYPE_ROM;
-    outbuf[1] = INQUIRY_REMOVABLE_MEDIUM;
+    outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
     outbuf[2] = INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
 
@@ -1282,9 +1284,10 @@ static uint32_t cd_scsi_add_feature_removable(cd_scsi_lu *dev, uint8_t *outbuf,
     outbuf[1] = CD_FEATURE_NUM_REMOVABLE;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
     outbuf[3] = add_len;
-    outbuf[4] = CD_FEATURE_REMOVABLE_LOADING_TRAY |
-            CD_FEATURE_REMOVABLE_EJECT |
-            CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
+    outbuf[4] = CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
+    if (dev->removable) {
+        outbuf[4] |= (CD_FEATURE_REMOVABLE_LOADING_TRAY | CD_FEATURE_REMOVABLE_EJECT);
+    }
 
     return CD_FEATURE_HEADER_LEN + add_len;
 }
