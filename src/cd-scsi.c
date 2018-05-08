@@ -43,9 +43,14 @@ typedef struct _cd_scsi_lu
 {
     struct _cd_scsi_target *tgt;
     uint32_t lun;
+
     gboolean realized;
+    gboolean removable;
     gboolean loaded;
     gboolean prevent_media_removal;
+    gboolean cd_rom;
+
+    uint32_t claim_version;
 
     uint64_t size;
     uint32_t block_size;
@@ -331,6 +336,13 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->tgt = st;
     dev->lun = lun;
 
+    dev->realized = TRUE;
+    dev->removable = TRUE;
+    dev->loaded = TRUE;
+    dev->prevent_media_removal = FALSE;
+    dev->cd_rom = FALSE;
+    dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
+
     dev->size = params->size;
     dev->block_size = params->block_size;
     dev->vendor = g_strdup(params->vendor);
@@ -338,12 +350,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->version = g_strdup(params->version);
     dev->serial = g_strdup(params->serial);
     dev->stream = params->stream;
-    dev->loaded = TRUE;
-
     dev->num_blocks = params->size / params->block_size;
-
-    dev->realized = TRUE;
-    dev->prevent_media_removal = FALSE;
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -720,9 +727,13 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 }
 
 #define INQUIRY_STANDARD_LEN                96
+#define INQUIRY_STANDARD_LEN_NO_VER         57
 
 #define INQUIRY_REMOVABLE_MEDIUM            0x80
+
+#define INQUIRY_VERSION_NONE                0x00
 #define INQUIRY_VERSION_SPC3                0x05
+
 #define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
 
 #define INQUIRY_VERSION_DESC_SAM2           0x040
@@ -734,6 +745,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
+    uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
 
     if (req->cdb[2] != 0) {
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
@@ -743,11 +755,11 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     }
 
     outbuf[0] = TYPE_ROM;
-    outbuf[1] = INQUIRY_REMOVABLE_MEDIUM;
-    outbuf[2] = INQUIRY_VERSION_SPC3;
+    outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
+    outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
 
-    outbuf[4] = INQUIRY_STANDARD_LEN - 4;
+    outbuf[4] = resp_len - 4;
 
     /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
 
@@ -755,19 +767,21 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
 
-    outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
-    outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
+    if (dev->claim_version > 0) {
+        outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
+        outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
-    outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
-    outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
+        outbuf[60] = (INQUIRY_VERSION_DESC_SPC3 >> 8) & 0xff;
+        outbuf[61] = INQUIRY_VERSION_DESC_SPC3 & 0xff;
 
-    outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
-    outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
+        outbuf[62] = (INQUIRY_VERSION_DESC_MMC3 >> 8) & 0xff;
+        outbuf[63] = INQUIRY_VERSION_DESC_MMC3 & 0xff;
 
-    outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
-    outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+        outbuf[64] = (INQUIRY_VERSION_DESC_SBC2 >> 8) & 0xff;
+        outbuf[65] = INQUIRY_VERSION_DESC_SBC2 & 0xff;
+    }
 
-    req->in_len = (req->req_len < INQUIRY_STANDARD_LEN) ? req->req_len : INQUIRY_STANDARD_LEN;
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
     
     SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
                 req->lun, req->in_len);
@@ -1162,7 +1176,10 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
 
 #define CD_PROFILE_DESC_LEN                 4
 #define CD_PROFILE_CURRENT                  0x01
-#define CD_PROFILE_CD_ROM_NUM               0x08
+
+#define CD_PROFILE_NUM_CD_ROM               0x08
+#define CD_PROFILE_NUM_DVD_ROM              0x10
+
 
 /* Profiles List */
 #define CD_FEATURE_NUM_PROFILES_LIST        0x00
@@ -1207,20 +1224,31 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
                                                   uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_HEADER_LEN;
-    uint32_t add_len  = CD_PROFILE_DESC_LEN; /* single profile */
+    uint32_t add_len  = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
+    uint32_t profile_num = CD_PROFILE_NUM_DVD_ROM;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_PROFILES_LIST, start_feature, req_type)) {
         return 0;
     }
     outbuf[1] = CD_FEATURE_NUM_PROFILES_LIST;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
+
+    /* DVD-ROM profile descriptor */
+    profile[0] = (profile_num >> 8) & 0xff;
+    profile[1] = profile_num & 0xff;
+    profile[2] = (!dev->cd_rom) ? CD_PROFILE_CURRENT : 0;
+
+    /* next profile */
+    profile += CD_PROFILE_DESC_LEN;
+    add_len += CD_PROFILE_DESC_LEN;
+
+    /* CD-ROM profile descriptor */
+    profile_num = CD_PROFILE_NUM_CD_ROM;
+    profile[0] = (profile_num >> 8) & 0xff;
+    profile[1] = profile_num & 0xff;
+    profile[2] = dev->cd_rom ? CD_PROFILE_CURRENT : 0;
+
     outbuf[3] = add_len;
-
-    /* profile descriptor */
-    profile[0] = (CD_PROFILE_CD_ROM_NUM >> 8) & 0xff;
-    profile[1] = CD_PROFILE_CD_ROM_NUM & 0xff;
-    profile[2] = CD_PROFILE_CURRENT;
-
     return CD_FEATURE_HEADER_LEN + add_len;
 }
 
@@ -1266,9 +1294,10 @@ static uint32_t cd_scsi_add_feature_removable(cd_scsi_lu *dev, uint8_t *outbuf,
     outbuf[1] = CD_FEATURE_NUM_REMOVABLE;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
     outbuf[3] = add_len;
-    outbuf[4] = CD_FEATURE_REMOVABLE_LOADING_TRAY |
-            CD_FEATURE_REMOVABLE_EJECT |
-            CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
+    outbuf[4] = CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
+    if (dev->removable) {
+        outbuf[4] |= (CD_FEATURE_REMOVABLE_LOADING_TRAY | CD_FEATURE_REMOVABLE_EJECT);
+    }
 
     return CD_FEATURE_HEADER_LEN + add_len;
 }
@@ -1346,6 +1375,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t req_type, start_feature, resp_len;
+    uint32_t profile_num = (!dev->cd_rom) ? CD_PROFILE_NUM_DVD_ROM : CD_PROFILE_NUM_CD_ROM;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -1355,7 +1385,9 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 
     memset(outbuf, 0, req->req_len);
 
-    outbuf[7] = CD_PROFILE_CD_ROM_NUM;
+    outbuf[6] = (profile_num >> 8) & 0xff;
+    outbuf[7] = profile_num & 0xff;
+
     resp_len = CD_FEATURE_HEADER_LEN;
 
     switch (req_type) {
