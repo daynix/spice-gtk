@@ -1172,7 +1172,8 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-#define CD_FEATURE_HEADER_LEN               4
+#define CD_FEATURE_HEADER_LEN               8
+#define CD_FEATURE_DESC_LEN                 4
 
 #define CD_PROFILE_DESC_LEN                 4
 #define CD_PROFILE_CURRENT                  0x01
@@ -1191,8 +1192,10 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_FEATURE_NUM_REMOVABLE            0x03
 /* Random Readable - PP=1 Read ability for storage devices with random addressing */
 #define CD_FEATURE_NUM_RANDOM_READ          0x10
-/* CD Read - The ability to read CD specific structures */ 
+/* CD Read - The ability to read CD specific structures */
 #define CD_FEATURE_NUM_CD_READ              0x1E
+/* DVD Read - The ability to read DVD specific structures */
+#define CD_FEATURE_NUM_DVD_READ             0x1F
 /* Power Management - Initiator and device directed power management */
 #define CD_FEATURE_NUM_POWER_MNGT           0x100
 /* Timeout */
@@ -1223,24 +1226,29 @@ static gboolean cd_scsi_feature_reportable(uint32_t feature, uint32_t start_feat
 static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outbuf,
                                                   uint32_t start_feature, uint32_t req_type)
 {
-    uint8_t *profile = outbuf + CD_FEATURE_HEADER_LEN;
-    uint32_t add_len  = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
-    uint32_t profile_num = CD_PROFILE_NUM_DVD_ROM;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN;
+    uint32_t add_len, profile_num;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_PROFILES_LIST, start_feature, req_type)) {
         return 0;
     }
-    outbuf[1] = CD_FEATURE_NUM_PROFILES_LIST;
+    /* feature descriptor header */
+    outbuf[0] = (CD_FEATURE_NUM_PROFILES_LIST >> 8) & 0xff;
+    outbuf[1] = CD_FEATURE_NUM_PROFILES_LIST & 0xff;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
 
     /* DVD-ROM profile descriptor */
-    profile[0] = (profile_num >> 8) & 0xff;
+    add_len = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
+    profile_num = CD_PROFILE_NUM_DVD_ROM;
+
+    profile[0] = (profile_num >> 8) & 0xff; /* feature code */
     profile[1] = profile_num & 0xff;
     profile[2] = (!dev->cd_rom) ? CD_PROFILE_CURRENT : 0;
 
     /* next profile */
-    profile += CD_PROFILE_DESC_LEN;
     add_len += CD_PROFILE_DESC_LEN;
+    profile += CD_PROFILE_DESC_LEN;
 
     /* CD-ROM profile descriptor */
     profile_num = CD_PROFILE_NUM_CD_ROM;
@@ -1249,116 +1257,164 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
     profile[2] = dev->cd_rom ? CD_PROFILE_CURRENT : 0;
 
     outbuf[3] = add_len;
-    return CD_FEATURE_HEADER_LEN + add_len;
+    feature_len += add_len;
+
+    return feature_len;
 }
+
+#define CD_FEATURE_CORE_PHYS_PROFILE_LEN    4
 
 static uint32_t cd_scsi_add_feature_core(cd_scsi_lu *dev, uint8_t *outbuf,
                                          uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len  = 4;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_CORE_PHYS_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_CORE, start_feature, req_type)) {
         return 0;
     }
-    outbuf[1] = CD_FEATURE_NUM_CORE;
+    outbuf[0] = (CD_FEATURE_NUM_CORE >> 8) & 0xff;
+    outbuf[1] = CD_FEATURE_NUM_CORE & 0xff;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
-    outbuf[7] = CD_FEATURE_PHYS_IF_SCSI;
+    outbuf[3] = CD_FEATURE_CORE_PHYS_PROFILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    profile[3] = CD_FEATURE_PHYS_IF_SCSI;
+
+    return feature_len;
 }
+
+#define CD_FEATURE_MORPH_PROGILE_LEN    4
+#define CD_FEATURE_MORPH_ASYNC_EVENTS   0x01
 
 static uint32_t cd_scsi_add_feature_morph(cd_scsi_lu *dev, uint8_t *outbuf,
                                           uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len  = 4;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_MORPH_PROGILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_MORPH, start_feature, req_type)) {
         return 0;
     }
     outbuf[1] = CD_FEATURE_NUM_MORPH;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
+    outbuf[3] = CD_FEATURE_MORPH_PROGILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    profile[0] = CD_FEATURE_MORPH_ASYNC_EVENTS;
+
+    return feature_len;
 }
+
+#define CD_FEATURE_REMOVABLE_PROFILE_LEN    4
 
 static uint32_t cd_scsi_add_feature_removable(cd_scsi_lu *dev, uint8_t *outbuf,
                                               uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len  = 4;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_REMOVABLE_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_REMOVABLE, start_feature, req_type)) {
         return 0;
     }
     outbuf[1] = CD_FEATURE_NUM_REMOVABLE;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
-    outbuf[4] = CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
+    outbuf[3] = CD_FEATURE_REMOVABLE_PROFILE_LEN;
+
+    profile[0] = CD_FEATURE_REMOVABLE_NO_PRVNT_JMPR;
     if (dev->removable) {
-        outbuf[4] |= (CD_FEATURE_REMOVABLE_LOADING_TRAY | CD_FEATURE_REMOVABLE_EJECT);
+        profile[0] |= (CD_FEATURE_REMOVABLE_LOADING_TRAY | CD_FEATURE_REMOVABLE_EJECT);
     }
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    return feature_len;
 }
+
+#define CD_FEATURE_RANDOM_READ_PROFILE_LEN    8
 
 static uint32_t cd_scsi_add_feature_random_read(cd_scsi_lu *dev, uint8_t *outbuf,
                                                 uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len = 8;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_RANDOM_READ_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_RANDOM_READ, start_feature, req_type)) {
         return 0;
     }
     outbuf[0] = (CD_FEATURE_NUM_RANDOM_READ >> 8) & 0xff;
-    outbuf[1] = CD_FEATURE_NUM_RANDOM_READ;
+    outbuf[1] = CD_FEATURE_NUM_RANDOM_READ & 0xff;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
-    outbuf[4] = (dev->block_size >> 24);
-    outbuf[5] = (dev->block_size >> 16);
-    outbuf[6] = (dev->block_size >> 8);
-    outbuf[7] = (dev->block_size);
-    outbuf[9] = 0x01; /* blocking */
+    outbuf[3] = CD_FEATURE_RANDOM_READ_PROFILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    profile[0] = (dev->block_size >> 24) & 0xff;
+    profile[1] = (dev->block_size >> 16) & 0xff;
+    profile[2] = (dev->block_size >> 8) & 0xff;
+    profile[3] = (dev->block_size) & 0xff;
+    profile[5] = (dev->cd_rom) ? 0x01 : 0x10; /* logical blocks per readable unit */
+
+    return feature_len;
 }
+
+#define CD_FEATURE_CD_READ_PROFILE_LEN    4
 
 static uint32_t cd_scsi_add_feature_cd_read(cd_scsi_lu *dev, uint8_t *outbuf,
                                             uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len = 4;
+    uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_CD_READ_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_CD_READ, start_feature, req_type)) {
         return 0;
     }
     outbuf[0] = (CD_FEATURE_NUM_CD_READ >> 8) & 0xff;
-    outbuf[1] = CD_FEATURE_NUM_CD_READ  & 0xff;
+    outbuf[1] = (CD_FEATURE_NUM_CD_READ) & 0xff;
     outbuf[2] = CD_FEATURE_VERSION_1 | CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
+    outbuf[3] = CD_FEATURE_CD_READ_PROFILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    profile[0] = 0; /* C2 Errors, CD-Text not supporte */
+
+    return feature_len;
 }
+
+#define CD_FEATURE_DVD_READ_PROFILE_LEN    0
+
+static uint32_t cd_scsi_add_feature_dvd_read(cd_scsi_lu *dev, uint8_t *outbuf,
+                                             uint32_t start_feature, uint32_t req_type)
+{
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_DVD_READ_PROFILE_LEN;
+
+    if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_CD_READ, start_feature, req_type)) {
+        return 0;
+    }
+    outbuf[0] = (CD_FEATURE_NUM_DVD_READ >> 8) & 0xff;
+    outbuf[1] = (CD_FEATURE_NUM_DVD_READ) & 0xff;
+    outbuf[2] = CD_FEATURE_VERSION_1 | CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
+    outbuf[3] = CD_FEATURE_DVD_READ_PROFILE_LEN;
+
+    return feature_len;
+}
+
+#define CD_FEATURE_POWER_MNGT_PROFILE_LEN    0
 
 static uint32_t cd_scsi_add_feature_power_mgmt(cd_scsi_lu *dev, uint8_t *outbuf,
                                                uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len = 0;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_POWER_MNGT_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_POWER_MNGT, start_feature, req_type)) {
         return 0;
     }
     outbuf[0] = (CD_FEATURE_NUM_POWER_MNGT >> 8) & 0xff;
-    outbuf[1] = CD_FEATURE_NUM_POWER_MNGT & 0xff;
+    outbuf[1] = (CD_FEATURE_NUM_POWER_MNGT) & 0xff;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
+    outbuf[3] = CD_FEATURE_POWER_MNGT_PROFILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    return feature_len;
 }
+
+#define CD_FEATURE_TIMEOUT_PROFILE_LEN    0
 
 static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
                                             uint32_t start_feature, uint32_t req_type)
 {
-    uint32_t add_len = 0;
+    uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_TIMEOUT_PROFILE_LEN;
 
     if (!cd_scsi_feature_reportable(CD_FEATURE_NUM_TIMEOUT, start_feature, req_type)) {
         return 0;
@@ -1366,16 +1422,16 @@ static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
     outbuf[0] = (CD_FEATURE_NUM_TIMEOUT >> 8) & 0xff;
     outbuf[1] = CD_FEATURE_NUM_TIMEOUT & 0xff;
     outbuf[2] = CD_FEATURE_PERSISTENT | CD_FEATURE_CURRENT;
-    outbuf[3] = add_len;
+    outbuf[3] = CD_FEATURE_TIMEOUT_PROFILE_LEN;
 
-    return CD_FEATURE_HEADER_LEN + add_len;
+    return feature_len;
 }
 
 static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t req_type, start_feature, resp_len;
     uint32_t profile_num = (!dev->cd_rom) ? CD_PROFILE_NUM_DVD_ROM : CD_PROFILE_NUM_CD_ROM;
+    uint32_t req_type, start_feature, resp_len;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -1385,9 +1441,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 
     memset(outbuf, 0, req->req_len);
 
-    outbuf[6] = (profile_num >> 8) & 0xff;
-    outbuf[7] = profile_num & 0xff;
-
+    /* at least Feature Header should be present, to be filled later */
     resp_len = CD_FEATURE_HEADER_LEN;
 
     switch (req_type) {
@@ -1399,6 +1453,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
         resp_len += cd_scsi_add_feature_removable(dev, outbuf + resp_len, start_feature, req_type);
         resp_len += cd_scsi_add_feature_random_read(dev, outbuf + resp_len, start_feature, req_type);
         resp_len += cd_scsi_add_feature_cd_read(dev, outbuf + resp_len, start_feature, req_type);
+        resp_len += cd_scsi_add_feature_dvd_read(dev, outbuf + resp_len, start_feature, req_type);
         resp_len += cd_scsi_add_feature_power_mgmt(dev, outbuf + resp_len, start_feature, req_type);
         resp_len += cd_scsi_add_feature_timeout(dev, outbuf + resp_len, start_feature, req_type);
         break;
@@ -1418,6 +1473,9 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
             break;
         case CD_FEATURE_NUM_CD_READ:
             resp_len += cd_scsi_add_feature_cd_read(dev, outbuf + resp_len, start_feature, req_type);
+            break;
+        case CD_FEATURE_NUM_DVD_READ:
+            resp_len += cd_scsi_add_feature_dvd_read(dev, outbuf + resp_len, start_feature, req_type);
             break;
         case CD_FEATURE_NUM_POWER_MNGT:
             resp_len += cd_scsi_add_feature_power_mgmt(dev, outbuf + resp_len, start_feature, req_type);
@@ -1439,8 +1497,14 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
     } 
 
     /* set total data len */
-    outbuf[0] = (resp_len >> 8) & 0xff;
-    outbuf[1] = resp_len & 0xff;
+    outbuf[0] = (resp_len >> 24) & 0xff;
+    outbuf[1] = (resp_len >> 16) & 0xff;
+    outbuf[2] = (resp_len >> 8) & 0xff;
+    outbuf[3] = resp_len & 0xff;
+
+    /* report current profile num */
+    outbuf[6] = (profile_num >> 8) & 0xff;
+    outbuf[7] = profile_num & 0xff;
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
