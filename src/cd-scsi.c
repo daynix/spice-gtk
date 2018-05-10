@@ -1682,11 +1682,14 @@ static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
-#define CD_START_STOP_FLAG_IMMED                    0x01 /* byte 0 */
+/* byte 1 */
+#define CD_START_STOP_FLAG_IMMED                    0x01
 
-#define CD_START_STOP_FLAG_START                    0x01 /* byte 1 */
+/* byte 4 */
+#define CD_START_STOP_FLAG_START                    0x01
 #define CD_START_STOP_FLAG_LOEJ                     0x02
 
+/* POWER CONDITION field values */
 #define CD_START_STOP_POWER_COND_START_VALID        0x00
 #define CD_START_STOP_POWER_COND_ACTIVE             0x01
 #define CD_START_STOP_POWER_COND_IDLE               0x02
@@ -1695,22 +1698,45 @@ static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_START_STOP_POWER_COND_FORCE_IDLE_0       0x0a
 #define CD_START_STOP_POWER_COND_FORCE_STANDBY_0    0x0b
 
+static inline const char *cd_scsi_start_stop_power_cond_name(uint32_t power_cond)
+{
+    switch (power_cond) {
+    case CD_START_STOP_POWER_COND_START_VALID:
+        return "START_VALID";
+    case CD_START_STOP_POWER_COND_ACTIVE:
+        return "ACTIVE";
+    case CD_START_STOP_POWER_COND_IDLE:
+        return "IDLE";
+    case CD_START_STOP_POWER_COND_STANDBY:
+        return "STANDBY";
+    case CD_START_STOP_POWER_COND_LU_CONTROL:
+        return "LU_CONTROL";
+    case CD_START_STOP_POWER_COND_FORCE_IDLE_0:
+        return "FORCE_IDLE_0";
+    case CD_START_STOP_POWER_COND_FORCE_STANDBY_0:
+        return "FORCE_STANDBY_0";
+    default:
+        return "RESERVED";
+    }
+}
+
 static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    uint32_t immed, start, loej, power_cond;
+    gboolean immed, start, load_eject;
+    uint32_t power_cond;
 
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
 
-    immed = req->cdb[1] & CD_GET_EVENT_STATUS_IMMED;
-    start = req->cdb[4] & CD_START_STOP_POWER_COND_START_VALID;
-    loej = req->cdb[4] & CD_START_STOP_FLAG_LOEJ;
+    immed = (req->cdb[1] & CD_START_STOP_FLAG_IMMED) ? TRUE : FALSE;
+    start = (req->cdb[4] & CD_START_STOP_FLAG_START) ? TRUE : FALSE;
+    load_eject = (req->cdb[4] & CD_START_STOP_FLAG_LOEJ) ? TRUE : FALSE;
     power_cond = req->cdb[4] >> 4;
 
     SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
-                " immed:%" G_GUINT32_FORMAT " start:%" G_GUINT32_FORMAT
-                " loej:%" G_GUINT32_FORMAT " power_cond:0x%x",
-                req->lun, immed, start, loej, power_cond);
+                " immed:%d start:%d load_eject:%d power_cond:0x%x(%s)",
+                req->lun, immed, start, load_eject, power_cond,
+                cd_scsi_start_stop_power_cond_name(power_cond));
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -2191,4 +2217,5 @@ void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
         cd_scsi_target_do_reset(st);
     }
 }
+
 
