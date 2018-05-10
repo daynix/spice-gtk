@@ -39,6 +39,13 @@
 
 struct _cd_scsi_target; /* forward declaration */
 
+enum cd_scsi_power_condition {
+    CD_SCSI_POWER_STOPPED,
+    CD_SCSI_POWER_ACTIVE,
+    CD_SCSI_POWER_IDLE,
+    CD_SCSI_POWER_STANDBY
+};
+
 typedef struct _cd_scsi_lu
 {
     struct _cd_scsi_target *tgt;
@@ -49,6 +56,8 @@ typedef struct _cd_scsi_lu
     gboolean loaded;
     gboolean prevent_media_removal;
     gboolean cd_rom;
+
+    enum cd_scsi_power_condition power_cond;
 
     uint32_t claim_version;
 
@@ -93,14 +102,39 @@ const scsi_short_sense sense_code_NO_SENSE = {
     .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00
 };
 
-/* LUN not ready, Manual intervention required */
+/* LUN not ready, Caused not reportable */
 const scsi_short_sense sense_code_LUN_NOT_READY = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x00
+};
+
+/* LUN not ready, in process of becoming ready */
+const scsi_short_sense sense_code_BECOMING_READY = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x01
+};
+
+/* LUN not ready, Caused not reportable */
+const scsi_short_sense sense_code_INIT_CMD_REQUIRED = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x02
+};
+
+/* LUN not ready, Manual intervention required */
+const scsi_short_sense sense_code_INTERVENTION_REQUIRED = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x03
 };
 
 /* LUN not ready, Medium not present */
 const scsi_short_sense sense_code_NO_MEDIUM = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x00
+};
+
+/* LUN not ready, Medium not present - Tray Closed */
+const scsi_short_sense sense_code_NO_MEDIUM_TRAY_CLOSED = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x01
+};
+
+/* LUN not ready, Medium not present - Tray Open */
+const scsi_short_sense sense_code_NO_MEDIUM_TRAY_OPEN = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x02
 };
 
 /* LUN not ready, medium removal prevented */
@@ -341,6 +375,9 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->loaded = TRUE;
     dev->prevent_media_removal = FALSE;
     dev->cd_rom = FALSE;
+
+    dev->power_cond = CD_SCSI_POWER_ACTIVE;
+
     dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
     dev->size = params->size;
@@ -397,6 +434,8 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
 
     dev->loaded = FALSE;
     dev->realized = FALSE;
+    dev->power_cond = CD_SCSI_POWER_STOPPED;
+
     st->num_luns --;
 
     SPICE_DEBUG("Unrealize lun:%" G_GUINT32_FORMAT, lun);
@@ -573,7 +612,16 @@ static void cd_scsi_cmd_test_unit_ready(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
-    cd_scsi_cmd_complete_good(dev, req);
+
+    if (dev->power_cond != CD_SCSI_POWER_STOPPED) {
+        if (dev->loaded) {
+            cd_scsi_cmd_complete_good(dev, req);
+        } else {
+            cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        }
+    } else {
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+    }
 }
 
 static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
@@ -1738,6 +1786,42 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
                 req->lun, immed, start, load_eject, power_cond,
                 cd_scsi_start_stop_power_cond_name(power_cond));
 
+    switch (power_cond) {
+    case CD_START_STOP_POWER_COND_START_VALID:
+        if (!start) { /* stop the unit */
+            dev->power_cond = CD_SCSI_POWER_STOPPED;
+            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " stopped", req->lun);
+            if (load_eject) { /* eject medium */
+                dev->loaded = FALSE;
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " ejected", req->lun);
+            }
+        } else { /* start the unit */
+            if (load_eject) { /* load medium */
+                dev->loaded = TRUE;
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " loaded", req->lun);
+            }
+        }
+        break;
+    case CD_START_STOP_POWER_COND_ACTIVE:
+        dev->power_cond = CD_SCSI_POWER_ACTIVE;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " active", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_IDLE:
+    case CD_START_STOP_POWER_COND_FORCE_IDLE_0:
+        dev->power_cond = CD_SCSI_POWER_IDLE;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " idle", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_STANDBY:
+    case CD_START_STOP_POWER_COND_FORCE_STANDBY_0:
+        dev->power_cond = CD_SCSI_POWER_STANDBY;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " standby", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_LU_CONTROL:
+        break;
+    default:
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
     cd_scsi_cmd_complete_good(dev, req);
 }
 
@@ -2034,6 +2118,16 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
 
 static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
 {
+    if (dev->power_cond == CD_SCSI_POWER_STOPPED) {
+        SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        return;
+    } else if (!dev->loaded) {
+        SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is not loaded", req->lun);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        return;
+    }
+
     req->cdb_len = scsi_cdb_length(req->cdb);
 
     req->lba = scsi_cdb_lba(req->cdb, req->cdb_len);
@@ -2217,5 +2311,3 @@ void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
         cd_scsi_target_do_reset(st);
     }
 }
-
-
