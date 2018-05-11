@@ -743,6 +743,27 @@ static void cd_scsi_cmd_report_luns(cd_scsi_target *st, cd_scsi_lu *dev,
 #define SCSI_MAX_INQUIRY_LEN        256
 #define SCSI_MAX_MODE_LEN           256
 
+static void cd_scsi_cmd_inquiry_vpd_no_lun(cd_scsi_lu *dev, cd_scsi_request *req,
+                                           uint32_t perif_qual)
+{
+    uint8_t *outbuf = req->buf;
+    uint8_t page_code = req->cdb[2];
+    uint32_t resp_len = 4;
+
+    outbuf[0] = (perif_qual << 5) | TYPE_ROM;
+    outbuf[1] = page_code ; /* this page */
+    outbuf[2] = 0;
+    outbuf[3] = 0; /* no more data */
+
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
+
+    SPICE_DEBUG("inquiry_vpd, unsupported lun:%" G_GUINT32_FORMAT
+                " perif_qual:0x%x len: %" G_GUINT64_FORMAT,
+                req->lun, perif_qual, req->in_len);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
+
 static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
@@ -837,6 +858,10 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_STANDARD_LEN                96
 #define INQUIRY_STANDARD_LEN_NO_VER         57
 
+#define PERIF_QUALIFIER_CONNECTED           0x00
+#define PERIF_QUALIFIER_NOT_CONNECTED       0x01
+#define PERIF_QUALIFIER_UNSUPPORTED         0x03
+
 #define INQUIRY_REMOVABLE_MEDIUM            0x80
 
 #define INQUIRY_VERSION_NONE                0x00
@@ -849,6 +874,26 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_VERSION_DESC_MMC3           0x2A0
 #define INQUIRY_VERSION_DESC_SBC2           0x320
 
+static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request *req,
+                                                uint32_t perif_qual)
+{
+    uint8_t *outbuf = req->buf;
+    uint32_t resp_len = 5;
+
+    outbuf[0] = (perif_qual << 5) | TYPE_ROM;
+    outbuf[1] = 0;
+    outbuf[2] = INQUIRY_VERSION_NONE;
+    outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3;
+    outbuf[4] = 0;
+
+    req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
+
+    SPICE_DEBUG("inquiry_standard, unsupported lun:%" G_GUINT32_FORMAT
+                " perif_qual:0x%x len: %" G_GUINT64_FORMAT,
+                req->lun, perif_qual, req->in_len);
+
+    cd_scsi_cmd_complete_good(dev, req);
+}
 
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
@@ -862,7 +907,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
         return;
     }
 
-    outbuf[0] = TYPE_ROM;
+    outbuf[0] = (PERIF_QUALIFIER_CONNECTED << 5) | TYPE_ROM;
     outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
     outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
@@ -2220,14 +2265,31 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     req->req_state = SCSI_REQ_RUNNING;
     st->cur_req = req;
 
+    /* INQUIRY should send response even for non-existing LUNs */
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("request_submit, illegal lun:%" G_GUINT32_FORMAT, lun);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+        if (opcode == INQUIRY) {
+            if (req->cdb[1] & 0x1) {
+                cd_scsi_cmd_inquiry_vpd_no_lun(dev, req, PERIF_QUALIFIER_UNSUPPORTED);
+            } else {
+                cd_scsi_cmd_inquiry_standard_no_lun(dev, req, PERIF_QUALIFIER_UNSUPPORTED);
+            }
+        } else {
+            cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+        }
         goto done;
     }
     if (!cd_scsi_target_lun_realized(st, lun)) {
         SPICE_ERROR("request_submit, absent lun:%" G_GUINT32_FORMAT, lun);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+        if (opcode == INQUIRY) {
+            if (req->cdb[1] & 0x1) {
+                cd_scsi_cmd_inquiry_vpd_no_lun(dev, req, PERIF_QUALIFIER_NOT_CONNECTED);
+            } else {
+                cd_scsi_cmd_inquiry_standard_no_lun(dev, req, PERIF_QUALIFIER_NOT_CONNECTED);
+            }
+        } else {
+            cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+        }
         goto done;
     }
 
