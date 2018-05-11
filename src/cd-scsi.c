@@ -1789,13 +1789,16 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
     switch (power_cond) {
     case CD_START_STOP_POWER_COND_START_VALID:
         if (!start) { /* stop the unit */
-            dev->power_cond = CD_SCSI_POWER_STOPPED;
-            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " stopped", req->lun);
             if (load_eject) { /* eject medium */
                 dev->loaded = FALSE;
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " ejected", req->lun);
             }
+            dev->power_cond = CD_SCSI_POWER_STOPPED;
+            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " stopped", req->lun);
         } else { /* start the unit */
+            dev->power_cond = CD_SCSI_POWER_ACTIVE;
+            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " started", req->lun);
+
             if (load_eject) { /* load medium */
                 dev->loaded = TRUE;
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " loaded", req->lun);
