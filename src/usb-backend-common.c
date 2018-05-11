@@ -417,18 +417,23 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
     d->units[unit].blockSize = CD_DEV_BLOCK_SIZE;
     b = open_stream(&d->units[unit], filename);
     if (b) {
-        cd_scsi_device_parameters params = { 0 };
-        params.size = d->units[unit].size;
-        params.block_size = d->units[unit].blockSize;
-        if (params.block_size == CD_DEV_BLOCK_SIZE &&
-            params.size % DVD_DEV_BLOCK_SIZE == 0) {
-            params.block_size = DVD_DEV_BLOCK_SIZE;
-        }
-        params.stream = d->units[unit].stream;
-        SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
-            __FUNCTION__, filename, params.size, params.block_size);
+        cd_scsi_device_parameters dev_params = { 0 };
+        cd_scsi_media_parameters media_params = { 0 };
 
-        b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &params);
+        b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &dev_params);
+        if (b) {
+            media_params.stream = d->units[unit].stream;
+            media_params.size = d->units[unit].size;
+            media_params.block_size = d->units[unit].blockSize;
+            if (media_params.block_size == CD_DEV_BLOCK_SIZE &&
+                media_params.size % DVD_DEV_BLOCK_SIZE == 0) {
+                media_params.block_size = DVD_DEV_BLOCK_SIZE;
+            }
+            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
+                __FUNCTION__, filename, media_params.size, media_params.block_size);
+
+            b = !cd_usb_bulk_msd_load(d->d.msc, unit, &media_params);
+        }
         if (!b) {
             close_stream(&d->units[unit]);
         }

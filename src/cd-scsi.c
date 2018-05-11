@@ -346,7 +346,8 @@ static inline gboolean cd_scsi_target_lun_realized(cd_scsi_target *st, uint32_t 
     return (st->num_luns == 0 || !st->units[lun].realized) ? FALSE : TRUE;
 }
 
-int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_parameters *params)
+int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
+                        const cd_scsi_device_parameters *dev_params)
 {
     cd_scsi_target *st = (cd_scsi_target *)scsi_target;
     cd_scsi_lu *dev;
@@ -360,12 +361,14 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
         return -1;
     }
     dev = &st->units[lun];
+
+    memset(dev, 0, sizeof(*dev));
     dev->tgt = st;
     dev->lun = lun;
 
     dev->realized = TRUE;
     dev->removable = TRUE;
-    dev->loaded = TRUE;
+    dev->loaded = FALSE;
     dev->prevent_media_removal = FALSE;
     dev->cd_rom = FALSE;
 
@@ -373,14 +376,10 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
 
     dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
-    dev->size = params->size;
-    dev->block_size = params->block_size;
-    dev->vendor = g_strdup(params->vendor);
-    dev->product = g_strdup(params->product);
-    dev->version = g_strdup(params->version);
-    dev->serial = g_strdup(params->serial);
-    dev->stream = params->stream;
-    dev->num_blocks = params->size / params->block_size;
+    dev->vendor = g_strdup(dev_params->vendor);
+    dev->product = g_strdup(dev_params->product);
+    dev->version = g_strdup(dev_params->version);
+    dev->serial = g_strdup(dev_params->serial);
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -390,6 +389,74 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
                 " VR:[%s] PT:[%s] ver:[%s] SN[%s]",
                 lun, dev->block_size, dev->vendor,
                 dev->product, dev->version, dev->serial);
+    return 0;
+}
+
+int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
+                     const cd_scsi_media_parameters *media_params)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Load, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Load, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    if (dev->loaded) {
+        // ToDo: implement re-loading with media change notification
+        SPICE_ERROR("Load, lun:%" G_GUINT32_FORMAT " already loaded", lun);
+        return -1;
+    }
+
+    dev->stream = media_params->stream;
+    dev->size = media_params->size;
+    dev->block_size = media_params->block_size;
+    dev->num_blocks = media_params->size / media_params->block_size;
+
+    dev->loaded = TRUE;
+
+    SPICE_DEBUG("Load lun:%" G_GUINT32_FORMAT " size:%" G_GUINT64_FORMAT
+                " blk_sz:%" G_GUINT32_FORMAT " num_blocks:%" G_GUINT32_FORMAT,
+                lun, dev->size, dev->block_size, dev->num_blocks);
+    return 0;
+}
+
+int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Unoad, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Unload, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    if (!dev->loaded) {
+        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
+        return -1;
+    }
+    if (dev->prevent_media_removal) {
+        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
+        return -1;
+    }
+
+    dev->loaded = FALSE;
+
+    dev->stream = NULL;
+    dev->size = 0;
+    dev->block_size = 0;
+    dev->num_blocks = 0;
+
+    SPICE_DEBUG("Unload lun:%" G_GUINT32_FORMAT, lun);
     return 0;
 }
 

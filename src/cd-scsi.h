@@ -101,8 +101,11 @@ cd_scsi_req_state cd_scsi_get_req_state(cd_scsi_request *req);
 void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns); /* to be used in callbacks */
 void cd_scsi_target_free(void *scsi_target);
 
-int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_parameters *param);
+int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, const cd_scsi_device_parameters *dev_params);
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun);
+
+int cd_scsi_dev_load(void *scsi_target, uint32_t lun, const cd_scsi_media_parameters *media_params);
+int cd_scsi_dev_unload(void *scsi_target, uint32_t lun);
 
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *request);
 void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *request);
