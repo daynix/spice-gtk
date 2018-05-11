@@ -19,28 +19,14 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "config.h"
-
-#ifdef IN_QEMU
-    #include "qemu/osdep.h"
-    #include "qapi/error.h"
-    #include "qemu-common.h"
-    #include "hw/usb.h"
-    #include "hw/usb/desc.h"
-
-    #define SPICE_DEBUG(fmt, ...) \
-        do { printf("dev-scsi: " fmt , ## __VA_ARGS__); } while (0)
-
-#else
-    #include "spice/types.h"
-    #include "spice-common.h"
-    #include "spice-util.h"
-#endif
+#include "spice/types.h"
+#include "spice-common.h"
+#include "spice-util.h"
+#include "cd-usb-bulk-msd.h"
+#include "cd-scsi.h"
 
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("usb-msd error: " fmt , ## __VA_ARGS__); } while (0)
-
-#include "cd-usb-bulk-msd.h"
-#include "cd-scsi.h"
 
 enum usb_cd_state {
     USB_CD_STATE_INIT, /* Not ready */

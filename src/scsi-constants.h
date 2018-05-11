@@ -1,12 +1,14 @@
-/* Copyright (C) 1998, 1999 Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
+/* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+   Copyright (C) 2018 Red Hat, Inc.
+   Based on the GLib header
 
-   The GNU C Library is free software; you can redistribute it and/or
+   This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2.1 of the License, or (at your option) any later version.
 
-   The GNU C Library is distributed in the hope that it will be useful,
+   This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Lesser General Public License for more details.
@@ -15,13 +17,8 @@
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
- * This header file contains public constants and structures used by
- * the scsi code for linux.
- */
-
-#ifndef BLOCK_SCSI_H
-#define BLOCK_SCSI_H
+#ifndef __SCSI_CONSTANTS_H__
+#define __SCSI_CONSTANTS_H__
 
 /*
  *      SCSI opcodes
@@ -150,6 +147,12 @@
 #define MECHANISM_STATUS      0xbd
 #define READ_CD               0xbe
 #define SEND_DVD_STRUCTURE    0xbf
+
+/* MMC-specific opcode assignment */
+#define MMC_SEND_EVENT        0xa2
+#define MMC_SEND_KEY          0xa3
+#define MMC_REPORT_KEY        0xa4
+#define MMC_GET_PERFORMANCE   0xac
 
 /*
  * SERVICE ACTION IN subcodes

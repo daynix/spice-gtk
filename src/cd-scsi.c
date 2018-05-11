@@ -1,41 +1,34 @@
+/* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- * USB dev Device emulation - SCSI engine
- *
- * Copyright (c) 2018 RedHat, by Alexander Nezhinsky (anezhins@redhat.com)
- *
- * This code is licensed under the LGPL.
- */
+   CD device emulation - SCSI engine
+   by Alexander Nezhinsky (anezhins@redhat.com)
+
+   Copyright (c) 2018 RedHat
+
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
-
-#ifdef IN_QEMU
-    #include "qemu/osdep.h"
-    #include "qapi/error.h"
-    #include "qemu-common.h"
-    #include "hw/usb.h"
-    #include "hw/usb/desc.h"
-
-    #define SPICE_DEBUG(fmt, ...) \
-        do { printf("dev-scsi: " fmt , ## __VA_ARGS__); } while (0)
-
-#else
-    #include "spice/types.h"
-    #include "spice-common.h"
-    #include "spice-util.h"
-#endif
+#include "spice/types.h"
+#include "spice-common.h"
+#include "spice-util.h"
+#include "cd-scsi.h"
 
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("dev-scsi error: " fmt , ## __VA_ARGS__); } while (0)
 
-#include "cd-scsi.h"
-
 #define MAX_LUNS   32
-
-/* MMC-specific opcode assignment */
-#define SEND_EVENT          0xa2
-#define SEND_KEY            0xa3
-#define REPORT_KEY          0xa4
-#define GET_PERFORMANCE     0xac
 
 struct _cd_scsi_target; /* forward declaration */
 
@@ -1226,10 +1219,6 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_PROFILE_DESC_LEN                 4
 #define CD_PROFILE_CURRENT                  0x01
 
-#define CD_PROFILE_NUM_CD_ROM               0x08
-#define CD_PROFILE_NUM_DVD_ROM              0x10
-
-
 /* Profiles List */
 #define CD_FEATURE_NUM_PROFILES_LIST        0x00
 /* Core - Basic Functionality */
@@ -1288,7 +1277,7 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
 
     /* DVD-ROM profile descriptor */
     add_len = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
-    profile_num = CD_PROFILE_NUM_DVD_ROM;
+    profile_num = MMC_PROFILE_DVD_ROM;
 
     profile[0] = (profile_num >> 8) & 0xff; /* feature code */
     profile[1] = profile_num & 0xff;
@@ -1299,7 +1288,7 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
     profile += CD_PROFILE_DESC_LEN;
 
     /* CD-ROM profile descriptor */
-    profile_num = CD_PROFILE_NUM_CD_ROM;
+    profile_num = MMC_PROFILE_CD_ROM;
     profile[0] = (profile_num >> 8) & 0xff;
     profile[1] = profile_num & 0xff;
     profile[2] = dev->cd_rom ? CD_PROFILE_CURRENT : 0;
@@ -1478,7 +1467,7 @@ static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
 static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t profile_num = (!dev->cd_rom) ? CD_PROFILE_NUM_DVD_ROM : CD_PROFILE_NUM_CD_ROM;
+    uint32_t profile_num = (!dev->cd_rom) ? MMC_PROFILE_DVD_ROM : MMC_PROFILE_CD_ROM;
     uint32_t req_type, start_feature, resp_len;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
@@ -2247,19 +2236,19 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     case ALLOW_MEDIUM_REMOVAL:
         cd_scsi_cmd_allow_medium_removal(dev, req);
         break;
-    case SEND_EVENT:
+    case MMC_SEND_EVENT:
         cd_scsi_cmd_send_event(dev, req);
         break;
-    case REPORT_KEY:
+    case MMC_REPORT_KEY:
         cd_scsi_cmd_report_key(dev, req);
         break;
-    case SEND_KEY:
+    case MMC_SEND_KEY:
         cd_scsi_cmd_send_key(dev, req);
         break;
     case START_STOP:
         cd_scsi_cmd_start_stop_unit(dev, req);
         break;
-    case GET_PERFORMANCE:
+    case MMC_GET_PERFORMANCE:
         cd_scsi_cmd_get_performance(dev, req);
         break;
     case MECHANISM_STATUS:
