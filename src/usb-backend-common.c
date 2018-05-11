@@ -43,7 +43,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
 #define MAX_LUN_PER_DEVICE      1
 #if MAX_LUN_PER_DEVICE > 1
-#define MAX_OWN_DEVICES         3
+#define MAX_OWN_DEVICES         8
 #else
 #define MAX_OWN_DEVICES         32
 #endif
@@ -425,8 +425,8 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
             params.block_size = DVD_DEV_BLOCK_SIZE;
         }
         params.stream = d->units[unit].stream;
-        SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
-            __FUNCTION__, filename, params.size, params.block_size);
+        SPICE_DEBUG("%s: unit %d, ready stream on %s, size %" PRIu64 ", block %u",
+            __FUNCTION__, unit, filename, params.size, params.block_size);
 
         b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &params);
         if (!b) {
@@ -440,22 +440,6 @@ void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
 {
     int i;
     gboolean b = FALSE;
-    for (i = 0; !b && i < MAX_OWN_DEVICES; i++) {
-        if ((1 << i) & ~own_devices.active_devices) {
-            b = activate_device(&own_devices.devices[i], filename, 0);
-            if (b) {
-                own_devices.active_devices |= 1 << i;
-            }
-#ifdef G_OS_WIN32
-            spice_usb_backend_indicate_dev_change();
-#else
-            if (be->hp_callback) {
-                SpiceUsbBackendDevice *d = &own_devices.devices[i];
-                be->hp_callback(be->hp_user_data, d, TRUE);
-            }
-#endif
-        }
-    }
     for (i = 2; !b && i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & own_devices.active_devices) {
             int j;
@@ -467,8 +451,22 @@ void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
                     }
                 }
             }
+        } else {
+            b = activate_device(&own_devices.devices[i], filename, 0);
+            if (b) {
+                own_devices.active_devices |= 1 << i;
+#ifdef G_OS_WIN32
+                spice_usb_backend_indicate_dev_change();
+#else
+                if (be->hp_callback) {
+                    SpiceUsbBackendDevice *d = &own_devices.devices[i];
+                    be->hp_callback(be->hp_user_data, d, TRUE);
+                }
+#endif
+            }
         }
     }
+
     if (!b) {
         SPICE_DEBUG("can not create device %s", filename);
     }
