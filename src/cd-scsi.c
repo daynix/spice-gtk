@@ -1,43 +1,43 @@
+/* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- * USB dev Device emulation - SCSI engine
- *
- * Copyright (c) 2018 RedHat, by Alexander Nezhinsky (anezhins@redhat.com)
- *
- * This code is licensed under the LGPL.
- */
+   CD device emulation - SCSI engine
+   by Alexander Nezhinsky (anezhins@redhat.com)
+
+   Copyright (c) 2018 RedHat
+
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
-
-#ifdef IN_QEMU
-    #include "qemu/osdep.h"
-    #include "qapi/error.h"
-    #include "qemu-common.h"
-    #include "hw/usb.h"
-    #include "hw/usb/desc.h"
-
-    #define SPICE_DEBUG(fmt, ...) \
-        do { printf("dev-scsi: " fmt , ## __VA_ARGS__); } while (0)
-
-#else
-    #include "spice/types.h"
-    #include "spice-common.h"
-    #include "spice-util.h"
-#endif
+#include "spice/types.h"
+#include "spice-common.h"
+#include "spice-util.h"
+#include "cd-scsi.h"
 
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("dev-scsi error: " fmt , ## __VA_ARGS__); } while (0)
 
-#include "cd-scsi.h"
-
 #define MAX_LUNS   32
 
-/* MMC-specific opcode assignment */
-#define SEND_EVENT          0xa2
-#define SEND_KEY            0xa3
-#define REPORT_KEY          0xa4
-#define GET_PERFORMANCE     0xac
-
 struct _cd_scsi_target; /* forward declaration */
+
+enum cd_scsi_power_condition {
+    CD_SCSI_POWER_STOPPED,
+    CD_SCSI_POWER_ACTIVE,
+    CD_SCSI_POWER_IDLE,
+    CD_SCSI_POWER_STANDBY
+};
 
 typedef struct _cd_scsi_lu
 {
@@ -49,6 +49,8 @@ typedef struct _cd_scsi_lu
     gboolean loaded;
     gboolean prevent_media_removal;
     gboolean cd_rom;
+
+    enum cd_scsi_power_condition power_cond;
 
     uint32_t claim_version;
 
@@ -93,14 +95,39 @@ const scsi_short_sense sense_code_NO_SENSE = {
     .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00
 };
 
-/* LUN not ready, Manual intervention required */
+/* LUN not ready, Caused not reportable */
 const scsi_short_sense sense_code_LUN_NOT_READY = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x00
+};
+
+/* LUN not ready, in process of becoming ready */
+const scsi_short_sense sense_code_BECOMING_READY = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x01
+};
+
+/* LUN not ready, Caused not reportable */
+const scsi_short_sense sense_code_INIT_CMD_REQUIRED = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x02
+};
+
+/* LUN not ready, Manual intervention required */
+const scsi_short_sense sense_code_INTERVENTION_REQUIRED = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x03
 };
 
 /* LUN not ready, Medium not present */
 const scsi_short_sense sense_code_NO_MEDIUM = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x00
+};
+
+/* LUN not ready, Medium not present - Tray Closed */
+const scsi_short_sense sense_code_NO_MEDIUM_TRAY_CLOSED = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x01
+};
+
+/* LUN not ready, Medium not present - Tray Open */
+const scsi_short_sense sense_code_NO_MEDIUM_TRAY_OPEN = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x02
 };
 
 /* LUN not ready, medium removal prevented */
@@ -341,6 +368,9 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_paramete
     dev->loaded = TRUE;
     dev->prevent_media_removal = FALSE;
     dev->cd_rom = FALSE;
+
+    dev->power_cond = CD_SCSI_POWER_ACTIVE;
+
     dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
     dev->size = params->size;
@@ -397,6 +427,8 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
 
     dev->loaded = FALSE;
     dev->realized = FALSE;
+    dev->power_cond = CD_SCSI_POWER_STOPPED;
+
     st->num_luns --;
 
     SPICE_DEBUG("Unrealize lun:%" G_GUINT32_FORMAT, lun);
@@ -573,7 +605,16 @@ static void cd_scsi_cmd_test_unit_ready(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
-    cd_scsi_cmd_complete_good(dev, req);
+
+    if (dev->power_cond != CD_SCSI_POWER_STOPPED) {
+        if (dev->loaded) {
+            cd_scsi_cmd_complete_good(dev, req);
+        } else {
+            cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        }
+    } else {
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+    }
 }
 
 static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
@@ -1178,10 +1219,6 @@ static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_PROFILE_DESC_LEN                 4
 #define CD_PROFILE_CURRENT                  0x01
 
-#define CD_PROFILE_NUM_CD_ROM               0x08
-#define CD_PROFILE_NUM_DVD_ROM              0x10
-
-
 /* Profiles List */
 #define CD_FEATURE_NUM_PROFILES_LIST        0x00
 /* Core - Basic Functionality */
@@ -1240,7 +1277,7 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
 
     /* DVD-ROM profile descriptor */
     add_len = CD_PROFILE_DESC_LEN; /* start with single profile, add later */
-    profile_num = CD_PROFILE_NUM_DVD_ROM;
+    profile_num = MMC_PROFILE_DVD_ROM;
 
     profile[0] = (profile_num >> 8) & 0xff; /* feature code */
     profile[1] = profile_num & 0xff;
@@ -1251,7 +1288,7 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
     profile += CD_PROFILE_DESC_LEN;
 
     /* CD-ROM profile descriptor */
-    profile_num = CD_PROFILE_NUM_CD_ROM;
+    profile_num = MMC_PROFILE_CD_ROM;
     profile[0] = (profile_num >> 8) & 0xff;
     profile[1] = profile_num & 0xff;
     profile[2] = dev->cd_rom ? CD_PROFILE_CURRENT : 0;
@@ -1430,7 +1467,7 @@ static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
 static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t profile_num = (!dev->cd_rom) ? CD_PROFILE_NUM_DVD_ROM : CD_PROFILE_NUM_CD_ROM;
+    uint32_t profile_num = (!dev->cd_rom) ? MMC_PROFILE_DVD_ROM : MMC_PROFILE_CD_ROM;
     uint32_t req_type, start_feature, resp_len;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
@@ -1682,11 +1719,14 @@ static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
-#define CD_START_STOP_FLAG_IMMED                    0x01 /* byte 0 */
+/* byte 1 */
+#define CD_START_STOP_FLAG_IMMED                    0x01
 
-#define CD_START_STOP_FLAG_START                    0x01 /* byte 1 */
+/* byte 4 */
+#define CD_START_STOP_FLAG_START                    0x01
 #define CD_START_STOP_FLAG_LOEJ                     0x02
 
+/* POWER CONDITION field values */
 #define CD_START_STOP_POWER_COND_START_VALID        0x00
 #define CD_START_STOP_POWER_COND_ACTIVE             0x01
 #define CD_START_STOP_POWER_COND_IDLE               0x02
@@ -1695,23 +1735,85 @@ static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_START_STOP_POWER_COND_FORCE_IDLE_0       0x0a
 #define CD_START_STOP_POWER_COND_FORCE_STANDBY_0    0x0b
 
+static inline const char *cd_scsi_start_stop_power_cond_name(uint32_t power_cond)
+{
+    switch (power_cond) {
+    case CD_START_STOP_POWER_COND_START_VALID:
+        return "START_VALID";
+    case CD_START_STOP_POWER_COND_ACTIVE:
+        return "ACTIVE";
+    case CD_START_STOP_POWER_COND_IDLE:
+        return "IDLE";
+    case CD_START_STOP_POWER_COND_STANDBY:
+        return "STANDBY";
+    case CD_START_STOP_POWER_COND_LU_CONTROL:
+        return "LU_CONTROL";
+    case CD_START_STOP_POWER_COND_FORCE_IDLE_0:
+        return "FORCE_IDLE_0";
+    case CD_START_STOP_POWER_COND_FORCE_STANDBY_0:
+        return "FORCE_STANDBY_0";
+    default:
+        return "RESERVED";
+    }
+}
+
 static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
 {
-    uint32_t immed, start, loej, power_cond;
+    gboolean immed, start, load_eject;
+    uint32_t power_cond;
 
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
 
-    immed = req->cdb[1] & CD_GET_EVENT_STATUS_IMMED;
-    start = req->cdb[4] & CD_START_STOP_POWER_COND_START_VALID;
-    loej = req->cdb[4] & CD_START_STOP_FLAG_LOEJ;
+    immed = (req->cdb[1] & CD_START_STOP_FLAG_IMMED) ? TRUE : FALSE;
+    start = (req->cdb[4] & CD_START_STOP_FLAG_START) ? TRUE : FALSE;
+    load_eject = (req->cdb[4] & CD_START_STOP_FLAG_LOEJ) ? TRUE : FALSE;
     power_cond = req->cdb[4] >> 4;
 
     SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
-                " immed:%" G_GUINT32_FORMAT " start:%" G_GUINT32_FORMAT
-                " loej:%" G_GUINT32_FORMAT " power_cond:0x%x",
-                req->lun, immed, start, loej, power_cond);
+                " immed:%d start:%d load_eject:%d power_cond:0x%x(%s)",
+                req->lun, immed, start, load_eject, power_cond,
+                cd_scsi_start_stop_power_cond_name(power_cond));
 
+    switch (power_cond) {
+    case CD_START_STOP_POWER_COND_START_VALID:
+        if (!start) { /* stop the unit */
+            if (load_eject) { /* eject medium */
+                dev->loaded = FALSE;
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " ejected", req->lun);
+            }
+            dev->power_cond = CD_SCSI_POWER_STOPPED;
+            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " stopped", req->lun);
+        } else { /* start the unit */
+            dev->power_cond = CD_SCSI_POWER_ACTIVE;
+            SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " started", req->lun);
+
+            if (load_eject) { /* load medium */
+                dev->loaded = TRUE;
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " loaded", req->lun);
+            }
+        }
+        break;
+    case CD_START_STOP_POWER_COND_ACTIVE:
+        dev->power_cond = CD_SCSI_POWER_ACTIVE;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " active", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_IDLE:
+    case CD_START_STOP_POWER_COND_FORCE_IDLE_0:
+        dev->power_cond = CD_SCSI_POWER_IDLE;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " idle", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_STANDBY:
+    case CD_START_STOP_POWER_COND_FORCE_STANDBY_0:
+        dev->power_cond = CD_SCSI_POWER_STANDBY;
+        SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " standby", req->lun);
+        break;
+    case CD_START_STOP_POWER_COND_LU_CONTROL:
+        break;
+    default:
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
     cd_scsi_cmd_complete_good(dev, req);
 }
 
@@ -2008,6 +2110,16 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
 
 static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
 {
+    if (dev->power_cond == CD_SCSI_POWER_STOPPED) {
+        SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        return;
+    } else if (!dev->loaded) {
+        SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is not loaded", req->lun);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        return;
+    }
+
     req->cdb_len = scsi_cdb_length(req->cdb);
 
     req->lba = scsi_cdb_lba(req->cdb, req->cdb_len);
@@ -2124,19 +2236,19 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     case ALLOW_MEDIUM_REMOVAL:
         cd_scsi_cmd_allow_medium_removal(dev, req);
         break;
-    case SEND_EVENT:
+    case MMC_SEND_EVENT:
         cd_scsi_cmd_send_event(dev, req);
         break;
-    case REPORT_KEY:
+    case MMC_REPORT_KEY:
         cd_scsi_cmd_report_key(dev, req);
         break;
-    case SEND_KEY:
+    case MMC_SEND_KEY:
         cd_scsi_cmd_send_key(dev, req);
         break;
     case START_STOP:
         cd_scsi_cmd_start_stop_unit(dev, req);
         break;
-    case GET_PERFORMANCE:
+    case MMC_GET_PERFORMANCE:
         cd_scsi_cmd_get_performance(dev, req);
         break;
     case MECHANISM_STATUS:
@@ -2191,4 +2303,3 @@ void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
         cd_scsi_target_do_reset(st);
     }
 }
-
