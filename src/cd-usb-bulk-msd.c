@@ -140,23 +140,18 @@ void *cd_usb_bulk_msd_alloc(void *usb_user_data, uint32_t max_luns)
 }
 
 int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
-                            const cd_scsi_device_parameters *params)
+                            const cd_scsi_device_parameters *dev_params)
 {
     usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
-    cd_scsi_device_parameters dev_params;
+    cd_scsi_device_parameters scsi_dev_params;
     int rc;
 
-    dev_params.size = params->size;
-    dev_params.block_size = params->block_size;
+    scsi_dev_params.vendor = dev_params->vendor ? : "SPICE";
+    scsi_dev_params.product = dev_params->product ? : "USB-CD";
+    scsi_dev_params.version = dev_params->version ? : "0.1";
+    scsi_dev_params.serial = dev_params->serial ? : "123456";
 
-    dev_params.vendor = params->vendor ? : "SPICE";
-    dev_params.product = params->product ? : "USB-CD";
-    dev_params.version = params->version ? : "0.1";
-    dev_params.serial = params->serial ? : "123456";
-
-    dev_params.stream = params->stream;
-
-    rc = cd_scsi_dev_realize(cd->scsi_target, lun, &dev_params);
+    rc = cd_scsi_dev_realize(cd->scsi_target, lun, &scsi_dev_params);
     if (rc != 0) {
         SPICE_ERROR("Failed to realize lun:%" G_GUINT32_FORMAT, lun);
         return rc;
@@ -168,6 +163,37 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     }
 
     SPICE_DEBUG("Realize OK lun:%" G_GUINT32_FORMAT, lun);
+    return 0;
+}
+
+int cd_usb_bulk_msd_load(void *device, uint32_t lun,
+                         const cd_scsi_media_parameters *media_params)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    int rc;
+
+    rc = cd_scsi_dev_load(cd->scsi_target, lun, media_params);
+    if (rc != 0) {
+        SPICE_ERROR("Failed to load lun:%" G_GUINT32_FORMAT, lun);
+        return rc;
+    }
+
+    SPICE_DEBUG("Load OK lun:%" G_GUINT32_FORMAT, lun);
+    return 0;
+}
+
+int cd_usb_bulk_msd_unload(void *device, uint32_t lun)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    int rc;
+
+    rc = cd_scsi_dev_unload(cd->scsi_target, lun);
+    if (rc != 0) {
+        SPICE_ERROR("Failed to unload lun:%" G_GUINT32_FORMAT, lun);
+        return rc;
+    }
+
+    SPICE_DEBUG("Unload OK lun:%" G_GUINT32_FORMAT, lun);
     return 0;
 }
 

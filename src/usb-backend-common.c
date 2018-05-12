@@ -41,12 +41,13 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include <linux/fs.h>
 #endif
 
-#define MAX_LUN_PER_DEVICE      1
+#define MAX_LUN_PER_DEVICE      4
 #if MAX_LUN_PER_DEVICE > 1
-#define MAX_OWN_DEVICES         8
+#define MAX_OWN_DEVICES         4
 #else
-#define MAX_OWN_DEVICES         32
+#define MAX_OWN_DEVICES         16
 #endif
+
 #define OWN_BUS_NUM             0xff
 #define USB2_BCD                0x200
 #define CD_DEV_VID              0x1c6b
@@ -407,7 +408,9 @@ void cd_usb_bulk_msd_reset_complete(void *user_data, int status)
 
 static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, int unit)
 {
+    cd_scsi_device_parameters dev_params = { 0 };
     gboolean b = FALSE;
+
     if (!d->d.msc) {
         d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);
         if (!d->d.msc) {
@@ -415,20 +418,24 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
         }
     }
     d->units[unit].blockSize = CD_DEV_BLOCK_SIZE;
-    b = open_stream(&d->units[unit], filename);
-    if (b) {
-        cd_scsi_device_parameters params = { 0 };
-        params.size = d->units[unit].size;
-        params.block_size = d->units[unit].blockSize;
-        if (params.block_size == CD_DEV_BLOCK_SIZE &&
-            params.size % DVD_DEV_BLOCK_SIZE == 0) {
-            params.block_size = DVD_DEV_BLOCK_SIZE;
-        }
-        params.stream = d->units[unit].stream;
-        SPICE_DEBUG("%s: unit %d, ready stream on %s, size %" PRIu64 ", block %u",
-            __FUNCTION__, unit, filename, params.size, params.block_size);
+    b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &dev_params);
+    if (b && filename != NULL) {
+        cd_scsi_media_parameters media_params = { 0 };
 
-        b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &params);
+        b = open_stream(&d->units[unit], filename);
+        if (b) {
+            media_params.stream = d->units[unit].stream;
+            media_params.size = d->units[unit].size;
+            media_params.block_size = d->units[unit].blockSize;
+            if (media_params.block_size == CD_DEV_BLOCK_SIZE &&
+                media_params.size % DVD_DEV_BLOCK_SIZE == 0) {
+                media_params.block_size = DVD_DEV_BLOCK_SIZE;
+            }
+            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
+                __FUNCTION__, filename, media_params.size, media_params.block_size);
+
+            b = !cd_usb_bulk_msd_load(d->d.msc, unit, &media_params);
+        }
         if (!b) {
             close_stream(&d->units[unit]);
         }
@@ -441,17 +448,10 @@ void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
     int i;
     gboolean b = FALSE;
     for (i = 2; !b && i < MAX_OWN_DEVICES; i++) {
-        if ((1 << i) & own_devices.active_devices) {
-            int j;
-            for (j = 0; !b && j < MAX_LUN_PER_DEVICE; j++) {
-                if (!own_devices.devices[i].units[j].stream) {
-                    b = activate_device(&own_devices.devices[i], filename, j);
-                    if (!b) {
-                        break;
-                    }
-                }
-            }
-        } else {
+        if ((1 << i) & ~own_devices.active_devices) { /* inactive usb device */
+            SPICE_DEBUG("%s: add file %s to device %d (activate now) as lun 0",
+                        __FUNCTION__, filename, i);
+
             b = activate_device(&own_devices.devices[i], filename, 0);
             if (b) {
                 own_devices.active_devices |= 1 << i;
@@ -464,9 +464,24 @@ void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
                 }
 #endif
             }
+        } else { /* active device, add as the next lun */
+            int j;
+            for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
+                if (!own_devices.devices[i].units[j].stream) {
+                    SPICE_DEBUG("%s: add file %s to device %d (already active) as lun %d",
+                                __FUNCTION__, filename, i, j);
+
+                    b = activate_device(&own_devices.devices[i], filename, j);
+                    if (!b) {
+                        SPICE_DEBUG("%s: failed to add file %s to device %d (already active) as lun %d",
+                                    __FUNCTION__, filename, i, j);
+                        b = TRUE; /* exit outer loop */
+                    }
+                    break;
+                }
+            }
         }
     }
-
     if (!b) {
         SPICE_DEBUG("can not create device %s", filename);
     }

@@ -1,7 +1,26 @@
-/* cd-scsi.h */
+/* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/*
+   CD device emulation - SCSI engine - API
+   by Alexander Nezhinsky (anezhins@redhat.com)
 
-#ifndef _CD_SCSI_H_
-#define _CD_SCSI_H_
+   Copyright (C) 2018 Red Hat, Inc.
+
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, see <http://www.gnu.org/licenses/>.
+*/
+
+#ifndef __CD_SCSI_H__
+#define __CD_SCSI_H__
 
 #include "cd-scsi-dev-params.h"
 #include "cd-usb-bulk-msd.h"
@@ -82,8 +101,11 @@ cd_scsi_req_state cd_scsi_get_req_state(cd_scsi_request *req);
 void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns); /* to be used in callbacks */
 void cd_scsi_target_free(void *scsi_target);
 
-int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, cd_scsi_device_parameters *param);
+int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, const cd_scsi_device_parameters *dev_params);
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun);
+
+int cd_scsi_dev_load(void *scsi_target, uint32_t lun, const cd_scsi_media_parameters *media_params);
+int cd_scsi_dev_unload(void *scsi_target, uint32_t lun);
 
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *request);
 void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *request);
@@ -99,4 +121,4 @@ void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *reque
 void cd_scsi_dev_reset_complete(void *target_user_data, uint32_t lun);
 void cd_scsi_target_reset_complete(void *target_user_data);
 
-#endif /* _CD_SCSI_H_ */
+#endif /* __CD_SCSI_H__ */

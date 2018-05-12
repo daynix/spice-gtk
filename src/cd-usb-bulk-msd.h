@@ -60,9 +60,19 @@ void cd_usb_bulk_msd_free(void *device);
 /* configure a new Logical Unit to be represented by the device
    returns: error code
 */
-int cd_usb_bulk_msd_realize(void *device,
-                            uint32_t lun,
-                            const cd_scsi_device_parameters *params);
+int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
+                            const cd_scsi_device_parameters *dev_params);
+
+/* load new media, if already loaded, simulate media change
+   returns: error code
+*/
+int cd_usb_bulk_msd_load(void *device, uint32_t lun,
+                         const cd_scsi_media_parameters *media_params);
+
+/* unload the media
+   returns: error code
+*/
+int cd_usb_bulk_msd_unload(void *device, uint32_t lun);
 
 /* detach a Logical Unit
    returns: error code
