@@ -143,6 +143,14 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
 
 gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self);
 
+gboolean spice_usb_device_manager_share_cd(SpiceUsbDeviceManager *self,
+    gchar *filename);
+
+void spice_usb_device_manager_unshare_cd(SpiceUsbDeviceManager *self,
+                                         gchar *filename);
+
+const gchar **spice_usb_device_manager_get_cds(SpiceUsbDeviceManager *self);
+
 G_END_DECLS
 
 #endif /* __SPICE_USB_DEVICE_MANAGER_H__ */

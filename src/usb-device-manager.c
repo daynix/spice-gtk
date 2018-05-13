@@ -2008,4 +2008,23 @@ spice_usb_device_manager_device_to_bdev(SpiceUsbDeviceManager *self,
     return info->bdev;
 #endif
 }
+
+gboolean spice_usb_device_manager_share_cd(SpiceUsbDeviceManager *self, gchar *filename)
+{
+    SpiceUsbDeviceManagerPrivate *priv = self->priv;
+    return spice_usb_backend_add_cd(filename, priv->context);
+}
+
+void spice_usb_device_manager_unshare_cd(SpiceUsbDeviceManager *self, gchar *filename)
+{
+    SpiceUsbDeviceManagerPrivate *priv = self->priv;
+    spice_usb_backend_remove_cd(filename, priv->context);
+}
+
+const gchar **spice_usb_device_manager_get_cds(SpiceUsbDeviceManager *self)
+{
+    return spice_usb_backend_get_shared_cds();
+}
+
+
 #endif /* USE_USBREDIR */

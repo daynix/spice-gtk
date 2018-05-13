@@ -85,7 +85,9 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch, cons
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
 void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch);
 
-void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be);
+gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be);
+void spice_usb_backend_remove_cd(const char *filename, SpiceUsbBackend *be);
+const gchar ** spice_usb_backend_get_shared_cds(void);
 
 G_END_DECLS
 
