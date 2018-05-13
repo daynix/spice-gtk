@@ -853,6 +853,9 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_VERSION_NONE                0x00
 #define INQUIRY_VERSION_SPC3                0x05
 
+/* byte 3 */
+#define INQUIRY_RESP_HISUP                  (0x01 << 4)
+#define INQUIRY_RESP_NORM_ACA               (0x01 << 5)
 #define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
 
 #define INQUIRY_VERSION_DESC_SAM2           0x040
@@ -889,7 +892,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     outbuf[0] = (PERIF_QUALIFIER_CONNECTED << 5) | TYPE_ROM;
     outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
     outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
-    outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
+    outbuf[3] = INQUIRY_RESP_NORM_ACA | INQUIRY_RESP_HISUP | INQUIRY_RESP_DATA_FORMAT_SPC3;
 
     outbuf[4] = resp_len - 4;
 
