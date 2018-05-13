@@ -900,13 +900,6 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     uint8_t *outbuf = req->buf;
     uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
 
-    if (req->cdb[2] != 0) {
-        SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
-                    req->lun, (int)req->cdb[2]);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
-        return;
-    }
-
     outbuf[0] = (PERIF_QUALIFIER_CONNECTED << 5) | TYPE_ROM;
     outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
     outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
@@ -942,19 +935,38 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define CD_INQUIRY_FLAG_EVPD                0x01
+#define CD_INQUIRY_FLAG_CMD_DT              0x02
+
 static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
 {
+    gboolean evpd, cmd_data;
+
     req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    evpd = (req->cdb[1] & CD_INQUIRY_FLAG_EVPD) ? TRUE : FALSE;
+    cmd_data = (req->cdb[1] & CD_INQUIRY_FLAG_CMD_DT) ? TRUE : FALSE;
+
+    if (cmd_data) {
+        SPICE_DEBUG("inquiry, lun:%" G_GUINT32_FORMAT " CmdDT bit set - unsupported, "
+                    "cdb[1]:0x%02x cdb[1]:0x%02x",
+                    req->lun, (int)req->cdb[1], (int)req->cdb[2]);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
 
     req->req_len = req->cdb[4] | (req->cdb[3] << 8);
     memset(req->buf, 0, req->req_len);
 
-    if (req->cdb[1] & 0x1) {
-        /* Vital product data */
+    if (evpd) { /* enable vital product data */
         cd_scsi_cmd_inquiry_vpd(dev, req);
-    }
-    else {
-        /* Standard INQUIRY data */
+    } else { /* standard inquiry data */
+        if (req->cdb[2] != 0) {
+            SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " non-zero page code: %02x",
+                        req->lun, (int)req->cdb[2]);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            return;
+        }
         cd_scsi_cmd_inquiry_standard(dev, req);
     }
 }
