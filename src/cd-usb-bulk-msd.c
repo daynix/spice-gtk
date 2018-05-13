@@ -205,7 +205,7 @@ int cd_usb_bulk_msd_unrealize(void *device, uint32_t lun)
     rc = cd_scsi_dev_unrealize(cd->scsi_target, lun);
     if (rc != 0) {
         SPICE_ERROR("Unrealize lun:%" G_GUINT32_FORMAT, lun);
-        return 0;
+        return rc;
     }
 
     SPICE_DEBUG("Unrealize lun:%" G_GUINT32_FORMAT, lun);
