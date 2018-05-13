@@ -41,11 +41,11 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include <linux/fs.h>
 #endif
 
-#define MAX_LUN_PER_DEVICE      4
+#define MAX_LUN_PER_DEVICE      2
 #if MAX_LUN_PER_DEVICE > 1
 #define MAX_OWN_DEVICES         4
 #else
-#define MAX_OWN_DEVICES         16
+#define MAX_OWN_DEVICES         8
 #endif
 
 #define OWN_BUS_NUM             0xff
@@ -443,11 +443,36 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
     return b;
 }
 
-void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
+static gboolean stop_device(SpiceUsbBackendDevice *d, int unit)
+{
+    int j;
+    gboolean empty = TRUE;
+
+    cd_usb_bulk_msd_unrealize(d->d.msc, unit);
+    if (d->units[unit].filename) {
+        g_free(d->units[unit].filename);
+        d->units[unit].filename = NULL;
+    }
+    close_stream(&d->units[unit]);
+
+    for (j = 0; empty && j < MAX_LUN_PER_DEVICE; ++j) {
+        if (d->units[j].filename) {
+            empty = FALSE;
+        }
+    }
+    if (empty) {
+        cd_usb_bulk_msd_free(d->d.msc);
+        d->d.msc = NULL;
+        d->configured = 0;
+    }
+    return empty;
+}
+
+gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
 {
     int i;
     gboolean b = FALSE;
-    for (i = 2; !b && i < MAX_OWN_DEVICES; i++) {
+    for (i = 0; !b && i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & ~own_devices.active_devices) { /* inactive usb device */
             SPICE_DEBUG("%s: add file %s to device %d (activate now) as lun 0",
                         __FUNCTION__, filename, i);
@@ -485,6 +510,58 @@ void spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
     if (!b) {
         SPICE_DEBUG("can not create device %s", filename);
     }
+    return b;
+}
+
+void spice_usb_backend_remove_cd(const char *filename, SpiceUsbBackend *be)
+{
+    int i;
+    for (i = 0; i < MAX_OWN_DEVICES; i++) {
+        if ((1 << i) & own_devices.active_devices) { /* active usb device */
+            int j;
+            for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
+                char *name = own_devices.devices[i].units[j].filename;
+                if (name && !strcmp(name, filename)) {
+                    SPICE_DEBUG("%s: unshare %s, %d:%d",
+                        __FUNCTION__, filename, i, j);
+                    if (stop_device(&own_devices.devices[i], j)) {
+                        // usb device does not have any active unit
+                        // removing it
+                        own_devices.active_devices &= ~(1 << i);
+#ifdef G_OS_WIN32
+                        spice_usb_backend_indicate_dev_change();
+#else
+                        if (be->hp_callback) {
+                            SpiceUsbBackendDevice *d = &own_devices.devices[i];
+                            be->hp_callback(be->hp_user_data, d, FALSE);
+                        }
+#endif
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+const gchar ** spice_usb_backend_get_shared_cds(void)
+{
+    int i, index = 0;
+    const gchar **list = g_new0(const gchar *, MAX_OWN_DEVICES * MAX_LUN_PER_DEVICE + 1);
+
+    for (i = 0; i < MAX_OWN_DEVICES; i++) {
+        if ((1 << i) & own_devices.active_devices) { /* active usb device */
+            int j;
+            for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
+                char *name = own_devices.devices[i].units[j].filename;
+                if (name) {
+                    list[index++] = name;
+                }
+            }
+        }
+    }
+
+    return list;
 }
 
 static void initialize_own_devices(void)
@@ -492,11 +569,10 @@ static void initialize_own_devices(void)
     int i;
     // addresses 0 and 1 excluded as they are treated as
     // not suitable for redirection
-    own_devices.active_devices = 3;
     for (i = 0; i < MAX_OWN_DEVICES; i++) {
         own_devices.devices[i].mutex = g_mutex;
         own_devices.devices[i].device_info.bus = OWN_BUS_NUM;
-        own_devices.devices[i].device_info.address = i;
+        own_devices.devices[i].device_info.address = i + 2;
         own_devices.devices[i].device_info.vid = CD_DEV_VID;
         own_devices.devices[i].device_info.pid = CD_DEV_PID;
         own_devices.devices[i].device_info.class = 0;
@@ -668,7 +744,7 @@ SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
         return NULL;
     }
 
-    for (i = 2; i < MAX_OWN_DEVICES; ++i) {
+    for (i = 0; i < MAX_OWN_DEVICES; ++i) {
         if (own_devices.active_devices & (1 << i)) {
             n++;
         }
@@ -696,7 +772,7 @@ SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
 
     usbredir_lock_lock(g_mutex);
 
-    for (i = 2; i < MAX_OWN_DEVICES; ++i) {
+    for (i = 0; i < MAX_OWN_DEVICES; ++i) {
         d = &own_devices.devices[i];
         if ((own_devices.active_devices & (1 << i)) && index < n) {
             list[index++] = d;
