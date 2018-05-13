@@ -229,17 +229,23 @@
 
 /* Mode page codes for mode sense/set */
 #define MODE_PAGE_R_W_ERROR                   0x01
+#define MODE_PAGE_MRW                         0x03
 #define MODE_PAGE_HD_GEOMETRY                 0x04
-#define MODE_PAGE_FLEXIBLE_DISK_GEOMETRY      0x05
+#define MODE_PAGE_FLEXIBLE_DISK_GEOMETRY      0x05 /* SBC */
+#define MODE_PAGE_WRITE_PARAMETER             0x05 /* MMC */
 #define MODE_PAGE_CACHING                     0x08
+#define MODE_PAGE_CD_DEVICE                   0x0d
 #define MODE_PAGE_AUDIO_CTL                   0x0e
 #define MODE_PAGE_POWER                       0x1a
 #define MODE_PAGE_FAULT_FAIL                  0x1c
 #define MODE_PAGE_TO_PROTECT                  0x1d
-#define MODE_PAGE_CAPABILITIES                0x2a
+#define MODE_PAGE_CAPS_MECH_STATUS            0x2a
+#define MODE_PAGE_MRW_VENDOR                  0x2C
 #define MODE_PAGE_ALLS                        0x3f
 /* Not in Mt. Fuji, but in ATAPI 2.6 -- deprecated now in favor
  * of MODE_PAGE_SENSE_POWER */
+#define MODE_PAGE_CDROM                       0x0d
+
 #define MODE_PAGE_CDROM                       0x0d
 
 /* Event notification classes for GET EVENT STATUS NOTIFICATION */

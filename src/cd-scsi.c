@@ -788,20 +788,6 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         }
         outbuf[buflen++] = 0x83; // device identification
 
-        //DISK
-        //outbuf[buflen++] = 0xb0; // block limits
-        //outbuf[buflen++] = 0xb1; /* block device characteristics */
-        //outbuf[buflen++] = 0xb2; // thin provisioning
-
-        // MMC
-        //outbuf[buflen++] = 0x01; // Read/Write Error Recovery
-        //outbuf[buflen++] = 0x03; // MRW
-        //outbuf[buflen++] = 0x05; // Write Parameter
-        //outbuf[buflen++] = 0x08; // Caching
-        //outbuf[buflen++] = 0x1A; // Power Condition
-        //outbuf[buflen++] = 0x1C; // Informational Exceptions
-        //outbuf[buflen++] = 0x1D; // Time-out & Protect
-
         break;
     }
     case 0x80: /* Device serial number, optional */
@@ -1198,20 +1184,66 @@ static void cd_scsi_cmd_read_toc(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_MODE_PARAM_6_LEN_HEADER              4
 #define CD_MODE_PARAM_10_LEN_HEADER             8
 
-#define CD_MODE_PAGE_NUM_CAPS_MECH_STATUS       0x2a
+#define CD_MODE_PAGE_LEN_RW_ERROR               12
+
+static uint32_t cd_scsi_add_mode_page_rw_error_recovery(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_RW_ERROR;
+
+    outbuf[0] = MODE_PAGE_R_W_ERROR;
+    outbuf[1] = CD_MODE_PAGE_LEN_RW_ERROR - 2;
+    outbuf[3] = 1; /* read retry count */
+
+    return page_len;
+}
+
+#define CD_MODE_PAGE_LEN_POWER                  12
+
+static uint32_t cd_scsi_add_mode_page_power_condition(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_POWER;
+
+    outbuf[0] = MODE_PAGE_POWER;
+    outbuf[1] = CD_MODE_PAGE_LEN_POWER - 2;
+
+    return page_len;
+}
+
+#define CD_MODE_PAGE_LEN_FAULT_FAIL             12
+#define CD_MODE_PAGE_FAULT_FAIL_FLAG_PERF       0x80
+
+static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_FAULT_FAIL;
+
+    outbuf[0] = MODE_PAGE_FAULT_FAIL;
+    outbuf[1] = CD_MODE_PAGE_LEN_FAULT_FAIL - 2;
+    outbuf[2] |= CD_MODE_PAGE_FAULT_FAIL_FLAG_PERF;
+
+    return page_len;
+}
+
 #define CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO    26
+/* byte 2 */
 #define CD_MODE_PAGE_CAPS_CD_R_READ             0x01
 #define CD_MODE_PAGE_CAPS_CD_RW_READ            (0x01 << 1)
+#define CD_MODE_PAGE_CAPS_DVD_ROM_READ          (0x01 << 3)
+#define CD_MODE_PAGE_CAPS_DVD_R_READ            (0x01 << 4)
+#define CD_MODE_PAGE_CAPS_DVD_RAM_READ          (0x01 << 5)
+/* byte 6 */
+#define CD_MODE_PAGE_CAPS_EJECT                 (0x01 << 3)
 #define CD_MODE_PAGE_CAPS_LOADING_TRAY          (0x01 << 5)
 
 static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO; /* no write */
 
-    outbuf[0] = CD_MODE_PAGE_NUM_CAPS_MECH_STATUS;
+    outbuf[0] = MODE_PAGE_CAPS_MECH_STATUS;
     outbuf[1] = page_len;
-    outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ;
-    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY;
+    outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ |
+                CD_MODE_PAGE_CAPS_DVD_ROM_READ | CD_MODE_PAGE_CAPS_DVD_R_READ |
+                CD_MODE_PAGE_CAPS_DVD_RAM_READ;
+    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT;
 
     return page_len;
 }
@@ -1236,11 +1268,34 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
     outbuf[2] =  0; /* medium type */
     
     switch (page) {
-    case CD_MODE_PAGE_NUM_CAPS_MECH_STATUS:
+    case MODE_PAGE_R_W_ERROR:
+        /* Read/Write Error Recovery */
+        resp_len += cd_scsi_add_mode_page_rw_error_recovery(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_POWER:
+        /* Power Condistions */
+        resp_len += cd_scsi_add_mode_page_power_condition(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_FAULT_FAIL:
+        /* Fault / Failure Reporting Control */
+        resp_len += cd_scsi_add_mode_page_fault_reporting(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_CAPS_MECH_STATUS:
         resp_len += cd_scsi_add_mode_page_caps_mech_status(dev, outbuf + resp_len);
         break;
+
+    /* not implemented */
+    case MODE_PAGE_WRITE_PARAMETER: /* Writer Parameters */
+    case MODE_PAGE_MRW:
+    case MODE_PAGE_MRW_VENDOR: /* MRW (Mount Rainier Re-writable Disks */
+    case MODE_PAGE_CD_DEVICE: /* CD Device parameters */
+    case MODE_PAGE_TO_PROTECT: /* Time-out and Protect */
     default:
-        break;
+        SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT
+                    " page 0x%x not implemented",
+                    req->lun, (unsigned)page);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
     }
 
     outbuf[0] = ((resp_len - 2) >> 8) & 0xff;
