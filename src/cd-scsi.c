@@ -374,7 +374,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
 
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
 
-    dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
+    dev->claim_version = 3; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
     dev->vendor = g_strdup(dev_params->vendor);
     dev->product = g_strdup(dev_params->product);
@@ -903,6 +903,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
 
     if (dev->claim_version > 0) {
+        /* now supporting only 3 */
         outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
         outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
