@@ -841,6 +841,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define INQUIRY_STANDARD_LEN_MIN            36
 #define INQUIRY_STANDARD_LEN                96
 #define INQUIRY_STANDARD_LEN_NO_VER         57
 
@@ -867,13 +868,13 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request
                                                 uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t resp_len = 5;
+    uint32_t resp_len = INQUIRY_STANDARD_LEN_MIN;
+
+    memset(req->buf, 0, INQUIRY_STANDARD_LEN_MIN);
 
     outbuf[0] = (perif_qual << 5) | TYPE_ROM;
-    outbuf[1] = 0;
     outbuf[2] = INQUIRY_VERSION_NONE;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3;
-    outbuf[4] = 0;
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
