@@ -143,13 +143,67 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
 
 gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self);
 
-gboolean spice_usb_device_manager_share_cd(SpiceUsbDeviceManager *self,
-    gchar *filename);
+gboolean spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
+                                               SpiceUsbDevice *device);
 
-void spice_usb_device_manager_unshare_cd(SpiceUsbDeviceManager *self,
-                                         gchar *filename);
+gboolean spice_usb_device_manager_device_max_luns(SpiceUsbDeviceManager *self,
+                                                  SpiceUsbDevice *device);
 
-const gchar **spice_usb_device_manager_get_cds(SpiceUsbDeviceManager *self);
+/* array of guint LUN indices */
+GArray spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
+                                                SpiceUsbDevice *device);
+
+typedef struct _spice_usb_device_lun_info
+{
+    const gchar *file_path;
+
+    const gchar *vendor;
+    const gchar *product;
+    const gchar *revision;
+
+    const gchar *alias;
+
+    gboolean started;
+    gboolean loaded;
+    gboolean locked;
+} spice_usb_device_lun_info;
+
+/* CD LUN will be attached to a (possibly new) USB device automatically */
+gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
+                                             spice_usb_device_lun_info *lun_info);
+
+/* Get CD LUN info, intended primarily for enumerating LUNs */
+gboolean
+spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
+                                             SpiceUsbDevice *device,
+                                             guint lun,
+                                             spice_usb_device_lun_info *lun_info);
+/* lock or unlock device */
+gboolean
+spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
+                                         SpiceUsbDevice *device,
+                                         guint lun,
+                                         gboolean lock);
+
+/* load or eject device */
+gboolean
+spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
+                                         SpiceUsbDevice *device,
+                                         guint lun,
+                                         gboolean load);
+
+/* change the media - device must be not currently loaded */
+
+gboolean
+spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
+                                                 SpiceUsbDevice *device,
+                                                 guint lun,
+                                                 gchar *filename);
+/* remove lun from the usb device */
+gboolean
+spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,
+                                           SpiceUsbDevice *device,
+                                           guint lun);
 
 G_END_DECLS
 
