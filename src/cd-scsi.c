@@ -62,6 +62,7 @@ typedef struct _cd_scsi_lu
     char *product;
     char *version;
     char *serial;
+    char *alias;
 
     GFileInputStream *stream;
 
@@ -380,6 +381,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->product = g_strdup(dev_params->product);
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
+    dev->alias = g_strdup(dev_params->alias);
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -423,6 +425,30 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
     SPICE_DEBUG("Load lun:%" G_GUINT32_FORMAT " size:%" G_GUINT64_FORMAT
                 " blk_sz:%" G_GUINT32_FORMAT " num_blocks:%" G_GUINT32_FORMAT,
                 lun, dev->size, dev->block_size, dev->num_blocks);
+    return 0;
+}
+
+int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Load, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Load, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    lun_info->locked = dev->prevent_media_removal;
+    lun_info->started = dev->power_cond == CD_SCSI_POWER_ACTIVE;
+    lun_info->parameters.vendor = dev->vendor;
+    lun_info->parameters.product = dev->product;
+    lun_info->parameters.version = dev->version;
+    lun_info->parameters.serial = dev->serial;
+    lun_info->parameters.alias = dev->alias;
     return 0;
 }
 
@@ -490,6 +516,10 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
     if (dev->serial != NULL) {
         free(dev->serial);
         dev->serial = NULL;
+    }
+    if (dev->alias != NULL) {
+        free(dev->alias);
+        dev->alias = NULL;
     }
 
     dev->loaded = FALSE;

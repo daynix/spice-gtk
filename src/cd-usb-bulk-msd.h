@@ -42,6 +42,11 @@ typedef enum _cd_usb_bulk_status
 void cd_usb_bulk_msd_read_complete(void *user_data,
     uint8_t *data, uint32_t length, cd_usb_bulk_status status);
 
+/* called when state of device's unit changed to signal GUI component
+   user_data - user_data in unit parameters structure
+*/
+void cd_usb_bulk_msd_changed(void *user_data);
+
 /* called on completed device reset
    user_data - user_data in unit parameters structure
    status - error code
@@ -68,6 +73,12 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
 */
 int cd_usb_bulk_msd_load(void *device, uint32_t lun,
                          const cd_scsi_media_parameters *media_params);
+
+/* query unit parameters and status
+   returns: error code
+*/
+int cd_usb_bulk_msd_get_info(void *device, uint32_t lun,
+    cd_scsi_device_info *lun_info);
 
 /* unload the media
    returns: error code

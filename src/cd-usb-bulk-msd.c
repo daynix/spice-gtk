@@ -150,6 +150,7 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     scsi_dev_params.product = dev_params->product ? : "USB-CD";
     scsi_dev_params.version = dev_params->version ? : "0.1";
     scsi_dev_params.serial = dev_params->serial ? : "123456";
+    scsi_dev_params.alias = dev_params->alias ? : "";
 
     rc = cd_scsi_dev_realize(cd->scsi_target, lun, &scsi_dev_params);
     if (rc != 0) {
@@ -179,6 +180,20 @@ int cd_usb_bulk_msd_load(void *device, uint32_t lun,
     }
 
     SPICE_DEBUG("Load OK lun:%" G_GUINT32_FORMAT, lun);
+    return 0;
+}
+
+int cd_usb_bulk_msd_get_info(void *device, uint32_t lun, cd_scsi_device_info *lun_info)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    int rc;
+
+    rc = cd_scsi_dev_get_info(cd->scsi_target, lun, lun_info);
+    if (rc != 0) {
+        SPICE_ERROR("Failed to get info lun:%" G_GUINT32_FORMAT, lun);
+        return rc;
+    }
+
     return 0;
 }
 
