@@ -2049,7 +2049,10 @@ static void on_device_change(void *user_data, SpiceUsbBackendDevice *bdev)
     const UsbDeviceInformation *info = spice_usb_backend_device_get_info(bdev);
     SpiceUsbDevice *device = spice_usb_device_manager_find_device(self, info->bus, info->address);
     if (device) {
+        SPICE_DEBUG("%s %u:%u", __FUNCTION__, info->bus, info->address);
         g_signal_emit(self, signals[DEVICE_CHANGE], 0, device);
+    } else {
+        SPICE_DEBUG("%s %u:%u not found in usb device manager", __FUNCTION__, info->bus, info->address);
     }
 }
 
