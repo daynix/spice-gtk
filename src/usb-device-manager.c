@@ -100,6 +100,7 @@ enum
     DEVICE_REMOVED,
     AUTO_CONNECT_FAILED,
     DEVICE_ERROR,
+    DEVICE_CHANGE,
     LAST_SIGNAL,
 };
 
@@ -210,6 +211,9 @@ static
 void disconnect_device_sync(SpiceUsbDeviceManager *self,
                             SpiceUsbDevice *device);
 
+static
+void on_device_change(void *self, SpiceUsbBackendDevice *bdev);
+
 G_DEFINE_BOXED_TYPE(SpiceUsbDevice, spice_usb_device,
                     (GBoxedCopyFunc)spice_usb_device_ref,
                     (GBoxedFreeFunc)spice_usb_device_unref)
@@ -298,6 +302,11 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
 
     /* Initialize spice backend */
     priv->context = spice_usb_backend_initialize();
+    if (!priv->context) {
+        return FALSE;
+    }
+    spice_usb_backend_set_device_change_callback(priv->context,
+        self, on_device_change);
 
     /* Start listening for usb devices plug / unplug */
 #ifdef USE_GUDEV
@@ -536,10 +545,15 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
     }
     case PROP_SHARE_CD:
     {
+        spice_usb_device_lun_info info = { 0 };
         const gchar *name = g_value_get_string(value);
         /* the string is temporary, no need to keep it */
         SPICE_DEBUG("share_cd set to %s", name);
-        spice_usb_backend_add_cd(name, priv->context);
+        info.started = TRUE;
+        info.loaded = TRUE;
+        info.file_path = name;
+        info.alias = name;
+        spice_usb_backend_add_cd_lun(priv->context, &info);
         break;
     }
     default:
@@ -741,6 +755,26 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
                      2,
                      SPICE_TYPE_USB_DEVICE,
                      G_TYPE_ERROR);
+
+    /**
+    * SpiceUsbDeviceManager::device-change:
+    * @manager: #SpiceUsbDeviceManager that emitted the signal
+    * @device:  #SpiceUsbDevice boxed object corresponding to the device which has an error
+    *
+    * The #SpiceUsbDeviceManager::device-error signal is emitted whenever an
+    * error happens which causes a device to no longer be available to the
+    * guest.
+    **/
+    signals[DEVICE_CHANGE] =
+        g_signal_new("device-change",
+            G_OBJECT_CLASS_TYPE(gobject_class),
+            G_SIGNAL_RUN_FIRST,
+            G_STRUCT_OFFSET(SpiceUsbDeviceManagerClass, device_change),
+            NULL, NULL,
+            g_cclosure_user_marshal_VOID__BOXED_BOXED,
+            G_TYPE_NONE,
+            1,
+            SPICE_TYPE_USB_DEVICE);
 
     g_type_class_add_private(klass, sizeof(SpiceUsbDeviceManagerPrivate));
 }
@@ -2009,22 +2043,122 @@ spice_usb_device_manager_device_to_bdev(SpiceUsbDeviceManager *self,
 #endif
 }
 
-gboolean spice_usb_device_manager_share_cd(SpiceUsbDeviceManager *self, gchar *filename)
+static void on_device_change(void *user_data, SpiceUsbBackendDevice *bdev)
 {
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-    return spice_usb_backend_add_cd(filename, priv->context);
+    SpiceUsbDeviceManager *self = user_data;
+    const UsbDeviceInformation *info = spice_usb_backend_device_get_info(bdev);
+    SpiceUsbDevice *device = spice_usb_device_manager_find_device(self, info->bus, info->address);
+    if (device) {
+        g_signal_emit(self, signals[DEVICE_CHANGE], 0, device);
+    }
 }
 
-void spice_usb_device_manager_unshare_cd(SpiceUsbDeviceManager *self, gchar *filename)
+gboolean spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device)
 {
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-    spice_usb_backend_remove_cd(filename, priv->context);
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        const UsbDeviceInformation *info = spice_usb_backend_device_get_info(bdev);
+        b = info->is_cd != 0;
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
 }
 
-const gchar **spice_usb_device_manager_get_cds(SpiceUsbDeviceManager *self)
+gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
+    spice_usb_device_lun_info *lun_info)
 {
-    return spice_usb_backend_get_shared_cds();
+    return spice_usb_backend_add_cd_lun(self->priv->context, lun_info);
 }
 
+gboolean
+spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device,
+    guint lun)
+{
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        b = spice_usb_backend_remove_cd_lun(self->priv->context, bdev, lun);
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
+}
+
+gboolean
+spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device,
+    guint lun,
+    spice_usb_device_lun_info *lun_info)
+{
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        b = spice_usb_backend_get_cd_lun_info(bdev, lun, lun_info);
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
+}
+
+gboolean
+spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device,
+    guint lun,
+    gboolean load)
+{
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        b = spice_usb_backend_load_cd_lun(bdev, lun, load);
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
+}
+
+gboolean
+spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device,
+    guint lun,
+    gchar *filename)
+{
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        b = spice_usb_backend_change_cd_lun(bdev, lun, filename);
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
+}
+
+gboolean
+spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device,
+    guint lun,
+    gboolean lock)
+{
+    // to be removed?
+    return FALSE;
+}
+
+GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
+    SpiceUsbDevice *device)
+{
+    GArray *indices = g_array_new(FALSE, TRUE, sizeof(guint));
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        uint32_t value = spice_usb_backend_get_cd_luns_bitmask(bdev);
+        guint i = 0;
+        while (value) {
+            if (value & 1) {
+                g_array_append_val(indices, i);
+            }
+            value >>= 1;
+            i++;
+        }
+        spice_usb_backend_device_release(bdev);
+    }
+    return indices;
+}
 
 #endif /* USE_USBREDIR */

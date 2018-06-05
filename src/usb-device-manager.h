@@ -71,6 +71,7 @@ struct _SpiceUsbDeviceManager
  * @device_removed: Signal class handler for the #SpiceUsbDeviceManager::device-removed signal.
  * @auto_connect_failed: Signal class handler for the #SpiceUsbDeviceManager::auto-connect-failed signal.
  * @device_error: Signal class handler for the #SpiceUsbDeviceManager::device_error signal.
+ * @device_change: Signal class handler for the #SpiceUsbDeviceManager::device_change signal.
  *
  * Class structure for #SpiceUsbDeviceManager.
  */
@@ -87,12 +88,15 @@ struct _SpiceUsbDeviceManagerClass
                                  SpiceUsbDevice *device, GError *error);
     void (*device_error) (SpiceUsbDeviceManager *manager,
                           SpiceUsbDevice *device, GError *error);
+    void (*device_change) (SpiceUsbDeviceManager *manager,
+                          SpiceUsbDevice *device);
+
     /*< private >*/
     /*
      * If adding fields to this struct, remove corresponding
      * amount of padding to avoid changing overall struct size
      */
-    gchar _spice_reserved[SPICE_RESERVED_PADDING];
+    gchar _spice_reserved[SPICE_RESERVED_PADDING - 1 * sizeof(void *)];
 };
 
 GType spice_usb_device_get_type(void);
@@ -146,11 +150,8 @@ gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self);
 gboolean spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
                                                SpiceUsbDevice *device);
 
-gboolean spice_usb_device_manager_device_max_luns(SpiceUsbDeviceManager *self,
-                                                  SpiceUsbDevice *device);
-
-/* array of guint LUN indices */
-GArray spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
+/* returns new array of guint LUN indices */
+GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
                                                 SpiceUsbDevice *device);
 
 typedef struct _spice_usb_device_lun_info
@@ -193,7 +194,6 @@ spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
                                          gboolean load);
 
 /* change the media - device must be not currently loaded */
-
 gboolean
 spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
                                                  SpiceUsbDevice *device,
