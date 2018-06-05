@@ -62,6 +62,9 @@ static void device_removed_cb(SpiceUsbDeviceManager *manager,
     SpiceUsbDevice *device, gpointer user_data);
 static void device_error_cb(SpiceUsbDeviceManager *manager,
     SpiceUsbDevice *device, GError *err, gpointer user_data);
+static void device_change_cb(SpiceUsbDeviceManager *manager,
+    SpiceUsbDevice *device, gpointer user_data);
+
 static gboolean spice_usb_device_widget_update_status(gpointer user_data);
 
 /* ------------------------------------------------------------------ */
@@ -216,6 +219,8 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
                      G_CALLBACK(device_removed_cb), self);
     g_signal_connect(priv->manager, "device-error",
                      G_CALLBACK(device_error_cb), self);
+    g_signal_connect(priv->manager, "device-change",
+                     G_CALLBACK(device_change_cb), self);
 
     devices = spice_usb_device_manager_get_devices(priv->manager);
     if (!devices)
@@ -242,6 +247,8 @@ static void spice_usb_device_widget_finalize(GObject *object)
                                              device_removed_cb, self);
         g_signal_handlers_disconnect_by_func(priv->manager,
                                              device_error_cb, self);
+        g_signal_handlers_disconnect_by_func(priv->manager,
+                                             device_change_cb, self);
     }
     g_object_unref(priv->session);
     g_free(priv->device_format_string);
@@ -600,4 +607,11 @@ static void device_error_cb(SpiceUsbDeviceManager *manager,
                           set_inactive_by_usb_device, device);
 
     spice_usb_device_widget_update_status(self);
+}
+
+static void device_change_cb(SpiceUsbDeviceManager *manager,
+    SpiceUsbDevice *device, gpointer user_data)
+{
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SPICE_DEBUG("%s -> widget %p", __FUNCTION__, self);
 }

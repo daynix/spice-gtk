@@ -42,6 +42,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #endif
 
 #define MAX_LUN_PER_DEVICE      2
+
 #if MAX_LUN_PER_DEVICE > 1
 #define MAX_OWN_DEVICES         4
 #else
@@ -69,7 +70,7 @@ typedef struct _SpiceUsbLU
     GFileInputStream *stream;
     uint64_t size;
     uint32_t blockSize;
-    uint32_t padding;
+    uint32_t loaded : 1;
 } SpiceUsbLU;
 
 struct _SpiceUsbBackendDevice
@@ -100,7 +101,12 @@ struct _SpiceUsbBackend
     usb_hot_plug_callback hp_callback;
     void *hp_user_data;
     libusb_hotplug_callback_handle hp_handle;
+    void *dev_change_user_data;
+    backend_device_change_callback dev_change_callback;
 };
+
+/* backend object for device change notification */
+static SpiceUsbBackend *notify_backend;
 
 struct _read_bulk 
 {
@@ -193,6 +199,13 @@ static void usbredir_unlock_lock(void *user_data) {
     GMutex *mutex = user_data;
 
     g_mutex_unlock(mutex);
+}
+
+static void indicate_lun_change(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev)
+{
+    if (be->dev_change_user_data && be->dev_change_callback) {
+        be->dev_change_callback(be->dev_change_user_data, bdev);
+    }
 }
 
 static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
@@ -344,6 +357,14 @@ static void usbredir_write_flush_callback(void *user_data)
     }
 }
 
+void cd_usb_bulk_msd_changed(void *user_data)
+{
+    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
+    if (notify_backend) {
+        indicate_lun_change(notify_backend, d);
+    }
+}
+
 void cd_usb_bulk_msd_read_complete(void *user_data,
     uint8_t *data, uint32_t length, cd_usb_bulk_status status)
 {
@@ -406,10 +427,42 @@ void cd_usb_bulk_msd_reset_complete(void *user_data, int status)
     // SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
 }
 
-static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, int unit)
+static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
 {
-    cd_scsi_device_parameters dev_params = { 0 };
+    gboolean b = TRUE;
+    if (load) {
+        cd_scsi_media_parameters media_params = { 0 };
+
+        media_params.stream = d->units[unit].stream;
+        media_params.size = d->units[unit].size;
+        media_params.block_size = d->units[unit].blockSize;
+        if (media_params.block_size == CD_DEV_BLOCK_SIZE &&
+            media_params.size % DVD_DEV_BLOCK_SIZE == 0) {
+            media_params.block_size = DVD_DEV_BLOCK_SIZE;
+        }
+        SPICE_DEBUG("%s: loading %s, size %" PRIu64 ", block %u",
+            __FUNCTION__, d->units[unit].filename, media_params.size, media_params.block_size);
+
+        b = !cd_usb_bulk_msd_load(d->d.msc, unit, &media_params);
+
+        d->units[unit].loaded = !!b;
+
+    } else {
+        SPICE_DEBUG("%s: unloading %s", __FUNCTION__, d->units[unit].filename);
+        cd_usb_bulk_msd_unload(d->d.msc, unit);
+        d->units[unit].loaded = FALSE;
+    }
+    return b;
+}
+
+static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
+{
     gboolean b = FALSE;
+    cd_scsi_device_parameters dev_params = { 0 };
+    dev_params.vendor = info->vendor;
+    dev_params.product = info->product;
+    dev_params.version = info->revision;
+    dev_params.alias = info->alias;
 
     if (!d->d.msc) {
         d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);
@@ -419,22 +472,10 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const char *filename, 
     }
     d->units[unit].blockSize = CD_DEV_BLOCK_SIZE;
     b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &dev_params);
-    if (b && filename != NULL) {
-        cd_scsi_media_parameters media_params = { 0 };
-
-        b = open_stream(&d->units[unit], filename);
-        if (b) {
-            media_params.stream = d->units[unit].stream;
-            media_params.size = d->units[unit].size;
-            media_params.block_size = d->units[unit].blockSize;
-            if (media_params.block_size == CD_DEV_BLOCK_SIZE &&
-                media_params.size % DVD_DEV_BLOCK_SIZE == 0) {
-                media_params.block_size = DVD_DEV_BLOCK_SIZE;
-            }
-            SPICE_DEBUG("%s: ready stream on %s, size %" PRIu64 ", block %u",
-                __FUNCTION__, filename, media_params.size, media_params.block_size);
-
-            b = !cd_usb_bulk_msd_load(d->d.msc, unit, &media_params);
+    if (b) {
+        b = open_stream(&d->units[unit], info->file_path);
+        if (b && info->loaded) {
+            b = load_lun(d, unit, TRUE);
         }
         if (!b) {
             close_stream(&d->units[unit]);
@@ -468,16 +509,16 @@ static gboolean stop_device(SpiceUsbBackendDevice *d, int unit)
     return empty;
 }
 
-gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
+gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_device_lun_info *info)
 {
     int i;
     gboolean b = FALSE;
     for (i = 0; !b && i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & ~own_devices.active_devices) { /* inactive usb device */
             SPICE_DEBUG("%s: add file %s to device %d (activate now) as lun 0",
-                        __FUNCTION__, filename, i);
+                        __FUNCTION__, info->file_path, i);
 
-            b = activate_device(&own_devices.devices[i], filename, 0);
+            b = activate_device(&own_devices.devices[i], info, 0);
             if (b) {
                 own_devices.active_devices |= 1 << i;
 #ifdef G_OS_WIN32
@@ -494,13 +535,15 @@ gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
             for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
                 if (!own_devices.devices[i].units[j].stream) {
                     SPICE_DEBUG("%s: add file %s to device %d (already active) as lun %d",
-                                __FUNCTION__, filename, i, j);
+                                __FUNCTION__, info->file_path, i, j);
 
-                    b = activate_device(&own_devices.devices[i], filename, j);
+                    b = activate_device(&own_devices.devices[i], info, j);
                     if (!b) {
                         SPICE_DEBUG("%s: failed to add file %s to device %d (already active) as lun %d",
-                                    __FUNCTION__, filename, i, j);
+                                    __FUNCTION__, info->file_path, i, j);
                         b = TRUE; /* exit outer loop */
+                    } else {
+                        indicate_lun_change(be, &own_devices.devices[i]);
                     }
                     break;
                 }
@@ -508,60 +551,137 @@ gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be)
         }
     }
     if (!b) {
-        SPICE_DEBUG("can not create device %s", filename);
+        SPICE_DEBUG("can not create device %s", info->file_path);
     }
     return b;
 }
 
-void spice_usb_backend_remove_cd(const char *filename, SpiceUsbBackend *be)
+static gboolean check_device(SpiceUsbBackendDevice *bdev, guint lun, guint* index)
 {
     int i;
+
+    if (lun >= MAX_LUN_PER_DEVICE) {
+        return FALSE;
+    }
+
     for (i = 0; i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & own_devices.active_devices) { /* active usb device */
-            int j;
-            for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
-                char *name = own_devices.devices[i].units[j].filename;
-                if (name && !strcmp(name, filename)) {
-                    SPICE_DEBUG("%s: unshare %s, %d:%d",
-                        __FUNCTION__, filename, i, j);
-                    if (stop_device(&own_devices.devices[i], j)) {
-                        // usb device does not have any active unit
-                        // removing it
-                        own_devices.active_devices &= ~(1 << i);
-#ifdef G_OS_WIN32
-                        spice_usb_backend_indicate_dev_change();
-#else
-                        if (be->hp_callback) {
-                            SpiceUsbBackendDevice *d = &own_devices.devices[i];
-                            be->hp_callback(be->hp_user_data, d, FALSE);
-                        }
-#endif
-                    }
-                    break;
+            if (&own_devices.devices[i] == bdev) {
+                if (index) {
+                    *index = i;
                 }
+                return TRUE;
             }
         }
     }
+
+    return FALSE;
 }
 
-const gchar ** spice_usb_backend_get_shared_cds(void)
+gboolean spice_usb_backend_remove_cd_lun(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev, guint lun)
 {
-    int i, index = 0;
-    const gchar **list = g_new0(const gchar *, MAX_OWN_DEVICES * MAX_LUN_PER_DEVICE + 1);
+    char *name;
+    guint index;
+    if (!check_device(bdev, lun, &index)) {
+        return FALSE;
+    }
 
-    for (i = 0; i < MAX_OWN_DEVICES; i++) {
-        if ((1 << i) & own_devices.active_devices) { /* active usb device */
-            int j;
-            for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
-                char *name = own_devices.devices[i].units[j].filename;
-                if (name) {
-                    list[index++] = name;
-                }
-            }
+    name = bdev->units[lun].filename;
+    SPICE_DEBUG("%s: unshare %s, unit %u:%u", __FUNCTION__, name, index, lun);
+    if (stop_device(bdev, lun)) {
+        /* usb device does not have any active unit,
+        so we remove it */
+        own_devices.active_devices &= ~(1 << index);
+#ifdef G_OS_WIN32
+        spice_usb_backend_indicate_dev_change();
+#else
+        if (be->hp_callback) {
+            be->hp_callback(be->hp_user_data, bdev, FALSE);
+        }
+#endif
+    }
+    else {
+        /* the device still contains active LUN(s) */
+        indicate_lun_change(be, bdev);
+    }
+    return TRUE;
+}
+
+uint32_t spice_usb_backend_get_cd_luns_bitmask(SpiceUsbBackendDevice *bdev)
+{
+    int i, value = 0;
+
+    if (!check_device(bdev, 0, NULL)) {
+        return FALSE;
+    }
+
+    for (i = 0; i < MAX_LUN_PER_DEVICE; i++) {
+        char *name = bdev->units[i].filename;
+        if (name) {
+            value |= 1 << i;
         }
     }
 
-    return list;
+    return value;
+}
+
+gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
+    guint lun, spice_usb_device_lun_info *info)
+{
+    if (!check_device(bdev, lun, NULL)) {
+        return FALSE;
+    }
+
+    if (bdev->units[lun].filename) {
+        cd_scsi_device_info cd_info;
+        if (!cd_usb_bulk_msd_get_info(bdev->d.msc, lun, &cd_info)) {
+            info->started = cd_info.started;
+            info->loaded = bdev->units[lun].loaded;
+            info->locked = cd_info.locked;
+            info->file_path = bdev->units[lun].filename;
+            info->vendor = cd_info.parameters.vendor;
+            info->product = cd_info.parameters.product;
+            info->revision = cd_info.parameters.version;
+            info->alias = cd_info.parameters.alias;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+gboolean spice_usb_backend_load_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, gboolean load)
+{
+    if (!check_device(bdev, lun, NULL)) {
+        return FALSE;
+    }
+
+    if (bdev->units[lun].filename) {
+        return load_lun(bdev, lun, load);
+    }
+
+    return FALSE;
+}
+
+gboolean spice_usb_backend_change_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, const char* path)
+{
+    gboolean b = FALSE;
+    if (!check_device(bdev, lun, NULL)) {
+        return b;
+    }
+
+    if (bdev->units[lun].loaded || !bdev->units[lun].filename) {
+        return b;
+    }
+
+    close_stream(&bdev->units[lun]);
+
+    b = open_stream(&bdev->units[lun], path);
+    if (b) {
+        b = load_lun(bdev, lun, TRUE);
+    }
+
+    return b;
 }
 
 static void initialize_own_devices(void)
@@ -711,11 +831,24 @@ gboolean spice_usb_backend_handle_hotplug(
     return TRUE;
 }
 
+void spice_usb_backend_set_device_change_callback(
+    SpiceUsbBackend *be, void *user_data, backend_device_change_callback proc)
+{
+    be->dev_change_user_data = user_data;
+    be->dev_change_callback = proc;
+    if (!notify_backend) {
+        notify_backend = be;
+    }
+}
+
 void spice_usb_backend_finalize(SpiceUsbBackend *be)
 {
     SPICE_DEBUG("%s >>", __FUNCTION__);
     if (be->libusbContext) {
         libusb_exit(be->libusbContext);
+    }
+    if (be == notify_backend) {
+        notify_backend = NULL;
     }
     g_free(be);
     SPICE_DEBUG("%s <<", __FUNCTION__);
@@ -825,6 +958,7 @@ static unsigned char is_libusb_isochronous(libusb_device *libdev)
 const UsbDeviceInformation*  spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev)
 {
     dev->device_info.isochronous = dev->isLibUsb ? is_libusb_isochronous(dev->d.libusb_device) : 0;
+    dev->device_info.is_cd = !!dev->isLibUsb;
     return &dev->device_info;
 }
 

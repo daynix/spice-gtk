@@ -105,6 +105,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, const cd_scsi_device_pa
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun);
 
 int cd_scsi_dev_load(void *scsi_target, uint32_t lun, const cd_scsi_media_parameters *media_params);
+int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info);
 int cd_scsi_dev_unload(void *scsi_target, uint32_t lun);
 
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *request);

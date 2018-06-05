@@ -20,6 +20,7 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #define __SPICE_USB_BACKEND_H__
 
 #include <usbredirfilter.h>
+#include "usb-device-manager.h"
 
 G_BEGIN_DECLS
 
@@ -37,6 +38,7 @@ typedef struct _UsbDeviceInformation
     unsigned char subclass;
     unsigned char protocol;
     unsigned char isochronous;
+    unsigned char is_cd;
 } UsbDeviceInformation;
 
 typedef struct _SpiceUsbBackendChannelInitData
@@ -52,6 +54,9 @@ typedef struct _SpiceUsbBackendChannelInitData
 typedef void(*usb_hot_plug_callback)(
     void *user_data, SpiceUsbBackendDevice *dev, gboolean added);
 
+typedef void(*backend_device_change_callback)(
+    void *user_data, SpiceUsbBackendDevice *dev);
+
 enum {
     USB_REDIR_ERROR_IO = -1,
     USB_REDIR_ERROR_READ_PARSE = -2,
@@ -62,6 +67,7 @@ enum {
 SpiceUsbBackend *spice_usb_backend_initialize(void);
 gboolean spice_usb_backend_handle_events(SpiceUsbBackend *);
 gboolean spice_usb_backend_handle_hotplug(SpiceUsbBackend *, void *user_data, usb_hot_plug_callback proc);
+void spice_usb_backend_set_device_change_callback(SpiceUsbBackend *, void *user_data, backend_device_change_callback proc);
 void spice_usb_backend_finalize(SpiceUsbBackend *context);
 // returns NULL-terminated array of SpiceUsbBackendDevice *
 SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *backend);
@@ -85,9 +91,12 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch, cons
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
 void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch);
 
-gboolean spice_usb_backend_add_cd(const char *filename, SpiceUsbBackend *be);
-void spice_usb_backend_remove_cd(const char *filename, SpiceUsbBackend *be);
-const gchar ** spice_usb_backend_get_shared_cds(void);
+gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_device_lun_info *info);
+gboolean spice_usb_backend_remove_cd_lun(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev, guint lun);
+uint32_t spice_usb_backend_get_cd_luns_bitmask(SpiceUsbBackendDevice *bdev);
+gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev, guint lun, spice_usb_device_lun_info *info);
+gboolean spice_usb_backend_load_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, gboolean load);
+gboolean spice_usb_backend_change_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, const char* filename);
 
 G_END_DECLS
 

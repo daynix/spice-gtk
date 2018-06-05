@@ -62,6 +62,7 @@ typedef struct _cd_scsi_lu
     char *product;
     char *version;
     char *serial;
+    char *alias;
 
     GFileInputStream *stream;
 
@@ -374,12 +375,13 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
 
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
 
-    dev->claim_version = 0; /* 0 : none; 2,3,5 : SPC/MMC-x */
+    dev->claim_version = 3; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
     dev->vendor = g_strdup(dev_params->vendor);
     dev->product = g_strdup(dev_params->product);
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
+    dev->alias = g_strdup(dev_params->alias);
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -423,6 +425,30 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
     SPICE_DEBUG("Load lun:%" G_GUINT32_FORMAT " size:%" G_GUINT64_FORMAT
                 " blk_sz:%" G_GUINT32_FORMAT " num_blocks:%" G_GUINT32_FORMAT,
                 lun, dev->size, dev->block_size, dev->num_blocks);
+    return 0;
+}
+
+int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Load, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Load, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    lun_info->locked = dev->prevent_media_removal;
+    lun_info->started = dev->power_cond == CD_SCSI_POWER_ACTIVE;
+    lun_info->parameters.vendor = dev->vendor;
+    lun_info->parameters.product = dev->product;
+    lun_info->parameters.version = dev->version;
+    lun_info->parameters.serial = dev->serial;
+    lun_info->parameters.alias = dev->alias;
     return 0;
 }
 
@@ -490,6 +516,10 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
     if (dev->serial != NULL) {
         free(dev->serial);
         dev->serial = NULL;
+    }
+    if (dev->alias != NULL) {
+        free(dev->alias);
+        dev->alias = NULL;
     }
 
     dev->loaded = FALSE;
@@ -788,20 +818,6 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         }
         outbuf[buflen++] = 0x83; // device identification
 
-        //DISK
-        //outbuf[buflen++] = 0xb0; // block limits
-        //outbuf[buflen++] = 0xb1; /* block device characteristics */
-        //outbuf[buflen++] = 0xb2; // thin provisioning
-
-        // MMC
-        //outbuf[buflen++] = 0x01; // Read/Write Error Recovery
-        //outbuf[buflen++] = 0x03; // MRW
-        //outbuf[buflen++] = 0x05; // Write Parameter
-        //outbuf[buflen++] = 0x08; // Caching
-        //outbuf[buflen++] = 0x1A; // Power Condition
-        //outbuf[buflen++] = 0x1C; // Informational Exceptions
-        //outbuf[buflen++] = 0x1D; // Time-out & Protect
-
         break;
     }
     case 0x80: /* Device serial number, optional */
@@ -855,6 +871,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define INQUIRY_STANDARD_LEN_MIN            36
 #define INQUIRY_STANDARD_LEN                96
 #define INQUIRY_STANDARD_LEN_NO_VER         57
 
@@ -867,6 +884,9 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_VERSION_NONE                0x00
 #define INQUIRY_VERSION_SPC3                0x05
 
+/* byte 3 */
+#define INQUIRY_RESP_HISUP                  (0x01 << 4)
+#define INQUIRY_RESP_NORM_ACA               (0x01 << 5)
 #define INQUIRY_RESP_DATA_FORMAT_SPC3       0x02
 
 #define INQUIRY_VERSION_DESC_SAM2           0x040
@@ -878,13 +898,13 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request
                                                 uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t resp_len = 5;
+    uint32_t resp_len = INQUIRY_STANDARD_LEN_MIN;
+
+    memset(req->buf, 0, INQUIRY_STANDARD_LEN_MIN);
 
     outbuf[0] = (perif_qual << 5) | TYPE_ROM;
-    outbuf[1] = 0;
     outbuf[2] = INQUIRY_VERSION_NONE;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3;
-    outbuf[4] = 0;
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
@@ -900,17 +920,10 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     uint8_t *outbuf = req->buf;
     uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
 
-    if (req->cdb[2] != 0) {
-        SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid cdb[2]: %02x", 
-                    req->lun, (int)req->cdb[2]);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
-        return;
-    }
-
     outbuf[0] = (PERIF_QUALIFIER_CONNECTED << 5) | TYPE_ROM;
     outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
     outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
-    outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3; /* no HiSup, no NACA */
+    outbuf[3] = INQUIRY_RESP_NORM_ACA | INQUIRY_RESP_HISUP | INQUIRY_RESP_DATA_FORMAT_SPC3;
 
     outbuf[4] = resp_len - 4;
 
@@ -921,6 +934,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
 
     if (dev->claim_version > 0) {
+        /* now supporting only 3 */
         outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
         outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
 
@@ -942,19 +956,38 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+#define CD_INQUIRY_FLAG_EVPD                0x01
+#define CD_INQUIRY_FLAG_CMD_DT              0x02
+
 static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
 {
+    gboolean evpd, cmd_data;
+
     req->xfer_dir = SCSI_XFER_FROM_DEV;
+
+    evpd = (req->cdb[1] & CD_INQUIRY_FLAG_EVPD) ? TRUE : FALSE;
+    cmd_data = (req->cdb[1] & CD_INQUIRY_FLAG_CMD_DT) ? TRUE : FALSE;
+
+    if (cmd_data) {
+        SPICE_DEBUG("inquiry, lun:%" G_GUINT32_FORMAT " CmdDT bit set - unsupported, "
+                    "cdb[1]:0x%02x cdb[1]:0x%02x",
+                    req->lun, (int)req->cdb[1], (int)req->cdb[2]);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
+    }
 
     req->req_len = req->cdb[4] | (req->cdb[3] << 8);
     memset(req->buf, 0, req->req_len);
 
-    if (req->cdb[1] & 0x1) {
-        /* Vital product data */
+    if (evpd) { /* enable vital product data */
         cd_scsi_cmd_inquiry_vpd(dev, req);
-    }
-    else {
-        /* Standard INQUIRY data */
+    } else { /* standard inquiry data */
+        if (req->cdb[2] != 0) {
+            SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " non-zero page code: %02x",
+                        req->lun, (int)req->cdb[2]);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            return;
+        }
         cd_scsi_cmd_inquiry_standard(dev, req);
     }
 }
@@ -1186,20 +1219,66 @@ static void cd_scsi_cmd_read_toc(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_MODE_PARAM_6_LEN_HEADER              4
 #define CD_MODE_PARAM_10_LEN_HEADER             8
 
-#define CD_MODE_PAGE_NUM_CAPS_MECH_STATUS       0x2a
+#define CD_MODE_PAGE_LEN_RW_ERROR               12
+
+static uint32_t cd_scsi_add_mode_page_rw_error_recovery(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_RW_ERROR;
+
+    outbuf[0] = MODE_PAGE_R_W_ERROR;
+    outbuf[1] = CD_MODE_PAGE_LEN_RW_ERROR - 2;
+    outbuf[3] = 1; /* read retry count */
+
+    return page_len;
+}
+
+#define CD_MODE_PAGE_LEN_POWER                  12
+
+static uint32_t cd_scsi_add_mode_page_power_condition(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_POWER;
+
+    outbuf[0] = MODE_PAGE_POWER;
+    outbuf[1] = CD_MODE_PAGE_LEN_POWER - 2;
+
+    return page_len;
+}
+
+#define CD_MODE_PAGE_LEN_FAULT_FAIL             12
+#define CD_MODE_PAGE_FAULT_FAIL_FLAG_PERF       0x80
+
+static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *outbuf)
+{
+    uint32_t page_len = CD_MODE_PAGE_LEN_FAULT_FAIL;
+
+    outbuf[0] = MODE_PAGE_FAULT_FAIL;
+    outbuf[1] = CD_MODE_PAGE_LEN_FAULT_FAIL - 2;
+    outbuf[2] |= CD_MODE_PAGE_FAULT_FAIL_FLAG_PERF;
+
+    return page_len;
+}
+
 #define CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO    26
+/* byte 2 */
 #define CD_MODE_PAGE_CAPS_CD_R_READ             0x01
 #define CD_MODE_PAGE_CAPS_CD_RW_READ            (0x01 << 1)
+#define CD_MODE_PAGE_CAPS_DVD_ROM_READ          (0x01 << 3)
+#define CD_MODE_PAGE_CAPS_DVD_R_READ            (0x01 << 4)
+#define CD_MODE_PAGE_CAPS_DVD_RAM_READ          (0x01 << 5)
+/* byte 6 */
+#define CD_MODE_PAGE_CAPS_EJECT                 (0x01 << 3)
 #define CD_MODE_PAGE_CAPS_LOADING_TRAY          (0x01 << 5)
 
 static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO; /* no write */
 
-    outbuf[0] = CD_MODE_PAGE_NUM_CAPS_MECH_STATUS;
+    outbuf[0] = MODE_PAGE_CAPS_MECH_STATUS;
     outbuf[1] = page_len;
-    outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ;
-    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY;
+    outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ |
+                CD_MODE_PAGE_CAPS_DVD_ROM_READ | CD_MODE_PAGE_CAPS_DVD_R_READ |
+                CD_MODE_PAGE_CAPS_DVD_RAM_READ;
+    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT;
 
     return page_len;
 }
@@ -1224,11 +1303,34 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
     outbuf[2] =  0; /* medium type */
     
     switch (page) {
-    case CD_MODE_PAGE_NUM_CAPS_MECH_STATUS:
+    case MODE_PAGE_R_W_ERROR:
+        /* Read/Write Error Recovery */
+        resp_len += cd_scsi_add_mode_page_rw_error_recovery(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_POWER:
+        /* Power Condistions */
+        resp_len += cd_scsi_add_mode_page_power_condition(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_FAULT_FAIL:
+        /* Fault / Failure Reporting Control */
+        resp_len += cd_scsi_add_mode_page_fault_reporting(dev, outbuf + resp_len);
+        break;
+    case MODE_PAGE_CAPS_MECH_STATUS:
         resp_len += cd_scsi_add_mode_page_caps_mech_status(dev, outbuf + resp_len);
         break;
+
+    /* not implemented */
+    case MODE_PAGE_WRITE_PARAMETER: /* Writer Parameters */
+    case MODE_PAGE_MRW:
+    case MODE_PAGE_MRW_VENDOR: /* MRW (Mount Rainier Re-writable Disks */
+    case MODE_PAGE_CD_DEVICE: /* CD Device parameters */
+    case MODE_PAGE_TO_PROTECT: /* Time-out and Protect */
     default:
-        break;
+        SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT
+                    " page 0x%x not implemented",
+                    req->lun, (unsigned)page);
+        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        return;
     }
 
     outbuf[0] = ((resp_len - 2) >> 8) & 0xff;
