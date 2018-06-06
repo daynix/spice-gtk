@@ -934,10 +934,14 @@ static unsigned char is_libusb_isochronous(libusb_device *libdev)
     unsigned char isoc_found = FALSE;
     gint i, j, k;
 
-    g_return_val_if_fail(libdev != NULL, FALSE);
+    if (!libdev) {
+        SPICE_DEBUG("%s - unexpected libdev = 0", __FUNCTION__);
+        return 0;
+    }
 
     if (libusb_get_active_config_descriptor(libdev, &conf_desc) != 0) {
-        g_return_val_if_reached(FALSE);
+        SPICE_DEBUG("%s - no active configuration for libdev %p", __FUNCTION__, libdev);
+        return 0;
     }
 
     for (i = 0; !isoc_found && i < conf_desc->bNumInterfaces; i++) {
