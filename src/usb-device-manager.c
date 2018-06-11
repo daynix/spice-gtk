@@ -1795,7 +1795,27 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #endif
 }
 
+gboolean spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
+{
+#ifdef USE_USBREDIR
+    info->vendor = info->product;
 
+    g_return_val_if_fail(device != NULL, FALSE);
+
+    info->bus = spice_usb_device_get_busnum(device);
+    info->address = spice_usb_device_get_devaddr(device);
+    info->vendor_id = spice_usb_device_get_vid(device);
+    info->product_id = spice_usb_device_get_pid(device);
+
+    spice_usb_util_get_device_strings(info->bus, info->address,
+        info->vendor_id, info->product_id, &info->vendor, &info->product);
+
+    return TRUE;
+#else
+    return FALSE;
+#endif
+
+}
 
 #ifdef USE_USBREDIR
 

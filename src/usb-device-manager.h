@@ -102,7 +102,19 @@ struct _SpiceUsbDeviceManagerClass
 GType spice_usb_device_get_type(void);
 GType spice_usb_device_manager_get_type(void);
 
+typedef struct _spice_usb_device_info
+{
+    guint16 bus;
+    guint16 address;
+    guint16 vendor_id;
+    guint16 product_id;
+    // (OUT) allocated strings for vendor and product
+    gchar *vendor;
+    gchar *product;
+} spice_usb_device_info;
+
 gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format);
+gboolean spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info);
 gconstpointer spice_usb_device_get_libusb_device(const SpiceUsbDevice *device);
 
 SpiceUsbDeviceManager *spice_usb_device_manager_get(SpiceSession *session,
