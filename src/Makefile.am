@@ -128,7 +128,7 @@ SPICE_GTK_SOURCES_COMMON =		\
 	spice-grabsequence-priv.h	\
 	desktop-integration.c		\
 	desktop-integration.h		\
-	usb-device-widget.c		\
+	usb-device-redir-widget.c   \
 	$(NULL)
 
 nodist_SPICE_GTK_SOURCES_COMMON =	\
@@ -548,7 +548,7 @@ gtk_introspection_files =				\
 	spice-gtk-session.c				\
 	spice-widget.c					\
 	spice-grabsequence.c				\
-	usb-device-widget.c				\
+	usb-device-redir-widget.c       \
 	$(NULL)
 
 SpiceClientGLib-2.0.gir: libspice-client-glib-2.0.la
