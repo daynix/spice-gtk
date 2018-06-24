@@ -71,7 +71,7 @@ struct _SpiceUsbDeviceManager
  * @device_removed: Signal class handler for the #SpiceUsbDeviceManager::device-removed signal.
  * @auto_connect_failed: Signal class handler for the #SpiceUsbDeviceManager::auto-connect-failed signal.
  * @device_error: Signal class handler for the #SpiceUsbDeviceManager::device_error signal.
- * @device_change: Signal class handler for the #SpiceUsbDeviceManager::device_change signal.
+ * @device_changed: Signal class handler for the #SpiceUsbDeviceManager::device_changed signal.
  *
  * Class structure for #SpiceUsbDeviceManager.
  */
@@ -88,7 +88,7 @@ struct _SpiceUsbDeviceManagerClass
                                  SpiceUsbDevice *device, GError *error);
     void (*device_error) (SpiceUsbDeviceManager *manager,
                           SpiceUsbDevice *device, GError *error);
-    void (*device_change) (SpiceUsbDeviceManager *manager,
+    void (*device_changed) (SpiceUsbDeviceManager *manager,
                           SpiceUsbDevice *device);
 
     /*< private >*/

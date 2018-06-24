@@ -100,7 +100,7 @@ enum
     DEVICE_REMOVED,
     AUTO_CONNECT_FAILED,
     DEVICE_ERROR,
-    DEVICE_CHANGE,
+    DEVICE_CHANGED,
     LAST_SIGNAL,
 };
 
@@ -757,19 +757,19 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
                      G_TYPE_ERROR);
 
     /**
-    * SpiceUsbDeviceManager::device-change:
+    * SpiceUsbDeviceManager::device-changed:
     * @manager: #SpiceUsbDeviceManager that emitted the signal
     * @device:  #SpiceUsbDevice boxed object corresponding to the device which has an error
     *
-    * The #SpiceUsbDeviceManager::device-error signal is emitted whenever an
+    * The #SpiceUsbDeviceManager::device-changed signal is emitted whenever an
     * error happens which causes a device to no longer be available to the
     * guest.
     **/
-    signals[DEVICE_CHANGE] =
-        g_signal_new("device-change",
+    signals[DEVICE_CHANGED] =
+        g_signal_new("device-changed",
             G_OBJECT_CLASS_TYPE(gobject_class),
             G_SIGNAL_RUN_FIRST,
-            G_STRUCT_OFFSET(SpiceUsbDeviceManagerClass, device_change),
+            G_STRUCT_OFFSET(SpiceUsbDeviceManagerClass, device_changed),
             NULL, NULL,
             g_cclosure_user_marshal_VOID__BOXED_BOXED,
             G_TYPE_NONE,
@@ -2069,8 +2069,8 @@ static void on_device_change(void *user_data, SpiceUsbBackendDevice *bdev)
     const UsbDeviceInformation *info = spice_usb_backend_device_get_info(bdev);
     SpiceUsbDevice *device = spice_usb_device_manager_find_device(self, info->bus, info->address);
     if (device) {
-        SPICE_DEBUG("%s %u:%u", __FUNCTION__, info->bus, info->address);
-        g_signal_emit(self, signals[DEVICE_CHANGE], 0, device);
+        SPICE_DEBUG("%s dev:%u:%u", __FUNCTION__, info->bus, info->address);
+        g_signal_emit(self, signals[DEVICE_CHANGED], 0, device);
     } else {
         SPICE_DEBUG("%s %u:%u not found in usb device manager", __FUNCTION__, info->bus, info->address);
     }
