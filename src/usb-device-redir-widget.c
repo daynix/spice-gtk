@@ -173,7 +173,7 @@ typedef struct _usb_widget_lun_item {
 
 typedef struct _tree_find_usb_dev {
     SpiceUsbDevice *usb_dev;
-    GtkTreeIter *dev_iter;
+    GtkTreeIter dev_iter;
 } tree_find_usb_dev;
 
 typedef void (*tree_item_toggled_cb)(GtkCellRendererToggle *, gchar *, gpointer);
@@ -323,7 +323,7 @@ static gboolean usb_widget_tree_store_find_usb_dev_foreach_cb(GtkTreeModel *tree
                        COL_ITEM_DATA, (gpointer *)&usb_device,
                        -1);
     if (!is_lun_item && usb_device == find_usb_device) {
-        find_info->dev_iter = iter;
+        find_info->dev_iter = *iter;
         g_print("Usb dev found %p iter %p\n", usb_device, iter);
         return TRUE; /* stop iterating */
     } else {
@@ -334,19 +334,15 @@ static gboolean usb_widget_tree_store_find_usb_dev_foreach_cb(GtkTreeModel *tree
 static GtkTreeIter *usb_widget_tree_store_find_usb_device(GtkTreeStore *tree_store,
                                                           SpiceUsbDevice *usb_device)
 {
-    tree_find_usb_dev find_info = { .usb_dev = usb_device, .dev_iter = NULL };
+    tree_find_usb_dev find_info = { .usb_dev = usb_device,.dev_iter = {} };
     GtkTreeIter *iter;
 
     gtk_tree_model_foreach(GTK_TREE_MODEL(tree_store),
                            usb_widget_tree_store_find_usb_dev_foreach_cb, (gpointer)&find_info);
 
-    if (find_info.dev_iter) {
-        iter = g_malloc(sizeof(*iter));
-        *iter = *find_info.dev_iter;
-        return iter;
-    } else {
-        return NULL;
-    }
+    iter = g_malloc(sizeof(*iter));
+    *iter = find_info.dev_iter;
+    return iter;
 }
 
 static gboolean usb_widget_remove_device(SpiceUsbDeviceWidget *self,
