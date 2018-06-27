@@ -41,6 +41,11 @@ License along with this library; if not, see <http://www.gnu.org/licenses/>.
 #include <linux/fs.h>
 #endif
 
+#define INTERCEPT_LOG 1
+#if INTERCEPT_LOG
+static FILE *fLog;
+#endif
+
 #define MAX_LUN_PER_DEVICE      2
 
 #if MAX_LUN_PER_DEVICE > 1
@@ -701,6 +706,7 @@ static void initialize_own_devices(void)
     }
 }
 
+#if INTERCEPT_LOG
 static void log_handler(
     const gchar *log_domain,
     GLogLevelFlags log_level,
@@ -720,14 +726,23 @@ static void log_handler(
         g_date_time_unref(current_time);
         g_free(timestamp);
         g_string_append(log_msg, message);
+#if defined(G_OS_WIN32)
+        g_string_append(log_msg, "\n");
+        fwrite(log_msg->str, 1, strlen(log_msg->str), fLog);
+#else
         g_log_default_handler(log_domain, log_level, log_msg->str, NULL);
+#endif
         g_string_free(log_msg, TRUE);
     }
 }
+#endif
 
 static void configure_log(void)
 {
+#if INTERCEPT_LOG
+    fLog = fopen("remote-viewer.log", "w+t");
     g_log_set_default_handler(log_handler, NULL);
+#endif
 }
 
 SpiceUsbBackend *spice_usb_backend_initialize(void)
