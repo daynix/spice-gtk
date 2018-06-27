@@ -1438,7 +1438,10 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
 
     for (i = 0; i < devices->len; i++) {
         SpiceUsbDevice *usb_device = g_ptr_array_index(devices, i);
-        usb_widget_add_device(self, usb_device, NULL);
+        GtkTreePath *new_dev_path;
+        new_dev_path = usb_widget_add_device(self, usb_device, NULL);
+        gtk_tree_view_expand_row(priv->tree_view, new_dev_path, FALSE);
+        gtk_tree_path_free(new_dev_path);
     }
     g_ptr_array_unref(devices);
 
