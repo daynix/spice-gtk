@@ -233,7 +233,8 @@ static void select_widget_size(GtkWidget *wg)
 {
     GdkDisplay *d = gtk_widget_get_display(wg);
     int i, w = 2000, h = 1024;
-    for (i = 0; i < 4; ++i)
+    int n = gdk_display_get_n_monitors(d);
+    for (i = 0; i < n; ++i)
     {
         GdkMonitor *m = gdk_display_get_monitor(d, i);
         if (m) {
