@@ -28,6 +28,8 @@
 #include "cd-usb-bulk-msd.h"
 #include "cd-scsi.h"
 
+#ifdef USE_USBREDIR
+
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("usb-msd error: " fmt , ## __VA_ARGS__); } while (0)
 
@@ -527,3 +529,5 @@ void cd_scsi_target_reset_complete(void *target_user_data)
     usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_INIT);
 }
+
+#endif /* USE_USBREDIR */
