@@ -305,6 +305,7 @@ static GtkTreePath *usb_widget_add_device(SpiceUsbDeviceWidget *self,
                 COL_ROW_COLOR_SET, TRUE,
                 -1);
     }
+    g_array_unref(lun_array);
 
     return gtk_tree_model_get_path(GTK_TREE_MODEL(tree_store), &new_dev_iter);
 }
