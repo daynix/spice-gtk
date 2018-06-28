@@ -3,7 +3,7 @@
    Copyright (C) 2012 Red Hat, Inc.
 
    Red Hat Authors:
-   Hans de Goede <hdegoede@redhat.com>
+   Alexander Nezhinsky<anezhins@redhat.com>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public

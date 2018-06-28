@@ -1,9 +1,11 @@
 /* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
-   CD device emulation - SCSI engine - API
-   by Alexander Nezhinsky (anezhins@redhat.com)
+   CD device emulation - SCSI engine
 
    Copyright (C) 2018 Red Hat, Inc.
+
+   Red Hat Authors:
+   Alexander Nezhinsky<anezhins@redhat.com>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
