@@ -29,6 +29,8 @@
 #endif
 #include "usb-device-widget.h"
 
+#ifdef USE_USBREDIR
+
 /**
  * SECTION:usb-device-widget
  * @short_description: USB device selection widget
@@ -1661,3 +1663,11 @@ static void checkbox_usb_device_destroy_notify(gpointer user_data)
 }
 #endif
 
+#else
+
+GtkWidget *spice_usb_device_widget_new(SpiceSession *session, const gchar *unused)
+{
+    return NULL;
+}
+
+#endif

@@ -27,6 +27,8 @@
 #include "spice-util.h"
 #include "cd-scsi.h"
 
+#ifdef USE_USBREDIR
+
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("dev-scsi error: " fmt , ## __VA_ARGS__); } while (0)
 
@@ -2536,3 +2538,5 @@ void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
         cd_scsi_target_do_reset(st);
     }
 }
+
+#endif /* USE_USBREDIR */
