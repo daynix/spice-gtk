@@ -44,8 +44,12 @@
 #include <linux/fs.h>
 #endif
 
-#define INTERCEPT_LOG 1
-#if INTERCEPT_LOG
+//#define LOUD_DEBUG SPICE_DEBUG
+#define LOUD_DEBUG(x, ...)
+
+#define INTERCEPT_LOG
+//#define INTERCEPT_LOG2FILE
+#ifdef INTERCEPT_LOG2FILE
 static FILE *fLog;
 #endif
 
@@ -709,7 +713,7 @@ static void initialize_own_devices(void)
     }
 }
 
-#if INTERCEPT_LOG
+#ifdef INTERCEPT_LOG
 static void log_handler(
     const gchar *log_domain,
     GLogLevelFlags log_level,
@@ -729,7 +733,7 @@ static void log_handler(
         g_date_time_unref(current_time);
         g_free(timestamp);
         g_string_append(log_msg, message);
-#if defined(G_OS_WIN32)
+#ifdef INTERCEPT_LOG2FILE
         g_string_append(log_msg, "\n");
         fwrite(log_msg->str, 1, strlen(log_msg->str), fLog);
 #else
@@ -742,8 +746,10 @@ static void log_handler(
 
 static void configure_log(void)
 {
-#if INTERCEPT_LOG
+#ifdef INTERCEPT_LOG2FILE
     fLog = fopen("remote-viewer.log", "w+t");
+#endif
+#ifdef INTERCEPT_LOG
     g_log_set_default_handler(log_handler, NULL);
 #endif
 }
@@ -874,7 +880,7 @@ void spice_usb_backend_finalize(SpiceUsbBackend *be)
 
 SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
 {
-    SPICE_DEBUG("%s >>", __FUNCTION__);
+    LOUD_DEBUG("%s >>", __FUNCTION__);
     libusb_device **devlist = NULL, **dev;
     SpiceUsbBackendDevice *d, **list;
 
@@ -937,7 +943,7 @@ SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
         libusb_free_device_list(devlist, 0);
     }
 
-    SPICE_DEBUG("%s <<", __FUNCTION__);
+    LOUD_DEBUG("%s <<", __FUNCTION__);
     return list;
 }
 
@@ -1008,20 +1014,20 @@ gconstpointer spice_usb_backend_device_get_libdev(SpiceUsbBackendDevice *dev)
 
 void spice_usb_backend_free_device_list(SpiceUsbBackendDevice **devlist)
 {
-    SPICE_DEBUG("%s >>", __FUNCTION__);
+    LOUD_DEBUG("%s >>", __FUNCTION__);
     SpiceUsbBackendDevice **dev;
     for (dev = devlist; *dev; dev++) {
         SpiceUsbBackendDevice *d = *dev;
         spice_usb_backend_device_release(d);
     }
     g_free(devlist);
-    SPICE_DEBUG("%s <<", __FUNCTION__);
+    LOUD_DEBUG("%s <<", __FUNCTION__);
 }
 
 void spice_usb_backend_device_acquire(SpiceUsbBackendDevice *dev)
 {
     void *mutex = dev->mutex;
-    SPICE_DEBUG("%s >> %p", __FUNCTION__, dev);
+    LOUD_DEBUG("%s >> %p", __FUNCTION__, dev);
     usbredir_lock_lock(mutex);
     if (dev->isLibUsb) {
         libusb_ref_device(dev->d.libusb_device);
@@ -1033,13 +1039,13 @@ void spice_usb_backend_device_acquire(SpiceUsbBackendDevice *dev)
 void spice_usb_backend_device_release(SpiceUsbBackendDevice *dev)
 {
     void *mutex = dev->mutex;
-    SPICE_DEBUG("%s >> %p(%d)", __FUNCTION__, dev, dev->refCount);
+    LOUD_DEBUG("%s >> %p(%d)", __FUNCTION__, dev, dev->refCount);
     usbredir_lock_lock(mutex);
     if (dev->isLibUsb) {
         libusb_unref_device(dev->d.libusb_device);
         dev->refCount--;
         if (dev->refCount == 0) {
-            SPICE_DEBUG("%s freeing %p (libusb %p)", __FUNCTION__, dev, dev->d.libusb_device);
+            LOUD_DEBUG("%s freeing %p (libusb %p)", __FUNCTION__, dev, dev->d.libusb_device);
             g_free(dev);
         }
     }
@@ -1047,7 +1053,7 @@ void spice_usb_backend_device_release(SpiceUsbBackendDevice *dev)
         dev->refCount--;
     }
     usbredir_unlock_lock(mutex);
-    SPICE_DEBUG("%s <<", __FUNCTION__);
+    LOUD_DEBUG("%s <<", __FUNCTION__);
 }
 
 gboolean spice_usb_backend_device_need_thread(SpiceUsbBackendDevice *dev)
