@@ -933,7 +933,8 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* vendor entry */
     vendor_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(vendor_entry), 8);
-    gtk_entry_set_text(GTK_ENTRY(vendor_entry), !lun_info ? "RedHat" : lun_info->vendor);
+    gtk_entry_set_text(GTK_ENTRY(vendor_entry),
+        !lun_info ? SPICE_DEFAULT_CD_LUN_VENDOR : lun_info->vendor);
     gtk_grid_attach(GTK_GRID(grid),
             vendor_entry,
             0, nrow, // left top
@@ -942,7 +943,8 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* tree_store entry */
     product_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(product_entry), 16);
-    gtk_entry_set_text(GTK_ENTRY(product_entry), !lun_info ? "USB-CD" : lun_info->product);
+    gtk_entry_set_text(GTK_ENTRY(product_entry),
+        !lun_info ? SPICE_DEFAULT_CD_LUN_DEVICE : lun_info->product);
     gtk_grid_attach(GTK_GRID(grid),
             product_entry,
             2, nrow, // left top
@@ -951,7 +953,8 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* revision entry */
     revision_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(revision_entry), 4);
-    gtk_entry_set_text(GTK_ENTRY(revision_entry), !lun_info ? "0.1" : lun_info->revision);
+    gtk_entry_set_text(GTK_ENTRY(revision_entry),
+        !lun_info ? SPICE_DEFAULT_CD_LUN_REVISION : lun_info->revision);
     gtk_grid_attach(GTK_GRID(grid),
             revision_entry,
             6, nrow++, // left top

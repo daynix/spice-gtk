@@ -39,6 +39,10 @@ G_BEGIN_DECLS
 
 #define SPICE_TYPE_USB_DEVICE                    (spice_usb_device_get_type())
 
+#define SPICE_DEFAULT_CD_LUN_VENDOR              "SPICE"
+#define SPICE_DEFAULT_CD_LUN_DEVICE              "USB-CD"
+#define SPICE_DEFAULT_CD_LUN_REVISION            "0.1"
+
 typedef struct _SpiceUsbDeviceManager SpiceUsbDeviceManager;
 typedef struct _SpiceUsbDeviceManagerClass SpiceUsbDeviceManagerClass;
 typedef struct _SpiceUsbDeviceManagerPrivate SpiceUsbDeviceManagerPrivate;
