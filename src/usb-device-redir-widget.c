@@ -229,6 +229,30 @@ static GdkPixbuf *get_named_icon(const gchar *name, gint size)
     return pixbuf;
 }
 
+static void select_widget_size(GtkWidget *wg)
+{
+    GdkDisplay *d = gtk_widget_get_display(wg);
+    int i, w = 2000, h = 1024;
+    for (i = 0; i < 4; ++i)
+    {
+        GdkMonitor *m = gdk_display_get_monitor(d, i);
+        if (m) {
+            GdkRectangle area;
+            gdk_monitor_get_workarea(m, &area);
+            SPICE_DEBUG("monitor %d: %d x %d @( %d, %d)",
+                i, area.width, area.height, area.x, area.y );
+            w = MIN(w, area.width);
+            h = MIN(h, area.height);
+        }
+    }
+
+    w = (w * 3) / 4;
+    h = h / 2;
+
+    SPICE_DEBUG("sizing widget as %d x %d", w, h);
+    gtk_widget_set_size_request(wg, w, h);
+}
+
 static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
                                           SpiceUsbDevice *usb_device,
                                           GtkTreeIter *old_dev_iter)
@@ -1449,6 +1473,8 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
         usb_widget_add_device(self, usb_device, NULL);
     }
     g_ptr_array_unref(devices);
+
+    select_widget_size(GTK_WIDGET(self));
 
 end:
     spice_usb_device_widget_update_status(self);
