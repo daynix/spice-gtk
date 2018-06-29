@@ -220,6 +220,17 @@ static void indicate_lun_change(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev
     }
 }
 
+static void indicate_device_presence(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev, gboolean present)
+{
+#ifdef G_OS_WIN32
+    spice_usb_backend_indicate_dev_change();
+#else
+    if (be->hp_callback) {
+        be->hp_callback(be->hp_user_data, bdev, present);
+    }
+#endif
+}
+
 static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
 {
     UsbDeviceInformation *pi = &bdev->device_info;
@@ -533,14 +544,7 @@ gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_devic
             b = activate_device(&own_devices.devices[i], info, 0);
             if (b) {
                 own_devices.active_devices |= 1 << i;
-#ifdef G_OS_WIN32
-                spice_usb_backend_indicate_dev_change();
-#else
-                if (be->hp_callback) {
-                    SpiceUsbBackendDevice *d = &own_devices.devices[i];
-                    be->hp_callback(be->hp_user_data, d, TRUE);
-                }
-#endif
+                indicate_device_presence(be, &own_devices.devices[i], TRUE);
             }
         } else { /* active device, add as the next lun */
             int j;
@@ -604,13 +608,7 @@ gboolean spice_usb_backend_remove_cd_lun(SpiceUsbBackend *be, SpiceUsbBackendDev
         /* usb device does not have any active unit,
         so we remove it */
         own_devices.active_devices &= ~(1 << index);
-#ifdef G_OS_WIN32
-        spice_usb_backend_indicate_dev_change();
-#else
-        if (be->hp_callback) {
-            be->hp_callback(be->hp_user_data, bdev, FALSE);
-        }
-#endif
+        indicate_device_presence(be, bdev, FALSE);
     }
     else {
         /* the device still contains active LUN(s) */
@@ -682,7 +680,8 @@ gboolean spice_usb_backend_change_cd_lun(SpiceUsbBackendDevice *bdev, guint lun,
         return b;
     }
 
-    if (bdev->units[lun].loaded || !bdev->units[lun].filename) {
+    // if the CD is loaded, we need to unload it first
+    if (bdev->units[lun].loaded) {
         return b;
     }
 
@@ -691,6 +690,9 @@ gboolean spice_usb_backend_change_cd_lun(SpiceUsbBackendDevice *bdev, guint lun,
     b = open_stream(&bdev->units[lun], path);
     if (b) {
         b = load_lun(bdev, lun, TRUE);
+    }
+    else {
+        close_stream(&bdev->units[lun]);
     }
 
     return b;
