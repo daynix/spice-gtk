@@ -875,12 +875,14 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
         "_Cancel");
 
     res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(native));
-    if (res == GTK_RESPONSE_ACCEPT)
-    {
+    if (res == GTK_RESPONSE_ACCEPT) {
         char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(native));
         gtk_entry_set_alignment(GTK_ENTRY(file_entry), 1);
         gtk_entry_set_text(GTK_ENTRY(file_entry), filename);
         g_free(filename);
+    }
+    else {
+        gtk_widget_grab_focus(button);
     }
 
     g_object_unref(native);
