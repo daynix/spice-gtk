@@ -860,7 +860,7 @@ typedef struct _lun_properties_dialog {
     GtkWidget *locked_toggle;
 } lun_properties_dialog;
 
-#ifdef G_OS_WIN32
+#if 1
 static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 {
     GtkWidget *file_entry = (GtkWidget *)user_data;
@@ -886,6 +886,7 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
     g_object_unref(native);
 }
 #else
+// to be removed
 static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 {
     GtkWidget *file_entry = (GtkWidget *)user_data;
