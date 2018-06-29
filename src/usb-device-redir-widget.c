@@ -860,6 +860,32 @@ typedef struct _lun_properties_dialog {
     GtkWidget *locked_toggle;
 } lun_properties_dialog;
 
+#ifdef G_OS_WIN32
+static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
+{
+    GtkWidget *file_entry = (GtkWidget *)user_data;
+    GtkFileChooserNative *native;
+    GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
+    gint res;
+
+    native = gtk_file_chooser_native_new("Choose File for USB CD",
+        GTK_WINDOW(gtk_widget_get_toplevel(file_entry)),
+        action,
+        "_Open",
+        "_Cancel");
+
+    res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(native));
+    if (res == GTK_RESPONSE_ACCEPT)
+    {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(native));
+        gtk_entry_set_alignment(GTK_ENTRY(file_entry), 1);
+        gtk_entry_set_text(GTK_ENTRY(file_entry), filename);
+        g_free(filename);
+    }
+
+    g_object_unref(native);
+}
+#else
 static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 {
     GtkWidget *file_entry = (GtkWidget *)user_data;
@@ -885,6 +911,7 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
     }
     gtk_widget_destroy(dialog);
 }
+#endif
 
 static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
                                          GtkWidget *parent_window,
@@ -1069,6 +1096,7 @@ static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
     //SpiceUsbDeviceWidgetPrivate *priv = self->priv;
     //GtkTreeView *tree_view = priv->tree_view;
     SPICE_DEBUG("Do Eject!");
+    // shall call spice_usb_device_manager_device_lun_load
 }
 
 static void view_popup_menu_on_remove(GtkWidget *menuitem, gpointer user_data)
