@@ -973,6 +973,11 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     choose_button = gtk_button_new_with_mnemonic("_Choose File");
     g_signal_connect(GTK_BUTTON(choose_button),
                      "clicked", G_CALLBACK(usb_cd_choose_file), file_entry);
+    if (lun_info && lun_info->loaded) {
+        gtk_widget_set_sensitive(choose_button, FALSE);
+        gtk_widget_set_can_focus(choose_button, FALSE);
+    }
+
     gtk_grid_attach(GTK_GRID(grid),
             choose_button,
             6, nrow++, // left top
@@ -999,6 +1004,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     gtk_entry_set_max_length(GTK_ENTRY(vendor_entry), 8);
     gtk_entry_set_text(GTK_ENTRY(vendor_entry),
         !lun_info ? SPICE_DEFAULT_CD_LUN_VENDOR : lun_info->vendor);
+    if (lun_info) {
+        gtk_widget_set_sensitive(vendor_entry, FALSE);
+        gtk_widget_set_can_focus(vendor_entry, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             vendor_entry,
             0, nrow, // left top
@@ -1009,6 +1018,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     gtk_entry_set_max_length(GTK_ENTRY(product_entry), 16);
     gtk_entry_set_text(GTK_ENTRY(product_entry),
         !lun_info ? SPICE_DEFAULT_CD_LUN_DEVICE : lun_info->product);
+    if (lun_info) {
+        gtk_widget_set_sensitive(product_entry, FALSE);
+        gtk_widget_set_can_focus(product_entry, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             product_entry,
             2, nrow, // left top
@@ -1019,6 +1032,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     gtk_entry_set_max_length(GTK_ENTRY(revision_entry), 4);
     gtk_entry_set_text(GTK_ENTRY(revision_entry),
         !lun_info ? SPICE_DEFAULT_CD_LUN_REVISION : lun_info->revision);
+    if (lun_info) {
+        gtk_widget_set_sensitive(revision_entry, FALSE);
+        gtk_widget_set_can_focus(revision_entry, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             revision_entry,
             6, nrow++, // left top
@@ -1037,6 +1054,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     } else {
         gtk_entry_set_text(GTK_ENTRY(alias_entry), lun_info->alias);
     }
+    if (lun_info) {
+        gtk_widget_set_sensitive(alias_entry, FALSE);
+        gtk_widget_set_can_focus(alias_entry, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             alias_entry,
             0, nrow++, // left top
@@ -1045,6 +1066,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* Started checkbox */
     started_toggle = gtk_check_button_new_with_label("Started");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(started_toggle), !lun_info ? TRUE : lun_info->started);
+    if (lun_info) {
+        gtk_widget_set_sensitive(started_toggle, FALSE);
+        gtk_widget_set_can_focus(started_toggle, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             started_toggle,
             1, nrow, // left top
@@ -1053,6 +1078,10 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* Loaded checkbox */
     loaded_toggle = gtk_check_button_new_with_label("Loaded");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(loaded_toggle), !lun_info ? TRUE : lun_info->loaded);
+    if (lun_info) {
+        gtk_widget_set_sensitive(loaded_toggle, FALSE);
+        gtk_widget_set_can_focus(loaded_toggle, FALSE);
+    }
     gtk_grid_attach(GTK_GRID(grid),
             loaded_toggle,
             3, nrow, // left top
