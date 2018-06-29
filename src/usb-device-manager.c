@@ -2138,7 +2138,7 @@ spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
     gboolean b = FALSE;
     SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
     if (bdev) {
-        b = spice_usb_backend_load_cd_lun(bdev, lun, load);
+        b = spice_usb_backend_load_cd_lun(self->priv->context, bdev, lun, load);
         spice_usb_backend_device_release(bdev);
     }
     return b;
@@ -2148,12 +2148,12 @@ gboolean
 spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
     guint lun,
-    gchar *filename)
+    const spice_usb_device_lun_info *lun_info)
 {
     gboolean b = FALSE;
     SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
     if (bdev) {
-        b = spice_usb_backend_change_cd_lun(bdev, lun, filename);
+        b = spice_usb_backend_change_cd_lun(self->priv->context, bdev, lun, lun_info);
         spice_usb_backend_device_release(bdev);
     }
     return b;

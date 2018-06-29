@@ -214,7 +214,7 @@ gboolean
 spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
                                                  SpiceUsbDevice *device,
                                                  guint lun,
-                                                 gchar *filename);
+                                                 const spice_usb_device_lun_info *lun_info);
 /* remove lun from the usb device */
 gboolean
 spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,

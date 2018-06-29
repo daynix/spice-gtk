@@ -660,39 +660,79 @@ gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
     return FALSE;
 }
 
-gboolean spice_usb_backend_load_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, gboolean load)
+gboolean spice_usb_backend_load_cd_lun(
+    SpiceUsbBackend *be,
+    SpiceUsbBackendDevice *bdev,
+    guint lun,
+    gboolean load)
 {
     if (!check_device(bdev, lun, NULL)) {
         return FALSE;
     }
 
     if (bdev->units[lun].filename) {
-        return load_lun(bdev, lun, load);
+        gboolean b = load_lun(bdev, lun, load);
+        SPICE_DEBUG("%s: %sload %s", __FUNCTION__,
+            load ? "" : "un", b ? "succeeded" : "failed");
+        if (b) {
+            indicate_lun_change(be, bdev);
+        }
+        return b;
     }
 
     return FALSE;
 }
 
-gboolean spice_usb_backend_change_cd_lun(SpiceUsbBackendDevice *bdev, guint lun, const char* path)
+gboolean spice_usb_backend_change_cd_lun(
+    SpiceUsbBackend *be,
+    SpiceUsbBackendDevice *bdev,
+    guint lun, const spice_usb_device_lun_info *lun_info)
 {
     gboolean b = FALSE;
+
+    char *filename;
+    GFile *file_object;
+    GFileInputStream *stream;
+
     if (!check_device(bdev, lun, NULL)) {
         return b;
     }
 
     // if the CD is loaded, we need to unload it first
     if (bdev->units[lun].loaded) {
+        SPICE_DEBUG("%s: the unit is loaded, unload it first", __FUNCTION__);
         return b;
     }
 
-    close_stream(&bdev->units[lun]);
+    // keep stream-related data (stream, file object)
+    filename = bdev->units[lun].filename;
+    bdev->units[lun].filename = NULL;
 
-    b = open_stream(&bdev->units[lun], path);
+    stream = bdev->units[lun].stream;
+    bdev->units[lun].stream = NULL;
+
+    file_object = bdev->units[lun].file_object;
+    bdev->units[lun].file_object = NULL;
+
+    // now we can start the LUN with new parameters
+    b = open_stream(&bdev->units[lun], lun_info->file_path);
     if (b) {
         b = load_lun(bdev, lun, TRUE);
     }
     else {
         close_stream(&bdev->units[lun]);
+    }
+
+    if (!b) {
+        SPICE_DEBUG("%s: failed", __FUNCTION__);
+        // restore the state of unloaded unit
+        bdev->units[lun].filename = filename;
+        bdev->units[lun].stream = stream;
+        bdev->units[lun].file_object = file_object;
+    }
+    else {
+        SPICE_DEBUG("%s: succeeded", __FUNCTION__);
+        indicate_lun_change(be, bdev);
     }
 
     return b;
