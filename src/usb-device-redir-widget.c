@@ -1090,14 +1090,40 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->locked_toggle));
 }
 
+static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
+{
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
+    GtkTreeModel *tree_model;
+    GtkTreeIter iter;
+    gboolean is_lun;
+
+    if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
+        gtk_tree_model_get(tree_model, &iter,
+            COL_LUN_ITEM, &is_lun,
+            -1);
+        if (!is_lun) {
+            SpiceUsbDevice *usb_device;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&usb_device, -1);
+            SPICE_DEBUG("%s - not applicable for USB device", __FUNCTION__);
+        }
+        else {
+            usb_widget_lun_item *lun_item;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
+            spice_usb_device_manager_device_lun_load(
+                lun_item->manager, lun_item->device, lun_item->lun, !lun_item->info.loaded);
+        }
+    }
+    else {
+        SPICE_DEBUG("%s - failed to get selection", __FUNCTION__);
+    }
+}
+
 /* Popup menu */
 static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
 {
-    //SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    //SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    //GtkTreeView *tree_view = priv->tree_view;
-    SPICE_DEBUG("Do Eject!");
-    // shall call spice_usb_device_manager_device_lun_load
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    toggle_eject_of_selected_unit(self);
 }
 
 static void view_popup_menu_on_remove(GtkWidget *menuitem, gpointer user_data)
@@ -1157,7 +1183,8 @@ static void view_popup_menu_on_settings(GtkWidget *menuitem, gpointer user_data)
                 spice_usb_device_lun_info lun_info;
                 SPICE_DEBUG("response is ACCEPT");
                 lun_properties_dialog_get_info(&lun_dialog, &lun_info);
-                spice_usb_device_manager_add_cd_lun(priv->manager, &lun_info);
+                spice_usb_device_manager_device_lun_change_media(
+                    priv->manager, lun_item->device, lun_item->lun, &lun_info);
             } else {
                 SPICE_DEBUG("response is REJECT");
             }
@@ -1209,7 +1236,7 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
     menu = gtk_menu_new();
 
     //menu_item = 
-    view_popup_add_menu_item(menu, "_Eject", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
+    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Settings", "preferences-system", G_CALLBACK(view_popup_menu_on_settings), user_data);
     view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
 
