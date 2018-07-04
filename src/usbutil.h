@@ -29,7 +29,8 @@ G_BEGIN_DECLS
 
 void spice_usb_util_get_device_strings(int bus, int address,
                                        int vendor_id, int product_id,
-                                       gchar **manufacturer, gchar **product);
+                                       gchar **manufacturer, gchar **product,
+                                       gboolean fill_always);
 
 G_END_DECLS
 
