@@ -398,6 +398,34 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     return 0;
 }
 
+static void cd_scsi_lu_media_reset(cd_scsi_lu *dev)
+{
+    dev->stream = NULL;
+    dev->size = 0;
+    dev->block_size = 0;
+    dev->num_blocks = 0;
+}
+
+static void cd_scsi_lu_load(cd_scsi_lu *dev,
+                            const cd_scsi_media_parameters *media_params)
+{
+    if (media_params != NULL) {
+        dev->stream = media_params->stream;
+        dev->size = media_params->size;
+        dev->block_size = media_params->block_size;
+        dev->num_blocks = media_params->size / media_params->block_size;
+    } else {
+        cd_scsi_lu_media_reset(dev);
+    }
+    dev->loaded = TRUE;
+}
+
+static void cd_scsi_lu_unload(cd_scsi_lu *dev)
+{
+    cd_scsi_lu_media_reset(dev);
+    dev->loaded = FALSE;
+}
+
 int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
                      const cd_scsi_media_parameters *media_params)
 {
@@ -419,12 +447,8 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
         return -1;
     }
 
-    dev->stream = media_params->stream;
-    dev->size = media_params->size;
-    dev->block_size = media_params->block_size;
-    dev->num_blocks = media_params->size / media_params->block_size;
-
-    dev->loaded = TRUE;
+    cd_scsi_lu_load(dev, media_params);
+    dev->power_cond = CD_SCSI_POWER_ACTIVE;
 
     SPICE_DEBUG("Load lun:%" G_GUINT32_FORMAT " size:%" G_GUINT64_FORMAT
                 " blk_sz:%" G_GUINT32_FORMAT " num_blocks:%" G_GUINT32_FORMAT,
@@ -446,8 +470,11 @@ int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *l
         return -1;
     }
     dev = &st->units[lun];
-    lun_info->locked = dev->prevent_media_removal;
+
     lun_info->started = dev->power_cond == CD_SCSI_POWER_ACTIVE;
+    lun_info->locked = dev->prevent_media_removal;
+    lun_info->loaded = dev->loaded;
+
     lun_info->parameters.vendor = dev->vendor;
     lun_info->parameters.product = dev->product;
     lun_info->parameters.version = dev->version;
@@ -479,12 +506,8 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
         return -1;
     }
 
-    dev->loaded = FALSE;
-
-    dev->stream = NULL;
-    dev->size = 0;
-    dev->block_size = 0;
-    dev->num_blocks = 0;
+    cd_scsi_lu_unload(dev);
+    dev->power_cond = CD_SCSI_POWER_STOPPED;
 
     SPICE_DEBUG("Unload lun:%" G_GUINT32_FORMAT, lun);
     return 0;
@@ -1997,8 +2020,9 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
     case CD_START_STOP_POWER_COND_START_VALID:
         if (!start) { /* stop the unit */
             if (load_eject) { /* eject medium */
-                dev->loaded = FALSE;
-                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " ejected", req->lun);
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " eject", req->lun);
+                cd_scsi_lu_unload(dev);
+                cd_scsi_dev_changed(dev->tgt->user_data, req->lun);
             }
             dev->power_cond = CD_SCSI_POWER_STOPPED;
             SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " stopped", req->lun);
@@ -2007,12 +2031,14 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
             SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " started", req->lun);
 
             if (load_eject) { /* load medium */
-                dev->loaded = TRUE;
-                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " loaded", req->lun);
+                SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " load with no media", req->lun);
+                cd_scsi_lu_load(dev, NULL);
+                cd_scsi_dev_changed(dev->tgt->user_data, req->lun);
             }
         }
         break;
     case CD_START_STOP_POWER_COND_ACTIVE:
+        /* not error to specify transition to the current power condition */
         dev->power_cond = CD_SCSI_POWER_ACTIVE;
         SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " active", req->lun);
         break;
@@ -2332,7 +2358,7 @@ static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
         cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
         return;
-    } else if (!dev->loaded) {
+    } else if (!dev->loaded || dev->stream == NULL) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is not loaded", req->lun);
         cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
         return;
