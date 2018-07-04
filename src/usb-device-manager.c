@@ -1783,7 +1783,7 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
     }
 
     spice_usb_util_get_device_strings(bus, address, vid, pid,
-                                      &manufacturer, &product);
+                                      &manufacturer, &product, TRUE);
 
     if (!format)
         format = _("%s %s %s at %d-%d");
@@ -1800,26 +1800,27 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #endif
 }
 
-gboolean spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
+void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
 {
 #ifdef USE_USBREDIR
+
+    g_return_if_fail(device != NULL);
+
     info->vendor = info->product;
-
-    g_return_val_if_fail(device != NULL, FALSE);
-
     info->bus = spice_usb_device_get_busnum(device);
     info->address = spice_usb_device_get_devaddr(device);
     info->vendor_id = spice_usb_device_get_vid(device);
     info->product_id = spice_usb_device_get_pid(device);
 
     spice_usb_util_get_device_strings(info->bus, info->address,
-        info->vendor_id, info->product_id, &info->vendor, &info->product);
-
-    return TRUE;
-#else
-    return FALSE;
+        info->vendor_id, info->product_id, &info->vendor, &info->product, FALSE);
+    if (!info->vendor) {
+        info->vendor = g_strdup_printf("[%04X]", info->vendor_id);
+    }
+    if (!info->product) {
+        info->product = g_strdup_printf("[%04X]", info->product_id);
+    }
 #endif
-
 }
 
 #ifdef USE_USBREDIR

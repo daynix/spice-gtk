@@ -106,6 +106,8 @@ struct _SpiceUsbDeviceManagerClass
 GType spice_usb_device_get_type(void);
 GType spice_usb_device_manager_get_type(void);
 
+gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format);
+
 typedef struct _spice_usb_device_info
 {
     guint16 bus;
@@ -117,8 +119,12 @@ typedef struct _spice_usb_device_info
     gchar *product;
 } spice_usb_device_info;
 
-gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format);
-gboolean spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info);
+/*
+spice_usb_device_get_info is similar to spice_usb_device_get_description,
+i.e. 'vendor' and 'product' strings are allocated by callee and shall be
+freed by caller
+*/
+void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info);
 gconstpointer spice_usb_device_get_libusb_device(const SpiceUsbDevice *device);
 
 SpiceUsbDeviceManager *spice_usb_device_manager_get(SpiceSession *session,
@@ -189,7 +195,11 @@ typedef struct _spice_usb_device_lun_info
 gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
                                              spice_usb_device_lun_info *lun_info);
 
-/* Get CD LUN info, intended primarily for enumerating LUNs */
+/* Get CD LUN info, intended primarily for enumerating LUNs.
+   The caller shall not free the strings returned in lun_info structure
+   on successfull call. It can use them only in context of current call or
+   duplicate for further usage.
+*/
 gboolean
 spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
                                              SpiceUsbDevice *device,

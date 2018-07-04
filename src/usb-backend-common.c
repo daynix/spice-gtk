@@ -1946,9 +1946,10 @@ void spice_usb_backend_channel_get_guest_filter(
         SPICE_DEBUG("%s ch %p: %d filters", __FUNCTION__, ch, *count);
     }
     for (i = 0; i < *count; i++) {
+        const struct usbredirfilter_rule *ra = *r;
         SPICE_DEBUG("%s class %d, %X:%X",
-            r[i]->allow ? "allowed" : "denied", r[i]->device_class,
-            (uint32_t)r[i]->vendor_id, (uint32_t)r[i]->product_id);
+            ra[i].allow ? "allowed" : "denied", ra[i].device_class,
+            (uint32_t)ra[i].vendor_id, (uint32_t)ra[i].product_id);
     }
 }
 
