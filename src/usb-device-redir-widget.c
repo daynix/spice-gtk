@@ -346,6 +346,9 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
     gtk_tree_view_expand_row(priv->tree_view, new_dev_path, FALSE);
     gtk_tree_path_free(new_dev_path);
 
+    g_free(dev_info.vendor);
+    g_free(dev_info.product);
+    g_free(addr_str);
 }
 
 static gboolean usb_widget_tree_store_find_usb_dev_foreach_cb(GtkTreeModel *tree_model,
