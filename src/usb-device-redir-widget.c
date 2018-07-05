@@ -515,12 +515,22 @@ static gboolean tree_item_toggle_get_val(GtkTreeStore *tree_store, gchar *path_s
     return toggle_val;
 }
 
+static gboolean tree_item_is_lun(GtkTreeStore *tree_store, GtkTreeIter *iter)
+{
+    gboolean is_lun;
+    gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_LUN_ITEM, &is_lun, -1);
+    return is_lun;
+}
+
 static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, GtkTreeIter *iter)
 {
-    usb_widget_lun_item *lun_item;
-    gboolean is_lun;
-    gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_LUN_ITEM, &is_lun, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
-    return is_lun ? lun_item : NULL;
+    if (tree_item_is_lun(tree_store, iter)) {
+        usb_widget_lun_item *lun_item;
+        gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
+        return lun_item;
+    } else {
+        return NULL;
+    }
 }
 
 static void tree_item_toggle_set(GtkTreeStore *tree_store, GtkTreeIter *iter, enum column_id col_id, gboolean new_val)
@@ -664,7 +674,9 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
 
 static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean started;
     usb_widget_lun_item *lun_item;
@@ -684,7 +696,9 @@ static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *pat
 
 static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean locked;
     usb_widget_lun_item *lun_item;
@@ -705,7 +719,9 @@ static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path
 
 static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean loaded;
     usb_widget_lun_item *lun_item;
