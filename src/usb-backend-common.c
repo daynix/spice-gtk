@@ -115,6 +115,7 @@ struct _SpiceUsbBackend
     libusb_hotplug_callback_handle hp_handle;
     void *dev_change_user_data;
     backend_device_change_callback dev_change_callback;
+    uint32_t suppressed : 1;
 };
 
 /* backend object for device change notification */
@@ -536,6 +537,12 @@ gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_devic
 {
     int i;
     gboolean b = FALSE;
+
+    if (be->suppressed) {
+        SPICE_DEBUG("%s: CD sharing is suppressed", __FUNCTION__);
+        return FALSE;
+    }
+
     for (i = 0; !b && i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & ~own_devices.active_devices) { /* inactive usb device */
             SPICE_DEBUG("%s: add file %s to device %d (activate now) as lun 0",
@@ -807,6 +814,9 @@ SpiceUsbBackend *spice_usb_backend_initialize(void)
     }
     be = (SpiceUsbBackend *)g_new0(SpiceUsbBackend, 1);
     if (be) {
+#ifndef USE_CD_SHARING
+        be->suppressed = TRUE;
+#endif
         int rc;
         rc = libusb_init(&be->libusbContext);
         if (rc < 0) {

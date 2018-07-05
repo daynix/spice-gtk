@@ -1544,6 +1544,9 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
     gtk_widget_set_halign(add_cd_button, GTK_ALIGN_END);
     g_signal_connect(add_cd_button, "clicked", G_CALLBACK(add_cd_lun_button_clicked_cb), self);
     gtk_box_pack_start(GTK_BOX(hbox), add_cd_button, FALSE, FALSE, 0);
+#ifndef USE_CD_SHARING
+    gtk_widget_set_sensitive(add_cd_button, FALSE);
+#endif
 
     /* scrolled window */
     sw = gtk_scrolled_window_new(NULL, NULL);
