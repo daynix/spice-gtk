@@ -25,6 +25,8 @@
 #include "spice-marshal.h"
 #include "usb-device-widget.h"
 
+#ifndef USE_NEW_USB_WIDGET
+
 /**
  * SECTION:usb-device-widget
  * @short_description: USB device selection widget
@@ -615,3 +617,5 @@ static void device_change_cb(SpiceUsbDeviceManager *manager,
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SPICE_DEBUG("%s -> widget %p", __FUNCTION__, self);
 }
+
+#endif // !USE_NEW_USB_WIDGET

@@ -36,7 +36,7 @@
     Use SPICE_DEBUG=1 environment varible to enable logs
 */
 
-#ifdef USE_USBREDIR
+#ifdef USE_NEW_USB_WIDGET
 
 /**
  * SECTION:usb-device-widget
@@ -44,7 +44,7 @@
  * @title: Spice USB device selection widget
  * @section_id:
  * @see_also:
- * @stability: Stable
+ * @stability: Under development
  * @include: spice-client-gtk.h
  *
  * #SpiceUsbDeviceWidget is a gtk widget which apps can use to easily
@@ -1790,12 +1790,4 @@ static void checkbox_usb_device_destroy_notify(gpointer user_data)
     g_boxed_free(spice_usb_device_get_type(), user_data);
 }
 #endif
-
-#else
-
-GtkWidget *spice_usb_device_widget_new(SpiceSession *session, const gchar *unused)
-{
-    return NULL;
-}
-
 #endif
