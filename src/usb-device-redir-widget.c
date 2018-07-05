@@ -1019,7 +1019,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             0, nrow, // left top
             2, 1); // width height
 
-    /* tree_store entry */
+    /* product entry */
     product_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(product_entry), 16);
     gtk_entry_set_text(GTK_ENTRY(product_entry),
@@ -1049,7 +1049,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* alias label */
     gtk_grid_attach(GTK_GRID(grid),
-            gtk_label_new("Revision"),
+            gtk_label_new("Alias"),
             0, nrow++, // left top
             7, 1); // width height
 
