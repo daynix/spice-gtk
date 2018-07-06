@@ -48,7 +48,7 @@ void cd_usb_bulk_msd_read_complete(void *user_data,
 /* called when state of device's unit changed to signal GUI component
    user_data - user_data in unit parameters structure
 */
-void cd_usb_bulk_msd_changed(void *user_data);
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun);
 
 /* called on completed device reset
    user_data - user_data in unit parameters structure

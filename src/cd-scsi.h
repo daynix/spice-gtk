@@ -121,6 +121,7 @@ int cd_scsi_target_reset(void *scsi_target);
 /* Callbacks */
 
 void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *request);
+void cd_scsi_dev_changed(void *target_user_data, uint32_t lun);
 void cd_scsi_dev_reset_complete(void *target_user_data, uint32_t lun);
 void cd_scsi_target_reset_complete(void *target_user_data);
 

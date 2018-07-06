@@ -351,6 +351,13 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
     g_free(addr_str);
 }
 
+static gboolean tree_item_is_lun(GtkTreeStore *tree_store, GtkTreeIter *iter)
+{
+    gboolean is_lun;
+    gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_LUN_ITEM, &is_lun, -1);
+    return is_lun;
+}
+
 static gboolean usb_widget_tree_store_find_usb_dev_foreach_cb(GtkTreeModel *tree_model,
                                                               GtkTreePath *path, GtkTreeIter *iter,
                                                               gpointer user_data)
@@ -437,7 +444,7 @@ static GtkTreeViewColumn* view_add_toggle_column(SpiceUsbDeviceWidget *self,
 
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
-    g_object_set_data(G_OBJECT(renderer), "column", (gint *)toggle_col_id);
+    //g_object_set_data(G_OBJECT(renderer), "column", (gint *)toggle_col_id);
     g_signal_connect(renderer, "toggled", G_CALLBACK(toggled_cb), self);
 
     SPICE_DEBUG("view added toggle column [%u : %s] visible when [%u : %s]",
@@ -517,10 +524,13 @@ static gboolean tree_item_toggle_get_val(GtkTreeStore *tree_store, gchar *path_s
 
 static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, GtkTreeIter *iter)
 {
-    usb_widget_lun_item *lun_item;
-    gboolean is_lun;
-    gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_LUN_ITEM, &is_lun, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
-    return is_lun ? lun_item : NULL;
+    if (tree_item_is_lun(tree_store, iter)) {
+        usb_widget_lun_item *lun_item;
+        gtk_tree_model_get(GTK_TREE_MODEL(tree_store), iter, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
+        return lun_item;
+    } else {
+        return NULL;
+    }
 }
 
 static void tree_item_toggle_set(GtkTreeStore *tree_store, GtkTreeIter *iter, enum column_id col_id, gboolean new_val)
@@ -664,7 +674,9 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
 
 static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean started;
     usb_widget_lun_item *lun_item;
@@ -684,7 +696,9 @@ static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *pat
 
 static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean locked;
     usb_widget_lun_item *lun_item;
@@ -705,7 +719,9 @@ static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path
 
 static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
-    GtkTreeStore *tree_store = (GtkTreeStore *)user_data;
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeStore *tree_store = priv->tree_store;
     GtkTreeIter iter;
     gboolean loaded;
     usb_widget_lun_item *lun_item;
@@ -1019,7 +1035,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             0, nrow, // left top
             2, 1); // width height
 
-    /* tree_store entry */
+    /* product entry */
     product_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(product_entry), 16);
     gtk_entry_set_text(GTK_ENTRY(product_entry),
@@ -1049,7 +1065,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* alias label */
     gtk_grid_attach(GTK_GRID(grid),
-            gtk_label_new("Revision"),
+            gtk_label_new("Alias"),
             0, nrow++, // left top
             7, 1); // width height
 
@@ -1133,13 +1149,9 @@ static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
     GtkTreeIter iter;
-    gboolean is_lun;
 
     if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
-        gtk_tree_model_get(tree_model, &iter,
-            COL_LUN_ITEM, &is_lun,
-            -1);
-        if (!is_lun) {
+        if (!tree_item_is_lun(priv->tree_store, &iter)) {
             SpiceUsbDevice *usb_device;
             gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&usb_device, -1);
             SPICE_DEBUG("%s - not applicable for USB device", __FUNCTION__);
@@ -1170,13 +1182,9 @@ static void view_popup_menu_on_remove(GtkWidget *menuitem, gpointer user_data)
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
     GtkTreeIter iter;
-    gboolean is_lun;
 
     if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
-        gtk_tree_model_get(tree_model, &iter,
-                           COL_LUN_ITEM, &is_lun,
-                           -1);
-        if (!is_lun) {
+        if (!tree_item_is_lun(priv->tree_store, &iter)) {
             SpiceUsbDevice *usb_device;
             gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&usb_device, -1);
             SPICE_DEBUG("Remove USB device");
@@ -1198,13 +1206,9 @@ static void view_popup_menu_on_settings(GtkWidget *menuitem, gpointer user_data)
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
     GtkTreeIter iter;
-    gboolean is_lun;
 
     if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
-        gtk_tree_model_get(tree_model, &iter,
-                           COL_LUN_ITEM, &is_lun,
-                           -1);
-        if (!is_lun) {
+        if (!tree_item_is_lun(priv->tree_store, &iter)) {
             SPICE_DEBUG("No settings for USB device yet");
         } else {
             lun_properties_dialog lun_dialog;
@@ -1703,15 +1707,14 @@ static gboolean usb_widget_tree_store_check_redirect_foreach_cb(GtkTreeModel *tr
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    SpiceUsbDevice *usb_device;
-    gboolean is_lun_item;
 
-    gtk_tree_model_get(tree_model, iter,
-                       COL_LUN_ITEM, &is_lun_item,
-                       COL_ITEM_DATA, (gpointer *)&usb_device,
-                       -1);
-    if (!is_lun_item) {
+    if (!tree_item_is_lun(priv->tree_store, iter)) {
+        SpiceUsbDevice *usb_device;
         gboolean can_redirect;
+
+        gtk_tree_model_get(tree_model, iter,
+                           COL_ITEM_DATA, (gpointer *)&usb_device,
+                           -1);
 
         if (spice_usb_device_manager_is_redirecting(priv->manager)) {
             can_redirect = FALSE;

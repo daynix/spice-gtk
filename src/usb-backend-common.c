@@ -381,11 +381,16 @@ static void usbredir_write_flush_callback(void *user_data)
     }
 }
 
-void cd_usb_bulk_msd_changed(void *user_data)
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
-    if (notify_backend) {
-        indicate_lun_change(notify_backend, d);
+    cd_scsi_device_info cd_info;
+
+    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
+        d->units[lun].loaded = cd_info.loaded;
+        if (notify_backend) {
+            indicate_lun_change(notify_backend, d);
+        }
     }
 }
 
