@@ -530,4 +530,12 @@ void cd_scsi_target_reset_complete(void *target_user_data)
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_INIT);
 }
 
+void cd_scsi_dev_changed(void *target_user_data, uint32_t lun)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
+    SPICE_DEBUG("Device changed, state: %s lun: %" G_GUINT32_FORMAT,
+                usb_cd_state_str(cd->state), lun);
+    cd_usb_bulk_msd_lun_changed(cd->usb_user_data, lun);
+}
+
 #endif /* USE_USBREDIR */

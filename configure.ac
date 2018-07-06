@@ -376,6 +376,52 @@ else
 fi
 AM_CONDITIONAL([WITH_USBREDIR], [test "x$have_usbredir" = "xyes"])
 
+AC_ARG_ENABLE([newusbwidget],
+  AS_HELP_STRING([--enable-newusbwidget=@<:@auto/yes/no@:>@],
+                 [Use new USB devices widget @<:@default=auto@:>@]),
+  [],
+  [enable_newusbwidget="auto"])
+
+AC_ARG_ENABLE([cdsharing],
+  AS_HELP_STRING([--enable-cdsharing=@<:@auto/yes/no@:>@],
+                 [Enable CD charing feature @<:@default=auto@:>@]),
+  [],
+  [enable_cdsharing="auto"])
+
+if test "x$enable_cdsharing" = "xyes" && test "x$enable_newusbwidget" != "no" ; then
+  enable_newusbwidget="yes"
+fi
+
+if test "x$enable_newusbwidget" = "xno" || test "x$have_usbredir" != "xyes" ; then
+  have_newusbwidget="no"
+else
+    widget_requires_gtk=3.22
+    if test "x$enable_newusbwidget" = "xauto" ; then
+      PKG_CHECK_MODULES([WIDGET],
+       [gtk+-3.0 >= $widget_requires_gtk],
+       [have_newusbwidget=yes],
+       [echo "New USB device widget disabled due to GTK version" && have_newusbwidget=no])
+    else
+      PKG_CHECK_MODULES([WIDGET],
+       [gtk+-3.0 >= $widget_requires_gtk],
+       [], [SPICE_WARNING([New USB device widget may not work])])
+    fi
+    if test "x$have_newusbwidget" = "xyes"; then
+      AC_DEFINE([USE_NEW_USB_WIDGET], [1], [Define if new USB widget should be used])
+    fi
+fi
+
+if test "x$enable_cdsharing" = "xno" || test "x$have_newusbwidget" = "xno"; then
+  have_cdsharing="no"
+else
+  if test "x$have_usbredir" != "xyes"; then
+    have_cdsharing="no"
+  else
+    have_cdsharing=yes
+    AC_DEFINE([USE_CD_SHARING], [1], [Define if supporting cd sharing via usbredir])
+  fi
+fi
+
 AC_ARG_ENABLE([polkit],
   AS_HELP_STRING([--enable-polkit=@<:@auto/yes/no@:>@],
                  [Enable PolicyKit support (for the usb acl helper)@<:@default=auto@:>@]),
@@ -632,6 +678,7 @@ AC_MSG_NOTICE([
         SASL support:             ${have_sasl}
         Smartcard support:        ${have_smartcard}
         USB redirection support:  ${have_usbredir} ${with_usbredir_hotplug}
+        CD sharing support:       ${have_cdsharing} new widget: ${have_newusbwidget}
         DBus:                     ${have_dbus}
         WebDAV support:           ${have_phodav}
         LZ4 support:              ${have_lz4}
