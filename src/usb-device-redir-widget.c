@@ -453,6 +453,32 @@ static GtkTreeViewColumn* view_add_toggle_column(SpiceUsbDeviceWidget *self,
     return view_col;
 }
 
+static GtkTreeViewColumn* view_add_read_only_toggle_column(SpiceUsbDeviceWidget *self,
+                                                           enum column_id toggle_col_id,
+                                                           enum column_id visible_col_id)
+{
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkCellRenderer     *renderer;
+    GtkTreeViewColumn   *view_col;
+
+    renderer = gtk_cell_renderer_toggle_new();
+
+    view_col = gtk_tree_view_column_new_with_attributes(
+                    col_name[toggle_col_id],
+                    renderer,
+                    "active", toggle_col_id,
+                    "visible", visible_col_id,
+                    NULL);
+
+    gtk_cell_renderer_toggle_set_activatable(GTK_CELL_RENDERER_TOGGLE(renderer), FALSE);
+    gtk_tree_view_append_column(priv->tree_view, view_col);
+
+    SPICE_DEBUG("view added read-only toggle column [%u : %s] visible when [%u : %s]",
+            toggle_col_id, col_name[toggle_col_id],
+            visible_col_id, col_name[visible_col_id]);
+    return view_col;
+}
+
 static GtkTreeViewColumn* view_add_text_column(SpiceUsbDeviceWidget *self,
                                                enum column_id col_id)
 {
@@ -522,6 +548,7 @@ static gboolean tree_item_toggle_get_val(GtkTreeStore *tree_store, gchar *path_s
     return toggle_val;
 }
 
+/*
 static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, GtkTreeIter *iter)
 {
     if (tree_item_is_lun(tree_store, iter)) {
@@ -532,6 +559,7 @@ static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, 
         return NULL;
     }
 }
+*/
 
 static void tree_item_toggle_set(GtkTreeStore *tree_store, GtkTreeIter *iter, enum column_id col_id, gboolean new_val)
 {
@@ -672,6 +700,7 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
     spice_usb_device_widget_update_status(self);
 }
 
+/*
 static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
@@ -739,6 +768,7 @@ static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path
 
     tree_item_toggle_set(tree_store, &iter, COL_LOADED, !loaded);
 }
+*/
 
 /* Signal handlers */
 
@@ -1143,8 +1173,10 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->locked_toggle));
 }
 
-static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
+/* Popup menu */
+static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
 {
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
@@ -1168,11 +1200,30 @@ static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
     }
 }
 
-/* Popup menu */
-static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
+static void view_popup_menu_on_lock(GtkWidget *menuitem, gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    toggle_eject_of_selected_unit(self);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
+    GtkTreeModel *tree_model;
+    GtkTreeIter iter;
+
+    if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
+        if (!tree_item_is_lun(priv->tree_store, &iter)) {
+            SpiceUsbDevice *usb_device;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&usb_device, -1);
+            SPICE_DEBUG("%s - not applicable for USB device", __FUNCTION__);
+        }
+        else {
+            usb_widget_lun_item *lun_item;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
+            spice_usb_device_manager_device_lun_lock(
+                lun_item->manager, lun_item->device, lun_item->lun, !lun_item->info.locked);
+        }
+    }
+    else {
+        SPICE_DEBUG("%s - failed to get selection", __FUNCTION__);
+    }
 }
 
 static void view_popup_menu_on_remove(GtkWidget *menuitem, gpointer user_data)
@@ -1272,13 +1323,13 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
 
 static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpointer user_data)
 {
-    GtkWidget *menu; // *menu_item;
+    GtkWidget *menu;
 
     menu = gtk_menu_new();
 
-    //menu_item = 
-    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Settings", "preferences-system", G_CALLBACK(view_popup_menu_on_settings), user_data);
+    view_popup_add_menu_item(menu, "_Lock/Unlock", "system-lock-screen", G_CALLBACK(view_popup_menu_on_lock), user_data);
+    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
 
     gtk_widget_show_all(menu);
@@ -1451,9 +1502,9 @@ static void spice_usb_device_widget_create_tree_view(SpiceUsbDeviceWidget *self)
     view_add_text_column(self, COL_REVISION);
     view_add_text_column(self, COL_ALIAS);
 
-    view_add_toggle_column(self, COL_STARTED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_started);
-    view_add_toggle_column(self, COL_LOADED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_loaded);
-    view_add_toggle_column(self, COL_LOCKED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_locked);
+    view_add_read_only_toggle_column(self, COL_STARTED, COL_LUN_ITEM);
+    view_add_read_only_toggle_column(self, COL_LOADED, COL_LUN_ITEM);
+    view_add_read_only_toggle_column(self, COL_LOCKED, COL_LUN_ITEM);
 
     view_add_text_column(self, COL_FILE);
 
