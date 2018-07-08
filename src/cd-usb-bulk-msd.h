@@ -71,6 +71,11 @@ void cd_usb_bulk_msd_free(void *device);
 int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
                             const cd_scsi_device_parameters *dev_params);
 
+/* lock the device, prevent unloading
+   returns: error code
+*/
+int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock);
+
 /* load new media, if already loaded, simulate media change
    returns: error code
 */

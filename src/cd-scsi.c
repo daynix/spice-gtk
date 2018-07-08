@@ -416,6 +416,25 @@ static void cd_scsi_lu_media_reset(cd_scsi_lu *dev)
     dev->num_blocks = 0;
 }
 
+int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Lock, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Lock, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    dev->prevent_media_removal = lock;
+    SPICE_DEBUG("lun:%" G_GUINT32_FORMAT "%slock", lun, lock ? "un" :"");
+    return 0;
+}
+
 static void cd_scsi_lu_load(cd_scsi_lu *dev,
                             const cd_scsi_media_parameters *media_params)
 {
@@ -499,7 +518,7 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
     cd_scsi_lu *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
-        SPICE_ERROR("Unoad, illegal lun:%" G_GUINT32_FORMAT, lun);
+        SPICE_ERROR("Unload, illegal lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
     if (!cd_scsi_target_lun_realized(st, lun)) {
@@ -508,11 +527,11 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
     }
     dev = &st->units[lun];
     if (!dev->loaded) {
-        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
+        SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
         return -1;
     }
     if (dev->prevent_media_removal) {
-        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
+        SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
         return -1;
     }
 
@@ -2036,6 +2055,11 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
     case CD_START_STOP_POWER_COND_START_VALID:
         if (!start) { /* stop the unit */
             if (load_eject) { /* eject medium */
+                if (dev->prevent_media_removal) {
+                    SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " prevent_media_removal set, eject failed", req->lun);
+                    cd_scsi_sense_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
+                    return;
+                }
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " eject", req->lun);
                 cd_scsi_lu_unload(dev);
                 cd_scsi_dev_changed(dev->tgt->user_data, req->lun);

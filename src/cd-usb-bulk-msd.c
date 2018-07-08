@@ -172,6 +172,21 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     return 0;
 }
 
+int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    int rc;
+
+    rc = cd_scsi_dev_lock(cd->scsi_target, lun, lock);
+    if (rc != 0) {
+        SPICE_ERROR("Failed to lock lun:%" G_GUINT32_FORMAT, lun);
+        return rc;
+    }
+
+    SPICE_DEBUG("Lock OK lun:%" G_GUINT32_FORMAT, lun);
+    return 0;
+}
+
 int cd_usb_bulk_msd_load(void *device, uint32_t lun,
                          const cd_scsi_media_parameters *media_params)
 {

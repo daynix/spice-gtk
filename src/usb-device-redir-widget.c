@@ -714,7 +714,7 @@ static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path
             lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
             locked, !locked);
 
-    tree_item_toggle_set(tree_store, &iter, COL_LOCKED, !locked);
+    spice_usb_device_manager_device_lun_lock(priv->manager, lun_item->device, lun_item->lun, !locked);
 }
 
 static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)

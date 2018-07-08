@@ -2166,8 +2166,13 @@ spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
     guint lun,
     gboolean lock)
 {
-    // to be removed?
-    return FALSE;
+    gboolean b = FALSE;
+    SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
+    if (bdev) {
+        b = spice_usb_backend_lock_cd_lun(self->priv->context, bdev, lun, lock);
+        spice_usb_backend_device_release(bdev);
+    }
+    return b;
 }
 
 GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,

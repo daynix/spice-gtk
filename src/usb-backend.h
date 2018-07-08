@@ -100,6 +100,8 @@ uint32_t spice_usb_backend_get_cd_luns_bitmask(SpiceUsbBackendDevice *bdev);
 gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev, guint lun, spice_usb_device_lun_info *info);
 gboolean spice_usb_backend_load_cd_lun(SpiceUsbBackend *be,
     SpiceUsbBackendDevice *bdev, guint lun, gboolean load);
+gboolean spice_usb_backend_lock_cd_lun(SpiceUsbBackend *be,
+    SpiceUsbBackendDevice *bdev, guint lun, gboolean lock);
 gboolean spice_usb_backend_change_cd_lun(
     SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev,
     guint lun, const spice_usb_device_lun_info *info);

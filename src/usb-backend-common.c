@@ -484,6 +484,12 @@ static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
     return b;
 }
 
+static gboolean lock_lun(SpiceUsbBackendDevice *d, int unit, gboolean lock)
+{
+    SPICE_DEBUG("%s: locking %s", __FUNCTION__, d->units[unit].filename);
+    return !cd_usb_bulk_msd_lock(d->d.msc, unit, lock);
+}
+
 static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
 {
     gboolean b = FALSE;
@@ -686,6 +692,29 @@ gboolean spice_usb_backend_load_cd_lun(
         gboolean b = load_lun(bdev, lun, load);
         SPICE_DEBUG("%s: %sload %s", __FUNCTION__,
             load ? "" : "un", b ? "succeeded" : "failed");
+        if (b) {
+            indicate_lun_change(be, bdev);
+        }
+        return b;
+    }
+
+    return FALSE;
+}
+
+gboolean spice_usb_backend_lock_cd_lun(
+    SpiceUsbBackend *be,
+    SpiceUsbBackendDevice *bdev,
+    guint lun,
+    gboolean lock)
+{
+    if (!check_device(bdev, lun, NULL)) {
+        return FALSE;
+    }
+
+    if (bdev->units[lun].filename) {
+        gboolean b = lock_lun(bdev, lun, lock);
+        SPICE_DEBUG("%s: %slock %s", __FUNCTION__,
+            lock ? "" : "un", b ? "succeeded" : "failed");
         if (b) {
             indicate_lun_change(be, bdev);
         }
