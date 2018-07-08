@@ -1952,12 +1952,12 @@ static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *r
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
     prevent = req->cdb[4] & 0x03;
-    dev->prevent_media_removal = (prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW || 
-                                  prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER);
+    dev->prevent_media_removal = (prevent == CD_MEDIUM_REMOVAL_REQ_PREVENT ||
+                                  prevent == CD_MEDIUM_REMOVAL_REQ_PREVENT_CHANGER);
     req->in_len = 0;
 
-    SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent:0x%02x",
-                req->lun, prevent);
+    SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent field::0x%02x flag:%d",
+                req->lun, prevent, dev->prevent_media_removal);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
