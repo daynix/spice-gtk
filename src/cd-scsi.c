@@ -1293,6 +1293,9 @@ static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *
 #define CD_MODE_PAGE_CAPS_DVD_R_READ            (0x01 << 4)
 #define CD_MODE_PAGE_CAPS_DVD_RAM_READ          (0x01 << 5)
 /* byte 6 */
+#define CD_MODE_PAGE_CAPS_LOCK_SUPPORT          (0x01)
+#define CD_MODE_PAGE_CAPS_LOCK_STATE            (0x01 << 1)
+#define CD_MODE_PAGE_CAPS_PREVENT_JUMPER        (0x01 << 2)
 #define CD_MODE_PAGE_CAPS_EJECT                 (0x01 << 3)
 #define CD_MODE_PAGE_CAPS_LOADING_TRAY          (0x01 << 5)
 
@@ -1305,7 +1308,10 @@ static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t 
     outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ |
                 CD_MODE_PAGE_CAPS_DVD_ROM_READ | CD_MODE_PAGE_CAPS_DVD_R_READ |
                 CD_MODE_PAGE_CAPS_DVD_RAM_READ;
-    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT;
+    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT | CD_MODE_PAGE_CAPS_LOCK_SUPPORT;
+    if (dev->prevent_media_removal) {
+        outbuf[6] |= CD_MODE_PAGE_CAPS_LOCK_STATE;
+    }
 
     return page_len;
 }
