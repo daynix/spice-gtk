@@ -190,6 +190,11 @@ const scsi_short_sense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02
 };
 
+/* Unit attention, Mode Parameters has changed */
+const scsi_short_sense sense_code_MODE_PARAMS_CHANGED = {
+    .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x01
+};
+
 /* Unit attention, Capacity data has changed */
 const scsi_short_sense sense_code_CAPACITY_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x09
@@ -223,6 +228,11 @@ const scsi_short_sense sense_code_REPORTED_LUNS_CHANGED = {
 /* Unit attention, Device internal reset */
 const scsi_short_sense sense_code_DEVICE_INTERNAL_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04
+};
+
+/* Unit attention, Operator Medium removal request */
+const scsi_short_sense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
+    .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01
 };
 
 static inline gboolean cd_scsi_opcode_ua_supress(uint32_t opcode)
