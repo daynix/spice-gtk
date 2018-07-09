@@ -1341,26 +1341,27 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
     gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
 }
 
+static void treeview_select_current_row_by_pos(GtkTreeView *tree_view, gint x, gint y)
+{
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
+    if (gtk_tree_selection_count_selected_rows(selection) <= 1) {
+        GtkTreePath *path;
+        /* Get tree path for row that was clicked */
+        if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree_view), x, y, &path, NULL, NULL, NULL))
+        {
+            gtk_tree_selection_unselect_all(selection);
+            gtk_tree_selection_select_path(selection, path);
+            gtk_tree_path_free(path);
+        }
+    }
+}
+
 static gboolean treeview_on_right_button_pressed_cb(GtkWidget *view, GdkEventButton *event, gpointer user_data)
 {
     GtkTreeView *tree_view = GTK_TREE_VIEW(view);
     /* single click with the right mouse button */
-    if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3)
-    {
-        GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
-        if (gtk_tree_selection_count_selected_rows(selection) <= 1) {
-            GtkTreePath *path;
-            /* Get tree path for row that was clicked */
-            if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree_view),
-                                                (gint) event->x,
-                                                (gint) event->y,
-                                                &path, NULL, NULL, NULL))
-            {
-                gtk_tree_selection_unselect_all(selection);
-                gtk_tree_selection_select_path(selection, path);
-                gtk_tree_path_free(path);
-            }
-        }
+    if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3) {
+        treeview_select_current_row_by_pos(tree_view, (gint)event->x, (gint)event->y);
         view_popup_menu(tree_view, event, user_data);
         return TRUE; /* we handled this */
     } else {
