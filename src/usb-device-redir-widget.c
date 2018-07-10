@@ -897,6 +897,32 @@ static GtkTreeSelection* set_selection_handler(GtkTreeView *tree_view)
     return select;
 }
 
+static GtkWidget *create_image_button_box(const gchar *label_str, const gchar *icon_name, GtkWidget *parent)
+{
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
+    GtkWidget *label = gtk_accel_label_new(label_str);
+    GtkAccelGroup *accel_group = gtk_accel_group_new();
+    guint accel_key;
+
+    /* add icon */
+    gtk_container_add(GTK_CONTAINER(box), icon);
+
+    /* add label */
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_label_set_use_underline(GTK_LABEL(label), TRUE);
+    g_object_get(G_OBJECT(label), "mnemonic-keyval", &accel_key, NULL);
+    gtk_widget_add_accelerator(parent, "activate", accel_group, accel_key,
+                               GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+    gtk_accel_label_set_accel_widget(GTK_ACCEL_LABEL(label), parent);
+    gtk_box_pack_end(GTK_BOX(box), label, TRUE, TRUE, 0);
+
+    /* add the new box to the parent widget */
+    gtk_container_add(GTK_CONTAINER(parent), box);
+
+    return box;
+}
+
 /* LUN properties dialog */
 
 typedef struct _lun_properties_dialog {
@@ -1346,29 +1372,10 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
     const gchar *icon_name,
     GCallback cb_func, gpointer user_data)
 {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     GtkWidget *menu_item = gtk_menu_item_new();
-    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
-    GtkWidget *label = gtk_accel_label_new(label_str);
-    GtkAccelGroup *accel_group = gtk_accel_group_new();
-    guint accel_key;
-
+    create_image_button_box(label_str, icon_name, menu_item);
     g_signal_connect(menu_item, "activate", cb_func, user_data);
 
-    /* add icon */
-    gtk_container_add(GTK_CONTAINER(box), icon);
-
-    /* add label */
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-    gtk_label_set_use_underline(GTK_LABEL(label), TRUE);
-    g_object_get(G_OBJECT(label), "mnemonic-keyval", &accel_key, NULL);
-    gtk_widget_add_accelerator(menu_item, "activate", accel_group, accel_key,
-                               GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-    gtk_accel_label_set_accel_widget(GTK_ACCEL_LABEL(label), menu_item);
-    gtk_box_pack_end(GTK_BOX(box), label, TRUE, TRUE, 0);
-
-    /* add menu item */
-    gtk_container_add(GTK_CONTAINER(menu_item), box);
     gtk_widget_show_all(menu_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
