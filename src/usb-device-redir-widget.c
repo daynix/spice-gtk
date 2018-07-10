@@ -1021,7 +1021,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     GtkWidget *file_entry, *choose_button;
     GtkWidget *vendor_entry, *product_entry, *revision_entry, *alias_entry;
     GtkWidget *idle_toggle, *loaded_toggle, *locked_toggle;
-    GtkWidget *advanced_button;
+    GtkWidget *advanced_button, *advanced_icon;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -1082,7 +1082,11 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             1, 1); // width height
 
     /* advanced button */
-    advanced_button = gtk_button_new_with_mnemonic("_Advanced");
+    advanced_button = gtk_button_new_with_label("Advanced");
+    gtk_button_set_relief(GTK_BUTTON(advanced_button), GTK_RELIEF_NONE);
+    advanced_icon = gtk_image_new_from_icon_name("preferences-system", GTK_ICON_SIZE_BUTTON);
+    gtk_button_set_image(GTK_BUTTON(advanced_button), advanced_icon);
+    gtk_button_set_always_show_image(GTK_BUTTON(advanced_button), TRUE);
     g_signal_connect(advanced_button, "clicked", G_CALLBACK(lun_properties_dialog_toggle_advanced), lun_dialog);
 
     gtk_grid_attach(GTK_GRID(grid),
