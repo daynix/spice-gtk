@@ -901,6 +901,8 @@ static GtkTreeSelection* set_selection_handler(GtkTreeView *tree_view)
 
 typedef struct _lun_properties_dialog {
     GtkWidget *dialog;
+    GtkWidget *advanced_grid;
+    gboolean advanced_shown;
 
     GtkWidget *file_entry;
     GtkWidget *vendor_entry;
@@ -969,16 +971,31 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 }
 #endif
 
+static void lun_properties_dialog_toggle_advanced(GtkWidget *widget, gpointer user_data)
+{
+    lun_properties_dialog *lun_dialog = user_data;
+
+    if (lun_dialog->advanced_shown) {
+        gtk_widget_hide(lun_dialog->advanced_grid);
+        lun_dialog->advanced_shown = FALSE;
+    } else {
+        gtk_widget_show_all(lun_dialog->advanced_grid);
+        lun_dialog->advanced_shown = TRUE;
+    }
+}
+
 static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
                                          GtkWidget *parent_window,
                                          spice_usb_device_lun_info *lun_info,
                                          lun_properties_dialog *lun_dialog)
 {
     // SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkWidget *dialog, *content_area, *grid;
+    GtkWidget *dialog, *content_area;
+    GtkWidget *grid, *advanced_grid;
     GtkWidget *file_entry, *choose_button;
     GtkWidget *vendor_entry, *product_entry, *revision_entry, *alias_entry;
     GtkWidget *idle_toggle, *loaded_toggle, *locked_toggle;
+    GtkWidget *advanced_button;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -994,11 +1011,11 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 
+    /* main grid - always visible */
     grid = gtk_grid_new();
-    gtk_container_add(GTK_CONTAINER(content_area), grid);
-
     gtk_grid_set_row_spacing(GTK_GRID(grid), 12);
     gtk_grid_set_column_homogeneous(GTK_GRID(grid), FALSE);
+    gtk_container_add(GTK_CONTAINER(content_area), grid);
 
     /* File path label */
     gtk_grid_attach(GTK_GRID(grid),
@@ -1008,6 +1025,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* file/device path entry */
     file_entry = gtk_entry_new();
+    gtk_widget_set_hexpand(file_entry, TRUE);
     if (!lun_info) {
         gtk_entry_set_placeholder_text(GTK_ENTRY(file_entry), "file-path");
     } else {
@@ -1024,6 +1042,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* choose button */
     choose_button = gtk_button_new_with_mnemonic("_Choose File");
+    gtk_widget_set_hexpand(choose_button, FALSE);
     g_signal_connect(GTK_BUTTON(choose_button),
                      "clicked", G_CALLBACK(usb_cd_choose_file), file_entry);
     if (lun_info && lun_info->loaded) {
@@ -1036,18 +1055,39 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             6, nrow++, // left top
             1, 1); // width height
 
-    /* product id labels */
+    /* advanced button */
+    advanced_button = gtk_button_new_with_mnemonic("_Advanced");
+    g_signal_connect(advanced_button, "clicked", G_CALLBACK(lun_properties_dialog_toggle_advanced), lun_dialog);
+
     gtk_grid_attach(GTK_GRID(grid),
+            advanced_button,
+            0, nrow++, // left top
+            1, 1); // width height
+
+    /* advanced grid */
+    advanced_grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(advanced_grid), 12);
+    gtk_grid_set_column_homogeneous(GTK_GRID(advanced_grid), FALSE);
+    gtk_container_add(GTK_CONTAINER(content_area), advanced_grid);
+
+    /* horizontal separator */
+    gtk_container_add(GTK_CONTAINER(content_area), gtk_hseparator_new());
+
+    /* pack advanced grid */
+    nrow = 0;
+
+    /* product id labels */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Vendor"),
             0, nrow, // left top
             2, 1); // width height
 
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Product"),
             2, nrow, // left top
             4, 1); // width height
 
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Revision"),
             6, nrow++, // left top
             1, 1); // width height
@@ -1061,7 +1101,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(vendor_entry, FALSE);
         gtk_widget_set_can_focus(vendor_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             vendor_entry,
             0, nrow, // left top
             2, 1); // width height
@@ -1075,7 +1115,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(product_entry, FALSE);
         gtk_widget_set_can_focus(product_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             product_entry,
             2, nrow, // left top
             4, 1); // width height
@@ -1089,13 +1129,13 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(revision_entry, FALSE);
         gtk_widget_set_can_focus(revision_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             revision_entry,
             6, nrow++, // left top
             1, 1); // width height
 
     /* alias label */
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Alias"),
             0, nrow++, // left top
             7, 1); // width height
@@ -1111,8 +1151,14 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(alias_entry, FALSE);
         gtk_widget_set_can_focus(alias_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             alias_entry,
+            0, nrow++, // left top
+            7, 1); // width height
+
+    /* State label */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_label_new("Device State"),
             0, nrow++, // left top
             7, 1); // width height
 
@@ -1123,7 +1169,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(idle_toggle, FALSE);
         gtk_widget_set_can_focus(idle_toggle, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             idle_toggle,
             1, nrow, // left top
             1, 1); // width height
@@ -1135,7 +1181,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(loaded_toggle, FALSE);
         gtk_widget_set_can_focus(loaded_toggle, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             loaded_toggle,
             3, nrow, // left top
             1, 1); // width height
@@ -1147,14 +1193,17 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(loaded_toggle, FALSE);
         gtk_widget_set_can_focus(loaded_toggle, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             locked_toggle,
             6, nrow++, // left top
             1, 1); // width height
 
     gtk_widget_show_all(dialog);
+    gtk_widget_hide(advanced_grid);
 
     lun_dialog->dialog = dialog;
+    lun_dialog->advanced_grid = advanced_grid;
+    lun_dialog->advanced_shown = FALSE;
     lun_dialog->file_entry = file_entry;
     lun_dialog->vendor_entry = vendor_entry;
     lun_dialog->product_entry = product_entry;
