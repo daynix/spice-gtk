@@ -949,7 +949,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     GtkWidget *file_entry, *choose_button;
     GtkWidget *advanced_button, *advanced_icon;
     GtkWidget *vendor_entry, *product_entry, *revision_entry;
-    GtkWidget *loaded_switch;
+    GtkWidget *loaded_switch, *label;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -1104,14 +1104,18 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             0, nrow++, // left top
             7, 1); // width height
 
+    label = gtk_label_new("Initially loaded:");
     /* initially loaded switch */
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            gtk_label_new("Initially loaded:"),
-            0, nrow, // left top
-            2, 1); // width height
-
     loaded_switch = gtk_switch_new();
-    gtk_widget_set_hexpand(loaded_switch, FALSE);
+    gtk_switch_set_state(GTK_SWITCH(loaded_switch), TRUE);
+    if (lun_info) {
+        gtk_widget_set_child_visible(loaded_switch, FALSE);
+        gtk_widget_set_child_visible(label, FALSE);
+    }
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+        label,
+        0, nrow, // left top
+        2, 1); // width height
     gtk_widget_set_halign(loaded_switch, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(advanced_grid),
             loaded_switch,
