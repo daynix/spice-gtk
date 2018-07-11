@@ -1802,15 +1802,18 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
 {
 #ifdef USE_USBREDIR
-
     g_return_if_fail(device != NULL);
-
     info->vendor = info->product;
     info->bus = spice_usb_device_get_busnum(device);
     info->address = spice_usb_device_get_devaddr(device);
     info->vendor_id = spice_usb_device_get_vid(device);
     info->product_id = spice_usb_device_get_pid(device);
 
+    if (0x1c6b == info->vendor_id) {
+        info->vendor = g_strdup("RedHat Inc.");
+        info->product = g_strdup("Spice CD drive");
+        return;
+    }
     spice_usb_util_get_device_strings(info->bus, info->address,
         info->vendor_id, info->product_id, &info->vendor, &info->product, FALSE);
     if (!info->vendor) {

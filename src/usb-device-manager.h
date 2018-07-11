@@ -185,6 +185,7 @@ typedef struct _spice_usb_device_lun_info
     const gchar *revision;
 
     gboolean initially_loaded;
+    gboolean initially_locked;
     gboolean loaded;
     gboolean locked;
     gboolean started;
