@@ -859,10 +859,6 @@ typedef struct _lun_properties_dialog {
     GtkWidget *vendor_entry;
     GtkWidget *product_entry;
     GtkWidget *revision_entry;
-
-    GtkWidget *idle_toggle;
-    GtkWidget *loaded_toggle;
-    GtkWidget *locked_toggle;
 } lun_properties_dialog;
 
 #if 1
@@ -943,9 +939,8 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     GtkWidget *dialog, *content_area;
     GtkWidget *grid, *advanced_grid;
     GtkWidget *file_entry, *choose_button;
-    GtkWidget *vendor_entry, *product_entry, *revision_entry;
-    GtkWidget *idle_toggle, *loaded_toggle, *locked_toggle;
     GtkWidget *advanced_button, *advanced_icon;
+    GtkWidget *vendor_entry, *product_entry, *revision_entry;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -1094,48 +1089,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             6, nrow++, // left top
             1, 1); // width height
 
-    /* State label */
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            gtk_label_new("Device State"),
-            0, nrow++, // left top
-            7, 1); // width height
-
-    /* Idle checkbox */
-    idle_toggle = gtk_check_button_new_with_label("Idle");
-    if (lun_info) {
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(idle_toggle), !lun_info->started);
-        gtk_widget_set_sensitive(idle_toggle, FALSE);
-        gtk_widget_set_can_focus(idle_toggle, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            idle_toggle,
-            1, nrow, // left top
-            1, 1); // width height
-
-    /* Loaded checkbox */
-    loaded_toggle = gtk_check_button_new_with_label("Loaded");
-    if (lun_info) {
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(loaded_toggle), lun_info->loaded);
-        gtk_widget_set_sensitive(loaded_toggle, FALSE);
-        gtk_widget_set_can_focus(loaded_toggle, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            loaded_toggle,
-            3, nrow, // left top
-            1, 1); // width height
-
-    /* Locked checkbox */
-    locked_toggle = gtk_check_button_new_with_label("Locked");
-    if (lun_info) {
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(locked_toggle), lun_info->locked);
-        gtk_widget_set_sensitive(loaded_toggle, FALSE);
-        gtk_widget_set_can_focus(loaded_toggle, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            locked_toggle,
-            6, nrow++, // left top
-            1, 1); // width height
-
     gtk_widget_show_all(dialog);
     gtk_widget_hide(advanced_grid);
 
@@ -1146,9 +1099,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     lun_dialog->vendor_entry = vendor_entry;
     lun_dialog->product_entry = product_entry;
     lun_dialog->revision_entry = revision_entry;
-    lun_dialog->idle_toggle = idle_toggle;
-    lun_dialog->loaded_toggle = loaded_toggle;
-    lun_dialog->locked_toggle = locked_toggle;
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
@@ -1158,9 +1108,6 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
     lun_info->product = gtk_entry_get_text(GTK_ENTRY(lun_dialog->product_entry));
     lun_info->revision = gtk_entry_get_text(GTK_ENTRY(lun_dialog->revision_entry));
-    lun_info->started = !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->idle_toggle));
-    lun_info->loaded = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->loaded_toggle));
-    lun_info->locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->locked_toggle));
 }
 
 /* Popup menu */
