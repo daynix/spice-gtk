@@ -184,11 +184,10 @@ typedef struct _spice_usb_device_lun_info
     const gchar *product;
     const gchar *revision;
 
-    const gchar *alias;
-
-    gboolean started;
+    gboolean initially_loaded;
     gboolean loaded;
     gboolean locked;
+    gboolean started;
 } spice_usb_device_lun_info;
 
 /* CD LUN will be attached to a (possibly new) USB device automatically */

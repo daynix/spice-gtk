@@ -129,11 +129,10 @@ enum column_id
     COL_VENDOR,
     COL_PRODUCT,
     COL_REVISION,
-    COL_ALIAS,
-    COL_STARTED,
+    COL_FILE,
     COL_LOADED,
     COL_LOCKED,
-    COL_FILE,
+    COL_IDLE,
     /* internal columns */
     COL_CD_DEV,
     COL_LUN_ITEM,
@@ -157,11 +156,10 @@ static const char *col_name[NUM_COLS] =
     "Vendor",
     "Product", 
     "Revision",
-    "Alias",
-    "Started",
+    "File/Device Path",
     "Loaded",
     "Locked",
-    "File/Device Path",
+    "Idle",
     /* internal columns - should not be displayed */
     "?CD_DEV",
     "?LUN_ITEM",
@@ -203,11 +201,11 @@ static GtkTreeStore* usb_widget_create_tree_store(void)
                         G_TYPE_STRING, /* COL_VENDOR */
                         G_TYPE_STRING, /* COL_PRODUCT */
                         G_TYPE_STRING, /* COL_ADDR_REV */
-                        G_TYPE_STRING, /* COL_ALIAS */
-                        G_TYPE_BOOLEAN, /* COL_STARTED */
+                        G_TYPE_STRING, /* COL_FILE */
                         G_TYPE_BOOLEAN, /* COL_LOADED */
                         G_TYPE_BOOLEAN, /* COL_LOCKED */
-                        G_TYPE_STRING, /* COL_FILE */
+                        G_TYPE_BOOLEAN, /* COL_IDLE */
+                        /* internal columns */
                         G_TYPE_BOOLEAN, /* COL_CD_DEV */
                         G_TYPE_BOOLEAN, /* COL_LUN_ITEM */
                         G_TYPE_BOOLEAN, /* COL_DEV_ITEM */
@@ -327,11 +325,10 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
                 COL_VENDOR, lun_item->info.vendor,
                 COL_PRODUCT, lun_item->info.product,
                 COL_REVISION, lun_item->info.revision,
-                COL_ALIAS, lun_item->info.alias,
-                COL_STARTED, lun_item->info.started,
+                COL_FILE, lun_item->info.file_path,
                 COL_LOADED, lun_item->info.loaded,
                 COL_LOCKED, lun_item->info.locked,
-                COL_FILE, lun_item->info.file_path,
+                COL_IDLE, !lun_item->info.started,
                 COL_CD_DEV, FALSE,
                 COL_LUN_ITEM, TRUE, /* LUN item */
                 COL_DEV_ITEM, FALSE, /* LUN item */
@@ -442,12 +439,44 @@ static GtkTreeViewColumn* view_add_toggle_column(SpiceUsbDeviceWidget *self,
                         NULL);
     }
 
+    gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_expand(view_col, FALSE);
+    gtk_tree_view_column_set_resizable(view_col, FALSE);
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
-    //g_object_set_data(G_OBJECT(renderer), "column", (gint *)toggle_col_id);
     g_signal_connect(renderer, "toggled", G_CALLBACK(toggled_cb), self);
 
     SPICE_DEBUG("view added toggle column [%u : %s] visible when [%u : %s]",
+            toggle_col_id, col_name[toggle_col_id],
+            visible_col_id, col_name[visible_col_id]);
+    return view_col;
+}
+
+static GtkTreeViewColumn* view_add_read_only_toggle_column(SpiceUsbDeviceWidget *self,
+                                                           enum column_id toggle_col_id,
+                                                           enum column_id visible_col_id)
+{
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkCellRenderer     *renderer;
+    GtkTreeViewColumn   *view_col;
+
+    renderer = gtk_cell_renderer_toggle_new();
+
+    view_col = gtk_tree_view_column_new_with_attributes(
+                    col_name[toggle_col_id],
+                    renderer,
+                    "active", toggle_col_id,
+                    "visible", visible_col_id,
+                    NULL);
+
+    gtk_cell_renderer_toggle_set_activatable(GTK_CELL_RENDERER_TOGGLE(renderer), FALSE);
+
+    gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_expand(view_col, FALSE);
+    gtk_tree_view_column_set_resizable(view_col, FALSE);
+    gtk_tree_view_append_column(priv->tree_view, view_col);
+
+    SPICE_DEBUG("view added read-only toggle column [%u : %s] visible when [%u : %s]",
             toggle_col_id, col_name[toggle_col_id],
             visible_col_id, col_name[visible_col_id]);
     return view_col;
@@ -472,6 +501,7 @@ static GtkTreeViewColumn* view_add_text_column(SpiceUsbDeviceWidget *self,
 
     gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
     gtk_tree_view_column_set_resizable(view_col, TRUE);
+    gtk_tree_view_column_set_expand(view_col, TRUE);
 
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
@@ -522,6 +552,7 @@ static gboolean tree_item_toggle_get_val(GtkTreeStore *tree_store, gchar *path_s
     return toggle_val;
 }
 
+/*
 static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, GtkTreeIter *iter)
 {
     if (tree_item_is_lun(tree_store, iter)) {
@@ -532,6 +563,7 @@ static usb_widget_lun_item* tree_item_toggle_lun_item(GtkTreeStore *tree_store, 
         return NULL;
     }
 }
+*/
 
 static void tree_item_toggle_set(GtkTreeStore *tree_store, GtkTreeIter *iter, enum column_id col_id, gboolean new_val)
 {
@@ -672,74 +704,6 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
     spice_usb_device_widget_update_status(self);
 }
 
-static void tree_item_toggled_cb_started(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean started;
-    usb_widget_lun_item *lun_item;
-
-    started = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_STARTED);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-    SPICE_DEBUG("toggled lun: %u [%s,%s,%s] alias:%s started: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            started, !started);
-
-    tree_item_toggle_set(tree_store, &iter, COL_STARTED, !started);
-}
-
-static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean locked;
-    usb_widget_lun_item *lun_item;
-
-    locked = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_LOCKED);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-
-    SPICE_DEBUG("toggled lun:%u [%s,%s,%s] alias:%s locked: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            locked, !locked);
-
-    tree_item_toggle_set(tree_store, &iter, COL_LOCKED, !locked);
-}
-
-static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean loaded;
-    usb_widget_lun_item *lun_item;
-
-    loaded = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_LOADED);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-
-    SPICE_DEBUG("toggled lun:%u [%s,%s,%s] alias:%s loaded: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            loaded, !loaded);
-
-    tree_item_toggle_set(tree_store, &iter, COL_LOADED, !loaded);
-}
-
 /* Signal handlers */
 
 static void device_added_cb(SpiceUsbDeviceManager *usb_dev_mgr,
@@ -818,35 +782,34 @@ static void tree_selection_changed_cb(GtkTreeSelection *select, gpointer user_da
     GtkTreePath *path;
     gboolean is_lun;
     usb_widget_lun_item *lun_item;
-    gchar *txt[4];
+    gchar *txt[3];
 
     if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
         gtk_tree_model_get(tree_model, &iter,
                 COL_VENDOR, &txt[0],
                 COL_PRODUCT, &txt[1],
                 COL_REVISION, &txt[2],
-                COL_ALIAS, &txt[3],
                 COL_LUN_ITEM, &is_lun,
                 COL_ITEM_DATA, (gpointer *)&lun_item,
                 -1);
         path = gtk_tree_model_get_path(tree_model, &iter);
 
-        SPICE_DEBUG("selected: %s,%s,%s,%s [%s %s] [%s]",
+        SPICE_DEBUG("selected: %s,%s,%s [%s %s] [%s]",
                 txt[0], txt[1],
                 is_lun ? txt[2] : "--",
-                is_lun ? txt[3] : "--",
                 is_lun ? "LUN" : "USB-DEV",
                 is_lun ? lun_item->info.file_path : "--",
                 gtk_tree_path_to_string(path));
 
-        if (txt[0])
-        g_free(txt[0]);
-        if (txt[1])
-        g_free(txt[1]);
-        if (txt[2])
-        g_free(txt[2]);
-        if (txt[3])
-        g_free(txt[3]);
+        if (txt[0]) {
+            g_free(txt[0]);
+        }
+        if (txt[1]) {
+            g_free(txt[1]);
+        }
+        if (txt[2]) {
+            g_free(txt[2]);
+        }
         gtk_tree_path_free(path);
     }
 }
@@ -866,20 +829,44 @@ static GtkTreeSelection* set_selection_handler(GtkTreeView *tree_view)
     return select;
 }
 
+static GtkWidget *create_image_button_box(const gchar *label_str, const gchar *icon_name, GtkWidget *parent)
+{
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
+    GtkWidget *label = gtk_accel_label_new(label_str);
+    GtkAccelGroup *accel_group = gtk_accel_group_new();
+    guint accel_key;
+
+    /* add icon */
+    gtk_container_add(GTK_CONTAINER(box), icon);
+
+    /* add label */
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_label_set_use_underline(GTK_LABEL(label), TRUE);
+    g_object_get(G_OBJECT(label), "mnemonic-keyval", &accel_key, NULL);
+    gtk_widget_add_accelerator(parent, "activate", accel_group, accel_key,
+                               GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+    gtk_accel_label_set_accel_widget(GTK_ACCEL_LABEL(label), parent);
+    gtk_box_pack_end(GTK_BOX(box), label, TRUE, TRUE, 0);
+
+    /* add the new box to the parent widget */
+    gtk_container_add(GTK_CONTAINER(parent), box);
+
+    return box;
+}
+
 /* LUN properties dialog */
 
 typedef struct _lun_properties_dialog {
     GtkWidget *dialog;
+    GtkWidget *advanced_grid;
+    gboolean advanced_shown;
 
     GtkWidget *file_entry;
     GtkWidget *vendor_entry;
     GtkWidget *product_entry;
     GtkWidget *revision_entry;
-    GtkWidget *alias_entry;
-
-    GtkWidget *started_toggle;
-    GtkWidget *loaded_toggle;
-    GtkWidget *locked_toggle;
+    GtkWidget *loaded_switch;
 } lun_properties_dialog;
 
 #if 1
@@ -938,16 +925,31 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 }
 #endif
 
+static void lun_properties_dialog_toggle_advanced(GtkWidget *widget, gpointer user_data)
+{
+    lun_properties_dialog *lun_dialog = user_data;
+
+    if (lun_dialog->advanced_shown) {
+        gtk_widget_hide(lun_dialog->advanced_grid);
+        lun_dialog->advanced_shown = FALSE;
+    } else {
+        gtk_widget_show_all(lun_dialog->advanced_grid);
+        lun_dialog->advanced_shown = TRUE;
+    }
+}
+
 static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
                                          GtkWidget *parent_window,
                                          spice_usb_device_lun_info *lun_info,
                                          lun_properties_dialog *lun_dialog)
 {
     // SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkWidget *dialog, *content_area, *grid;
+    GtkWidget *dialog, *content_area;
+    GtkWidget *grid, *advanced_grid;
     GtkWidget *file_entry, *choose_button;
-    GtkWidget *vendor_entry, *product_entry, *revision_entry, *alias_entry;
-    GtkWidget *started_toggle, *loaded_toggle, *locked_toggle;
+    GtkWidget *advanced_button, *advanced_icon;
+    GtkWidget *vendor_entry, *product_entry, *revision_entry;
+    GtkWidget *loaded_switch;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -963,11 +965,11 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 
+    /* main grid - always visible */
     grid = gtk_grid_new();
-    gtk_container_add(GTK_CONTAINER(content_area), grid);
-
     gtk_grid_set_row_spacing(GTK_GRID(grid), 12);
     gtk_grid_set_column_homogeneous(GTK_GRID(grid), FALSE);
+    gtk_container_add(GTK_CONTAINER(content_area), grid);
 
     /* File path label */
     gtk_grid_attach(GTK_GRID(grid),
@@ -977,6 +979,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* file/device path entry */
     file_entry = gtk_entry_new();
+    gtk_widget_set_hexpand(file_entry, TRUE);
     if (!lun_info) {
         gtk_entry_set_placeholder_text(GTK_ENTRY(file_entry), "file-path");
     } else {
@@ -993,6 +996,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 
     /* choose button */
     choose_button = gtk_button_new_with_mnemonic("_Choose File");
+    gtk_widget_set_hexpand(choose_button, FALSE);
     g_signal_connect(GTK_BUTTON(choose_button),
                      "clicked", G_CALLBACK(usb_cd_choose_file), file_entry);
     if (lun_info && lun_info->loaded) {
@@ -1005,18 +1009,49 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             6, nrow++, // left top
             1, 1); // width height
 
-    /* product id labels */
+    /* advanced button */
+    advanced_button = gtk_button_new_with_label("Advanced");
+    gtk_button_set_relief(GTK_BUTTON(advanced_button), GTK_RELIEF_NONE);
+    advanced_icon = gtk_image_new_from_icon_name("preferences-system", GTK_ICON_SIZE_BUTTON);
+    gtk_button_set_image(GTK_BUTTON(advanced_button), advanced_icon);
+    gtk_button_set_always_show_image(GTK_BUTTON(advanced_button), TRUE);
+    g_signal_connect(advanced_button, "clicked", G_CALLBACK(lun_properties_dialog_toggle_advanced), lun_dialog);
+
     gtk_grid_attach(GTK_GRID(grid),
+            advanced_button,
+            0, nrow++, // left top
+            1, 1); // width height
+
+    /* advanced grid */
+    advanced_grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(advanced_grid), 12);
+    gtk_grid_set_column_homogeneous(GTK_GRID(advanced_grid), FALSE);
+    gtk_container_add(GTK_CONTAINER(content_area), advanced_grid);
+
+    /* horizontal separator */
+    gtk_container_add(GTK_CONTAINER(content_area), gtk_hseparator_new());
+
+    /* pack advanced grid */
+    nrow = 0;
+
+    /* horizontal separator */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_hseparator_new(),
+            0, nrow++, // left top
+            7, 1); // width height
+
+    /* product id labels */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Vendor"),
             0, nrow, // left top
             2, 1); // width height
 
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Product"),
             2, nrow, // left top
             4, 1); // width height
 
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Revision"),
             6, nrow++, // left top
             1, 1); // width height
@@ -1030,7 +1065,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(vendor_entry, FALSE);
         gtk_widget_set_can_focus(vendor_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             vendor_entry,
             0, nrow, // left top
             2, 1); // width height
@@ -1044,7 +1079,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(product_entry, FALSE);
         gtk_widget_set_can_focus(product_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             product_entry,
             2, nrow, // left top
             4, 1); // width height
@@ -1058,76 +1093,42 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
         gtk_widget_set_sensitive(revision_entry, FALSE);
         gtk_widget_set_can_focus(revision_entry, FALSE);
     }
-    gtk_grid_attach(GTK_GRID(grid),
+    gtk_grid_attach(GTK_GRID(advanced_grid),
             revision_entry,
             6, nrow++, // left top
             1, 1); // width height
 
-    /* alias label */
-    gtk_grid_attach(GTK_GRID(grid),
-            gtk_label_new("Alias"),
+    /* horizontal separator */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_hseparator_new(),
             0, nrow++, // left top
             7, 1); // width height
 
-    /* alias entry */
-    alias_entry = gtk_entry_new();
-    if (!lun_info) {
-        gtk_entry_set_placeholder_text(GTK_ENTRY(alias_entry), "device alias");
-    } else {
-        gtk_entry_set_text(GTK_ENTRY(alias_entry), lun_info->alias);
-    }
-    if (lun_info) {
-        gtk_widget_set_sensitive(alias_entry, FALSE);
-        gtk_widget_set_can_focus(alias_entry, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(grid),
-            alias_entry,
-            0, nrow++, // left top
-            7, 1); // width height
+    /* initially loaded switch */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_label_new("Initially loaded:"),
+            0, nrow, // left top
+            2, 1); // width height
 
-    /* Started checkbox */
-    started_toggle = gtk_check_button_new_with_label("Started");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(started_toggle), !lun_info ? TRUE : lun_info->started);
-    if (lun_info) {
-        gtk_widget_set_sensitive(started_toggle, FALSE);
-        gtk_widget_set_can_focus(started_toggle, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(grid),
-            started_toggle,
-            1, nrow, // left top
-            1, 1); // width height
-
-    /* Loaded checkbox */
-    loaded_toggle = gtk_check_button_new_with_label("Loaded");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(loaded_toggle), !lun_info ? TRUE : lun_info->loaded);
-    if (lun_info) {
-        gtk_widget_set_sensitive(loaded_toggle, FALSE);
-        gtk_widget_set_can_focus(loaded_toggle, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(grid),
-            loaded_toggle,
-            3, nrow, // left top
-            1, 1); // width height
-
-    /* Locked checkbox */
-    locked_toggle = gtk_check_button_new_with_label("Locked");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(locked_toggle), !lun_info ? FALSE : lun_info->locked);
-    gtk_grid_attach(GTK_GRID(grid),
-            locked_toggle,
-            6, nrow++, // left top
+    loaded_switch = gtk_switch_new();
+    gtk_widget_set_hexpand(loaded_switch, FALSE);
+    gtk_widget_set_halign(loaded_switch, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            loaded_switch,
+            2, nrow++, // left top
             1, 1); // width height
 
     gtk_widget_show_all(dialog);
+    gtk_widget_hide(advanced_grid);
 
     lun_dialog->dialog = dialog;
+    lun_dialog->advanced_grid = advanced_grid;
+    lun_dialog->advanced_shown = FALSE;
     lun_dialog->file_entry = file_entry;
     lun_dialog->vendor_entry = vendor_entry;
     lun_dialog->product_entry = product_entry;
     lun_dialog->revision_entry = revision_entry;
-    lun_dialog->alias_entry = alias_entry;
-    lun_dialog->started_toggle = started_toggle;
-    lun_dialog->loaded_toggle = loaded_toggle;
-    lun_dialog->locked_toggle = locked_toggle;
+    lun_dialog->loaded_switch = loaded_switch;
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
@@ -1137,14 +1138,13 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
     lun_info->product = gtk_entry_get_text(GTK_ENTRY(lun_dialog->product_entry));
     lun_info->revision = gtk_entry_get_text(GTK_ENTRY(lun_dialog->revision_entry));
-    lun_info->alias = gtk_entry_get_text(GTK_ENTRY(lun_dialog->alias_entry));
-    lun_info->started = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->started_toggle));
-    lun_info->loaded = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->loaded_toggle));
-    lun_info->locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->locked_toggle));
+    lun_info->initially_loaded = gtk_switch_get_active(GTK_SWITCH(lun_dialog->loaded_switch));
 }
 
-static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
+/* Popup menu */
+static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
 {
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
@@ -1168,11 +1168,30 @@ static void toggle_eject_of_selected_unit(SpiceUsbDeviceWidget *self)
     }
 }
 
-/* Popup menu */
-static void view_popup_menu_on_eject(GtkWidget *menuitem, gpointer user_data)
+static void view_popup_menu_on_lock(GtkWidget *menuitem, gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    toggle_eject_of_selected_unit(self);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
+    GtkTreeModel *tree_model;
+    GtkTreeIter iter;
+
+    if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
+        if (!tree_item_is_lun(priv->tree_store, &iter)) {
+            SpiceUsbDevice *usb_device;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&usb_device, -1);
+            SPICE_DEBUG("%s - not applicable for USB device", __FUNCTION__);
+        }
+        else {
+            usb_widget_lun_item *lun_item;
+            gtk_tree_model_get(tree_model, &iter, COL_ITEM_DATA, (gpointer *)&lun_item, -1);
+            spice_usb_device_manager_device_lun_lock(
+                lun_item->manager, lun_item->device, lun_item->lun, !lun_item->info.locked);
+        }
+    }
+    else {
+        SPICE_DEBUG("%s - failed to get selection", __FUNCTION__);
+    }
 }
 
 static void view_popup_menu_on_remove(GtkWidget *menuitem, gpointer user_data)
@@ -1241,29 +1260,10 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
     const gchar *icon_name,
     GCallback cb_func, gpointer user_data)
 {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     GtkWidget *menu_item = gtk_menu_item_new();
-    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
-    GtkWidget *label = gtk_accel_label_new(label_str);
-    GtkAccelGroup *accel_group = gtk_accel_group_new();
-    guint accel_key;
-
+    create_image_button_box(label_str, icon_name, menu_item);
     g_signal_connect(menu_item, "activate", cb_func, user_data);
 
-    /* add icon */
-    gtk_container_add(GTK_CONTAINER(box), icon);
-
-    /* add label */
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-    gtk_label_set_use_underline(GTK_LABEL(label), TRUE);
-    g_object_get(G_OBJECT(label), "mnemonic-keyval", &accel_key, NULL);
-    gtk_widget_add_accelerator(menu_item, "activate", accel_group, accel_key,
-                               GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-    gtk_accel_label_set_accel_widget(GTK_ACCEL_LABEL(label), menu_item);
-    gtk_box_pack_end(GTK_BOX(box), label, TRUE, TRUE, 0);
-
-    /* add menu item */
-    gtk_container_add(GTK_CONTAINER(menu_item), box);
     gtk_widget_show_all(menu_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
 
@@ -1272,39 +1272,40 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
 
 static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpointer user_data)
 {
-    GtkWidget *menu; // *menu_item;
+    GtkWidget *menu;
 
     menu = gtk_menu_new();
 
-    //menu_item = 
-    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Settings", "preferences-system", G_CALLBACK(view_popup_menu_on_settings), user_data);
+    view_popup_add_menu_item(menu, "_Lock/Unlock", "system-lock-screen", G_CALLBACK(view_popup_menu_on_lock), user_data);
+    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
 }
 
+static void treeview_select_current_row_by_pos(GtkTreeView *tree_view, gint x, gint y)
+{
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
+    if (gtk_tree_selection_count_selected_rows(selection) <= 1) {
+        GtkTreePath *path;
+        /* Get tree path for row that was clicked */
+        if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree_view), x, y, &path, NULL, NULL, NULL))
+        {
+            gtk_tree_selection_unselect_all(selection);
+            gtk_tree_selection_select_path(selection, path);
+            gtk_tree_path_free(path);
+        }
+    }
+}
+
 static gboolean treeview_on_right_button_pressed_cb(GtkWidget *view, GdkEventButton *event, gpointer user_data)
 {
     GtkTreeView *tree_view = GTK_TREE_VIEW(view);
     /* single click with the right mouse button */
-    if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3)
-    {
-        GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
-        if (gtk_tree_selection_count_selected_rows(selection) <= 1) {
-            GtkTreePath *path;
-            /* Get tree path for row that was clicked */
-            if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree_view),
-                                                (gint) event->x,
-                                                (gint) event->y,
-                                                &path, NULL, NULL, NULL))
-            {
-                gtk_tree_selection_unselect_all(selection);
-                gtk_tree_selection_select_path(selection, path);
-                gtk_tree_path_free(path);
-            }
-        }
+    if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3) {
+        treeview_select_current_row_by_pos(tree_view, (gint)event->x, (gint)event->y);
         view_popup_menu(tree_view, event, user_data);
         return TRUE; /* we handled this */
     } else {
@@ -1449,15 +1450,13 @@ static void spice_usb_device_widget_create_tree_view(SpiceUsbDeviceWidget *self)
     view_add_text_column(self, COL_VENDOR);
     view_add_text_column(self, COL_PRODUCT);
     view_add_text_column(self, COL_REVISION);
-    view_add_text_column(self, COL_ALIAS);
-
-    view_add_toggle_column(self, COL_STARTED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_started);
-    view_add_toggle_column(self, COL_LOADED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_loaded);
-    view_add_toggle_column(self, COL_LOCKED, COL_LUN_ITEM, INVALID_COL, tree_item_toggled_cb_locked);
 
     view_add_text_column(self, COL_FILE);
 
-    /* ???? */
+    view_add_read_only_toggle_column(self, COL_LOADED, COL_LUN_ITEM);
+    view_add_read_only_toggle_column(self, COL_LOCKED, COL_LUN_ITEM);
+    view_add_read_only_toggle_column(self, COL_IDLE, COL_LUN_ITEM);
+
     gtk_tree_selection_set_mode(
             gtk_tree_view_get_selection(tree_view),
             GTK_SELECTION_NONE);

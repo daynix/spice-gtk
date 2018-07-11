@@ -66,7 +66,6 @@ typedef struct _cd_scsi_lu
     char *product;
     char *version;
     char *serial;
-    char *alias;
 
     GFileInputStream *stream;
 
@@ -190,6 +189,11 @@ const scsi_short_sense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02
 };
 
+/* Unit attention, Mode Parameters has changed */
+const scsi_short_sense sense_code_MODE_PARAMS_CHANGED = {
+    .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x01
+};
+
 /* Unit attention, Capacity data has changed */
 const scsi_short_sense sense_code_CAPACITY_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x09
@@ -223,6 +227,11 @@ const scsi_short_sense sense_code_REPORTED_LUNS_CHANGED = {
 /* Unit attention, Device internal reset */
 const scsi_short_sense sense_code_DEVICE_INTERNAL_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04
+};
+
+/* Unit attention, Operator Medium removal request */
+const scsi_short_sense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
+    .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01
 };
 
 static inline gboolean cd_scsi_opcode_ua_supress(uint32_t opcode)
@@ -385,7 +394,6 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->product = g_strdup(dev_params->product);
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
-    dev->alias = g_strdup(dev_params->alias);
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -404,6 +412,25 @@ static void cd_scsi_lu_media_reset(cd_scsi_lu *dev)
     dev->size = 0;
     dev->block_size = 0;
     dev->num_blocks = 0;
+}
+
+int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock)
+{
+    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    cd_scsi_lu *dev;
+
+    if (!cd_scsi_target_lun_legal(st, lun)) {
+        SPICE_ERROR("Lock, illegal lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    if (!cd_scsi_target_lun_realized(st, lun)) {
+        SPICE_ERROR("Lock, unrealized lun:%" G_GUINT32_FORMAT, lun);
+        return -1;
+    }
+    dev = &st->units[lun];
+    dev->prevent_media_removal = lock;
+    SPICE_DEBUG("lun:%" G_GUINT32_FORMAT "%slock", lun, lock ? "un" :"");
+    return 0;
 }
 
 static void cd_scsi_lu_load(cd_scsi_lu *dev,
@@ -479,7 +506,7 @@ int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *l
     lun_info->parameters.product = dev->product;
     lun_info->parameters.version = dev->version;
     lun_info->parameters.serial = dev->serial;
-    lun_info->parameters.alias = dev->alias;
+
     return 0;
 }
 
@@ -489,7 +516,7 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
     cd_scsi_lu *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
-        SPICE_ERROR("Unoad, illegal lun:%" G_GUINT32_FORMAT, lun);
+        SPICE_ERROR("Unload, illegal lun:%" G_GUINT32_FORMAT, lun);
         return -1;
     }
     if (!cd_scsi_target_lun_realized(st, lun)) {
@@ -498,11 +525,11 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
     }
     dev = &st->units[lun];
     if (!dev->loaded) {
-        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
+        SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
         return -1;
     }
     if (dev->prevent_media_removal) {
-        SPICE_ERROR("Unoad, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
+        SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
         return -1;
     }
 
@@ -543,10 +570,6 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
     if (dev->serial != NULL) {
         free(dev->serial);
         dev->serial = NULL;
-    }
-    if (dev->alias != NULL) {
-        free(dev->alias);
-        dev->alias = NULL;
     }
 
     dev->loaded = FALSE;
@@ -1293,6 +1316,9 @@ static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *
 #define CD_MODE_PAGE_CAPS_DVD_R_READ            (0x01 << 4)
 #define CD_MODE_PAGE_CAPS_DVD_RAM_READ          (0x01 << 5)
 /* byte 6 */
+#define CD_MODE_PAGE_CAPS_LOCK_SUPPORT          (0x01)
+#define CD_MODE_PAGE_CAPS_LOCK_STATE            (0x01 << 1)
+#define CD_MODE_PAGE_CAPS_PREVENT_JUMPER        (0x01 << 2)
 #define CD_MODE_PAGE_CAPS_EJECT                 (0x01 << 3)
 #define CD_MODE_PAGE_CAPS_LOADING_TRAY          (0x01 << 5)
 
@@ -1305,7 +1331,10 @@ static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t 
     outbuf[2] = CD_MODE_PAGE_CAPS_CD_R_READ | CD_MODE_PAGE_CAPS_CD_RW_READ |
                 CD_MODE_PAGE_CAPS_DVD_ROM_READ | CD_MODE_PAGE_CAPS_DVD_R_READ |
                 CD_MODE_PAGE_CAPS_DVD_RAM_READ;
-    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT;
+    outbuf[6] = CD_MODE_PAGE_CAPS_LOADING_TRAY | CD_MODE_PAGE_CAPS_EJECT | CD_MODE_PAGE_CAPS_LOCK_SUPPORT;
+    if (dev->prevent_media_removal) {
+        outbuf[6] |= CD_MODE_PAGE_CAPS_LOCK_STATE;
+    }
 
     return page_len;
 }
@@ -1936,12 +1965,12 @@ static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *r
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
     prevent = req->cdb[4] & 0x03;
-    dev->prevent_media_removal = (prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW || 
-                                  prevent == CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER);
+    dev->prevent_media_removal = (prevent == CD_MEDIUM_REMOVAL_REQ_PREVENT ||
+                                  prevent == CD_MEDIUM_REMOVAL_REQ_PREVENT_CHANGER);
     req->in_len = 0;
 
-    SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent:0x%02x",
-                req->lun, prevent);
+    SPICE_DEBUG("allow_medium_removal, lun:%" G_GUINT32_FORMAT " prevent field::0x%02x flag:%d",
+                req->lun, prevent, dev->prevent_media_removal);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -2020,6 +2049,11 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
     case CD_START_STOP_POWER_COND_START_VALID:
         if (!start) { /* stop the unit */
             if (load_eject) { /* eject medium */
+                if (dev->prevent_media_removal) {
+                    SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " prevent_media_removal set, eject failed", req->lun);
+                    cd_scsi_sense_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
+                    return;
+                }
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " eject", req->lun);
                 cd_scsi_lu_unload(dev);
                 cd_scsi_dev_changed(dev->tgt->user_data, req->lun);
