@@ -129,7 +129,6 @@ enum column_id
     COL_VENDOR,
     COL_PRODUCT,
     COL_REVISION,
-    COL_ALIAS,
     COL_FILE,
     COL_LOADED,
     COL_LOCKED,
@@ -157,7 +156,6 @@ static const char *col_name[NUM_COLS] =
     "Vendor",
     "Product", 
     "Revision",
-    "Alias",
     "File/Device Path",
     "Loaded",
     "Locked",
@@ -203,7 +201,6 @@ static GtkTreeStore* usb_widget_create_tree_store(void)
                         G_TYPE_STRING, /* COL_VENDOR */
                         G_TYPE_STRING, /* COL_PRODUCT */
                         G_TYPE_STRING, /* COL_ADDR_REV */
-                        G_TYPE_STRING, /* COL_ALIAS */
                         G_TYPE_STRING, /* COL_FILE */
                         G_TYPE_BOOLEAN, /* COL_LOADED */
                         G_TYPE_BOOLEAN, /* COL_LOCKED */
@@ -328,7 +325,6 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
                 COL_VENDOR, lun_item->info.vendor,
                 COL_PRODUCT, lun_item->info.product,
                 COL_REVISION, lun_item->info.revision,
-                COL_ALIAS, lun_item->info.alias,
                 COL_FILE, lun_item->info.file_path,
                 COL_LOADED, lun_item->info.loaded,
                 COL_LOCKED, lun_item->info.locked,
@@ -701,76 +697,6 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
     spice_usb_device_widget_update_status(self);
 }
 
-/*
-static void tree_item_toggled_cb_idle(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean idle;
-    usb_widget_lun_item *lun_item;
-
-    idle = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_IDLE);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-    SPICE_DEBUG("toggled lun: %u [%s,%s,%s] alias:%s idle: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            idle, !idle);
-
-    tree_item_toggle_set(tree_store, &iter, COL_IDLE, !idle);
-}
-
-static void tree_item_toggled_cb_locked(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean locked;
-    usb_widget_lun_item *lun_item;
-
-    locked = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_LOCKED);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-
-    SPICE_DEBUG("toggled lun:%u [%s,%s,%s] alias:%s locked: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            locked, !locked);
-
-    spice_usb_device_manager_device_lun_lock(priv->manager, lun_item->device, lun_item->lun, !locked);
-}
-
-static void tree_item_toggled_cb_loaded(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
-{
-    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
-    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkTreeStore *tree_store = priv->tree_store;
-    GtkTreeIter iter;
-    gboolean loaded;
-    usb_widget_lun_item *lun_item;
-
-    loaded = tree_item_toggle_get_val(tree_store, path_str, &iter, COL_LOADED);
-    lun_item = tree_item_toggle_lun_item(tree_store, &iter);
-    if (!lun_item) {
-        SPICE_DEBUG("not a LUN toggled?");
-        return;
-    }
-
-    SPICE_DEBUG("toggled lun:%u [%s,%s,%s] alias:%s loaded: %d --> %d",
-            lun_item->lun, lun_item->info.vendor, lun_item->info.product, lun_item->info.revision, lun_item->info.alias,
-            loaded, !loaded);
-
-    tree_item_toggle_set(tree_store, &iter, COL_LOADED, !loaded);
-}
-*/
-
 /* Signal handlers */
 
 static void device_added_cb(SpiceUsbDeviceManager *usb_dev_mgr,
@@ -849,35 +775,34 @@ static void tree_selection_changed_cb(GtkTreeSelection *select, gpointer user_da
     GtkTreePath *path;
     gboolean is_lun;
     usb_widget_lun_item *lun_item;
-    gchar *txt[4];
+    gchar *txt[3];
 
     if (gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
         gtk_tree_model_get(tree_model, &iter,
                 COL_VENDOR, &txt[0],
                 COL_PRODUCT, &txt[1],
                 COL_REVISION, &txt[2],
-                COL_ALIAS, &txt[3],
                 COL_LUN_ITEM, &is_lun,
                 COL_ITEM_DATA, (gpointer *)&lun_item,
                 -1);
         path = gtk_tree_model_get_path(tree_model, &iter);
 
-        SPICE_DEBUG("selected: %s,%s,%s,%s [%s %s] [%s]",
+        SPICE_DEBUG("selected: %s,%s,%s [%s %s] [%s]",
                 txt[0], txt[1],
                 is_lun ? txt[2] : "--",
-                is_lun ? txt[3] : "--",
                 is_lun ? "LUN" : "USB-DEV",
                 is_lun ? lun_item->info.file_path : "--",
                 gtk_tree_path_to_string(path));
 
-        if (txt[0])
-        g_free(txt[0]);
-        if (txt[1])
-        g_free(txt[1]);
-        if (txt[2])
-        g_free(txt[2]);
-        if (txt[3])
-        g_free(txt[3]);
+        if (txt[0]) {
+            g_free(txt[0]);
+        }
+        if (txt[1]) {
+            g_free(txt[1]);
+        }
+        if (txt[2]) {
+            g_free(txt[2]);
+        }
         gtk_tree_path_free(path);
     }
 }
@@ -934,7 +859,6 @@ typedef struct _lun_properties_dialog {
     GtkWidget *vendor_entry;
     GtkWidget *product_entry;
     GtkWidget *revision_entry;
-    GtkWidget *alias_entry;
 
     GtkWidget *idle_toggle;
     GtkWidget *loaded_toggle;
@@ -1019,7 +943,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     GtkWidget *dialog, *content_area;
     GtkWidget *grid, *advanced_grid;
     GtkWidget *file_entry, *choose_button;
-    GtkWidget *vendor_entry, *product_entry, *revision_entry, *alias_entry;
+    GtkWidget *vendor_entry, *product_entry, *revision_entry;
     GtkWidget *idle_toggle, *loaded_toggle, *locked_toggle;
     GtkWidget *advanced_button, *advanced_icon;
     gint nrow = 0;
@@ -1164,28 +1088,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             6, nrow++, // left top
             1, 1); // width height
 
-    /* alias label */
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            gtk_label_new("Alias"),
-            0, nrow++, // left top
-            7, 1); // width height
-
-    /* alias entry */
-    alias_entry = gtk_entry_new();
-    if (!lun_info) {
-        gtk_entry_set_placeholder_text(GTK_ENTRY(alias_entry), "device alias");
-    } else {
-        gtk_entry_set_text(GTK_ENTRY(alias_entry), lun_info->alias);
-    }
-    if (lun_info) {
-        gtk_widget_set_sensitive(alias_entry, FALSE);
-        gtk_widget_set_can_focus(alias_entry, FALSE);
-    }
-    gtk_grid_attach(GTK_GRID(advanced_grid),
-            alias_entry,
-            0, nrow++, // left top
-            7, 1); // width height
-
     /* State label */
     gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Device State"),
@@ -1238,7 +1140,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     lun_dialog->vendor_entry = vendor_entry;
     lun_dialog->product_entry = product_entry;
     lun_dialog->revision_entry = revision_entry;
-    lun_dialog->alias_entry = alias_entry;
     lun_dialog->idle_toggle = idle_toggle;
     lun_dialog->loaded_toggle = loaded_toggle;
     lun_dialog->locked_toggle = locked_toggle;
@@ -1251,7 +1152,6 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
     lun_info->product = gtk_entry_get_text(GTK_ENTRY(lun_dialog->product_entry));
     lun_info->revision = gtk_entry_get_text(GTK_ENTRY(lun_dialog->revision_entry));
-    lun_info->alias = gtk_entry_get_text(GTK_ENTRY(lun_dialog->alias_entry));
     lun_info->started = !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->idle_toggle));
     lun_info->loaded = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->loaded_toggle));
     lun_info->locked = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lun_dialog->locked_toggle));
@@ -1573,9 +1473,6 @@ static void spice_usb_device_widget_create_tree_view(SpiceUsbDeviceWidget *self)
     view_add_read_only_toggle_column(self, COL_LOCKED, COL_LUN_ITEM);
     view_add_read_only_toggle_column(self, COL_IDLE, COL_LUN_ITEM);
 
-    view_add_text_column(self, COL_ALIAS);
-
-    /* ???? */
     gtk_tree_selection_set_mode(
             gtk_tree_view_get_selection(tree_view),
             GTK_SELECTION_NONE);

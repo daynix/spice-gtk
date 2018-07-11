@@ -497,7 +497,6 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
     dev_params.vendor = info->vendor;
     dev_params.product = info->product;
     dev_params.version = info->revision;
-    dev_params.alias = info->alias;
 
     if (!d->d.msc) {
         d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);
@@ -670,7 +669,6 @@ gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
             info->vendor = cd_info.parameters.vendor;
             info->product = cd_info.parameters.product;
             info->revision = cd_info.parameters.version;
-            info->alias = cd_info.parameters.alias;
             return TRUE;
         }
     }

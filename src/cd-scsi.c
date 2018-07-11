@@ -66,7 +66,6 @@ typedef struct _cd_scsi_lu
     char *product;
     char *version;
     char *serial;
-    char *alias;
 
     GFileInputStream *stream;
 
@@ -395,7 +394,6 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->product = g_strdup(dev_params->product);
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
-    dev->alias = g_strdup(dev_params->alias);
 
     cd_scsi_dev_sense_power_on(dev);
 
@@ -508,7 +506,7 @@ int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *l
     lun_info->parameters.product = dev->product;
     lun_info->parameters.version = dev->version;
     lun_info->parameters.serial = dev->serial;
-    lun_info->parameters.alias = dev->alias;
+
     return 0;
 }
 
@@ -572,10 +570,6 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
     if (dev->serial != NULL) {
         free(dev->serial);
         dev->serial = NULL;
-    }
-    if (dev->alias != NULL) {
-        free(dev->alias);
-        dev->alias = NULL;
     }
 
     dev->loaded = FALSE;

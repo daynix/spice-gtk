@@ -556,7 +556,6 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
         info.started = TRUE;
         info.loaded = TRUE;
         info.file_path = name;
-        info.alias = name;
         spice_usb_backend_add_cd_lun(priv->context, &info);
 #endif
         break;

@@ -11,7 +11,6 @@ typedef struct _cd_scsi_device_parameters
     const char *product;
     const char *version;
     const char *serial;
-    const char *alias;
 } cd_scsi_device_parameters;
 
 typedef struct _cd_scsi_device_info

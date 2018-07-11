@@ -155,7 +155,6 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     scsi_dev_params.product = dev_params->product ? : "USB-CD";
     scsi_dev_params.version = dev_params->version ? : "0.1";
     scsi_dev_params.serial = dev_params->serial ? : "123456";
-    scsi_dev_params.alias = dev_params->alias ? : "";
 
     rc = cd_scsi_dev_realize(cd->scsi_target, lun, &scsi_dev_params);
     if (rc != 0) {
