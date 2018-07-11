@@ -439,9 +439,11 @@ static GtkTreeViewColumn* view_add_toggle_column(SpiceUsbDeviceWidget *self,
                         NULL);
     }
 
+    gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_expand(view_col, FALSE);
+    gtk_tree_view_column_set_resizable(view_col, FALSE);
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
-    //g_object_set_data(G_OBJECT(renderer), "column", (gint *)toggle_col_id);
     g_signal_connect(renderer, "toggled", G_CALLBACK(toggled_cb), self);
 
     SPICE_DEBUG("view added toggle column [%u : %s] visible when [%u : %s]",
@@ -468,6 +470,10 @@ static GtkTreeViewColumn* view_add_read_only_toggle_column(SpiceUsbDeviceWidget 
                     NULL);
 
     gtk_cell_renderer_toggle_set_activatable(GTK_CELL_RENDERER_TOGGLE(renderer), FALSE);
+
+    gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_expand(view_col, FALSE);
+    gtk_tree_view_column_set_resizable(view_col, FALSE);
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
     SPICE_DEBUG("view added read-only toggle column [%u : %s] visible when [%u : %s]",
@@ -495,6 +501,7 @@ static GtkTreeViewColumn* view_add_text_column(SpiceUsbDeviceWidget *self,
 
     gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
     gtk_tree_view_column_set_resizable(view_col, TRUE);
+    gtk_tree_view_column_set_expand(view_col, TRUE);
 
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
