@@ -1030,6 +1030,12 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* pack advanced grid */
     nrow = 0;
 
+    /* horizontal separator */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_hseparator_new(),
+            0, nrow++, // left top
+            7, 1); // width height
+
     /* product id labels */
     gtk_grid_attach(GTK_GRID(advanced_grid),
             gtk_label_new("Vendor"),
