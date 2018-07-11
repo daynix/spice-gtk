@@ -866,6 +866,7 @@ typedef struct _lun_properties_dialog {
     GtkWidget *vendor_entry;
     GtkWidget *product_entry;
     GtkWidget *revision_entry;
+    GtkWidget *loaded_switch;
 } lun_properties_dialog;
 
 #if 1
@@ -948,6 +949,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     GtkWidget *file_entry, *choose_button;
     GtkWidget *advanced_button, *advanced_icon;
     GtkWidget *vendor_entry, *product_entry, *revision_entry;
+    GtkWidget *loaded_switch;
     gint nrow = 0;
 
     dialog = gtk_dialog_new_with_buttons (!lun_info ? "Add CD LUN" : "CD LUN Settings",
@@ -1096,6 +1098,26 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             6, nrow++, // left top
             1, 1); // width height
 
+    /* horizontal separator */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_hseparator_new(),
+            0, nrow++, // left top
+            7, 1); // width height
+
+    /* initially loaded switch */
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            gtk_label_new("Initially loaded:"),
+            0, nrow, // left top
+            2, 1); // width height
+
+    loaded_switch = gtk_switch_new();
+    gtk_widget_set_hexpand(loaded_switch, FALSE);
+    gtk_widget_set_halign(loaded_switch, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(advanced_grid),
+            loaded_switch,
+            2, nrow++, // left top
+            1, 1); // width height
+
     gtk_widget_show_all(dialog);
     gtk_widget_hide(advanced_grid);
 
@@ -1106,6 +1128,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     lun_dialog->vendor_entry = vendor_entry;
     lun_dialog->product_entry = product_entry;
     lun_dialog->revision_entry = revision_entry;
+    lun_dialog->loaded_switch = loaded_switch;
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
@@ -1115,6 +1138,7 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
     lun_info->product = gtk_entry_get_text(GTK_ENTRY(lun_dialog->product_entry));
     lun_info->revision = gtk_entry_get_text(GTK_ENTRY(lun_dialog->revision_entry));
+    lun_info->initially_loaded = gtk_switch_get_active(GTK_SWITCH(lun_dialog->loaded_switch));
 }
 
 /* Popup menu */
