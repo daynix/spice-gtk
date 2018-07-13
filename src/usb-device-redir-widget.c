@@ -926,6 +926,17 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 }
 #endif
 
+static gboolean lun_properties_dialog_loaded_switch_cb(GtkWidget *widget,
+                                                       gboolean state, gpointer user_data)
+{
+    lun_properties_dialog *lun_dialog = user_data;
+
+    gtk_widget_set_sensitive(lun_dialog->locked_switch, state);
+    gtk_widget_set_can_focus(lun_dialog->locked_switch, state);
+
+    return FALSE; /* call default signal handler */
+}
+
 static void lun_properties_dialog_toggle_advanced(GtkWidget *widget, gpointer user_data)
 {
     lun_properties_dialog *lun_dialog = user_data;
@@ -1120,6 +1131,9 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     if (lun_info) {
         gtk_widget_set_child_visible(loaded_switch, FALSE);
         gtk_widget_set_child_visible(loaded_label, FALSE);
+    } else {
+        g_signal_connect(loaded_switch, "state-set",
+                         G_CALLBACK(lun_properties_dialog_loaded_switch_cb), lun_dialog);
     }
     gtk_widget_set_halign(loaded_switch, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(advanced_grid),
@@ -1147,8 +1161,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             2, nrow++, // left top
             1, 1); // width height
 
-    gtk_widget_show_all(dialog);
-    gtk_widget_hide(advanced_grid);
     lun_dialog->dialog = dialog;
     lun_dialog->advanced_grid = advanced_grid;
     lun_dialog->advanced_shown = FALSE;
@@ -1158,6 +1170,9 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     lun_dialog->revision_entry = revision_entry;
     lun_dialog->loaded_switch = loaded_switch;
     lun_dialog->locked_switch = locked_switch;
+
+    gtk_widget_show_all(dialog);
+    gtk_widget_hide(advanced_grid);
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
