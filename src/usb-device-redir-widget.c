@@ -1302,13 +1302,36 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
 
 static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpointer user_data)
 {
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
+    GtkTreeModel *tree_model;
+    GtkTreeIter iter;
     GtkWidget *menu;
+    gboolean is_loaded, is_locked;
+
+    if (!gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
+        SPICE_DEBUG("No tree view row is slected");
+        return;
+    }
+    if (!tree_item_is_lun(priv->tree_store, &iter)) {
+        SPICE_DEBUG("No settings for USB device yet");
+        return;
+    }
+
+    gtk_tree_model_get(tree_model, &iter,
+                        COL_LOADED, &is_loaded,
+                        COL_LOCKED, &is_locked,
+                        -1);
 
     menu = gtk_menu_new();
 
-    view_popup_add_menu_item(menu, "_Settings", "preferences-system", G_CALLBACK(view_popup_menu_on_settings), user_data);
-    view_popup_add_menu_item(menu, "_Lock/Unlock", "system-lock-screen", G_CALLBACK(view_popup_menu_on_lock), user_data);
-    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
+    view_popup_add_menu_item(menu, "_Settings", "preferences-system",
+                             G_CALLBACK(view_popup_menu_on_settings), user_data);
+    view_popup_add_menu_item(menu, is_locked ? "_Unlock" : "_Lock", "system-lock-screen",
+                             G_CALLBACK(view_popup_menu_on_lock), user_data);
+    view_popup_add_menu_item(menu, is_loaded ? "_Eject" : "_Load", "media-eject",
+                             G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
 
     gtk_widget_show_all(menu);
@@ -1335,6 +1358,7 @@ static gboolean treeview_on_right_button_pressed_cb(GtkWidget *view, GdkEventBut
     GtkTreeView *tree_view = GTK_TREE_VIEW(view);
     /* single click with the right mouse button */
     if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3) {
+        /* select the row that was clicked, it will also provide the context */
         treeview_select_current_row_by_pos(tree_view, (gint)event->x, (gint)event->y);
         view_popup_menu(tree_view, event, user_data);
         return TRUE; /* we handled this */
