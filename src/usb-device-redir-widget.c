@@ -926,6 +926,17 @@ static void usb_cd_choose_file(GtkWidget *button, gpointer user_data)
 }
 #endif
 
+static gboolean lun_properties_dialog_loaded_switch_cb(GtkWidget *widget,
+                                                       gboolean state, gpointer user_data)
+{
+    lun_properties_dialog *lun_dialog = user_data;
+
+    gtk_widget_set_sensitive(lun_dialog->locked_switch, state);
+    gtk_widget_set_can_focus(lun_dialog->locked_switch, state);
+
+    return FALSE; /* call default signal handler */
+}
+
 static void lun_properties_dialog_toggle_advanced(GtkWidget *widget, gpointer user_data)
 {
     lun_properties_dialog *lun_dialog = user_data;
@@ -1120,6 +1131,9 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     if (lun_info) {
         gtk_widget_set_child_visible(loaded_switch, FALSE);
         gtk_widget_set_child_visible(loaded_label, FALSE);
+    } else {
+        g_signal_connect(loaded_switch, "state-set",
+                         G_CALLBACK(lun_properties_dialog_loaded_switch_cb), lun_dialog);
     }
     gtk_widget_set_halign(loaded_switch, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(advanced_grid),
@@ -1147,8 +1161,6 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
             2, nrow++, // left top
             1, 1); // width height
 
-    gtk_widget_show_all(dialog);
-    gtk_widget_hide(advanced_grid);
     lun_dialog->dialog = dialog;
     lun_dialog->advanced_grid = advanced_grid;
     lun_dialog->advanced_shown = FALSE;
@@ -1158,6 +1170,9 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     lun_dialog->revision_entry = revision_entry;
     lun_dialog->loaded_switch = loaded_switch;
     lun_dialog->locked_switch = locked_switch;
+
+    gtk_widget_show_all(dialog);
+    gtk_widget_hide(advanced_grid);
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
@@ -1302,13 +1317,36 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
 
 static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpointer user_data)
 {
+    SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+    GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
+    GtkTreeModel *tree_model;
+    GtkTreeIter iter;
     GtkWidget *menu;
+    gboolean is_loaded, is_locked;
+
+    if (!gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
+        SPICE_DEBUG("No tree view row is slected");
+        return;
+    }
+    if (!tree_item_is_lun(priv->tree_store, &iter)) {
+        SPICE_DEBUG("No settings for USB device yet");
+        return;
+    }
+
+    gtk_tree_model_get(tree_model, &iter,
+                        COL_LOADED, &is_loaded,
+                        COL_LOCKED, &is_locked,
+                        -1);
 
     menu = gtk_menu_new();
 
-    view_popup_add_menu_item(menu, "_Settings", "preferences-system", G_CALLBACK(view_popup_menu_on_settings), user_data);
-    view_popup_add_menu_item(menu, "_Lock/Unlock", "system-lock-screen", G_CALLBACK(view_popup_menu_on_lock), user_data);
-    view_popup_add_menu_item(menu, "_Eject/Load", "media-eject", G_CALLBACK(view_popup_menu_on_eject), user_data);
+    view_popup_add_menu_item(menu, "_Settings", "preferences-system",
+                             G_CALLBACK(view_popup_menu_on_settings), user_data);
+    view_popup_add_menu_item(menu, is_locked ? "_Unlock" : "_Lock", "system-lock-screen",
+                             G_CALLBACK(view_popup_menu_on_lock), user_data);
+    view_popup_add_menu_item(menu, is_loaded ? "_Eject" : "_Load", "media-eject",
+                             G_CALLBACK(view_popup_menu_on_eject), user_data);
     view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
 
     gtk_widget_show_all(menu);
@@ -1335,6 +1373,7 @@ static gboolean treeview_on_right_button_pressed_cb(GtkWidget *view, GdkEventBut
     GtkTreeView *tree_view = GTK_TREE_VIEW(view);
     /* single click with the right mouse button */
     if (event->type == GDK_BUTTON_PRESS  &&  event->button == 3) {
+        /* select the row that was clicked, it will also provide the context */
         treeview_select_current_row_by_pos(tree_view, (gint)event->x, (gint)event->y);
         view_popup_menu(tree_view, event, user_data);
         return TRUE; /* we handled this */
