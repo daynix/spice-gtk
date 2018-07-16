@@ -430,6 +430,7 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
         }
         if (!b) {
             close_stream(&d->units[unit]);
+            cd_usb_bulk_msd_unrealize(d->d.msc, unit);
         }
     }
     return b;
