@@ -1042,14 +1042,14 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     gtk_container_add(GTK_CONTAINER(content_area), advanced_grid);
 
     /* horizontal separator */
-    gtk_container_add(GTK_CONTAINER(content_area), gtk_hseparator_new());
+    gtk_container_add(GTK_CONTAINER(content_area), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL));
 
     /* pack advanced grid */
     nrow = 0;
 
     /* horizontal separator */
     gtk_grid_attach(GTK_GRID(advanced_grid),
-            gtk_hseparator_new(),
+            gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),
             0, nrow++, // left top
             7, 1); // width height
 
@@ -1114,7 +1114,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* horizontal separator */
     if (!lun_info) {
         gtk_grid_attach(GTK_GRID(advanced_grid),
-                gtk_hseparator_new(),
+                gtk_separator_new(GTK_ORIENTATION_HORIZONTAL),
                 0, nrow++, // left top
                 7, 1); // width height
     }
