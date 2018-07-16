@@ -35,6 +35,7 @@
 #include "spice-util.h"
 #include "usb-backend.h"
 #include "cd-usb-bulk-msd.h"
+#include "cd-device.h"
 #if defined(G_OS_WIN32)
 #include <windows.h>
 #include "win-usb-dev.h"
@@ -75,16 +76,6 @@ static FILE *fLog;
 
 static void *g_mutex;
 
-typedef struct _SpiceUsbLU
-{
-    char *filename;
-    GFile *file_object;
-    GFileInputStream *stream;
-    uint64_t size;
-    uint32_t blockSize;
-    uint32_t loaded : 1;
-} SpiceUsbLU;
-
 struct _SpiceUsbBackendDevice
 {
     union
@@ -98,7 +89,7 @@ struct _SpiceUsbBackendDevice
     void *mutex;
     SpiceUsbBackendChannel *attached_to;
     UsbDeviceInformation device_info;
-    SpiceUsbLU units[MAX_LUN_PER_DEVICE];
+    SpiceCdLU units[MAX_LUN_PER_DEVICE];
 };
 
 static struct OwnUsbDevices
@@ -258,93 +249,14 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
     return TRUE;
 }
 
-#if defined(G_OS_WIN32)
-static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
+static gboolean open_stream(SpiceCdLU *unit, const char *filename)
 {
     gboolean b = FALSE;
-    HANDLE h = CreateFileA(
-        filename,
-        GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        NULL, OPEN_EXISTING,
-        FILE_FLAG_OVERLAPPED,
-        NULL);
-    if (h != INVALID_HANDLE_VALUE) {
-        LARGE_INTEGER size = {0};
-        if (!GetFileSizeEx(h, &size)) {
-            uint64_t buffer[256];
-            unsigned long ret;
-            if (DeviceIoControl(h,
-                IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
-                NULL,
-                0,
-                buffer,
-                sizeof(buffer),
-                &ret,
-                NULL))
-            {
-                DISK_GEOMETRY_EX *pg = (DISK_GEOMETRY_EX *)buffer;
-                unit->blockSize = pg->Geometry.BytesPerSector;
-                size = pg->DiskSize;
-            }
-        }
-        unit->size = size.QuadPart;
-        if (unit->filename) {
-           g_free(unit->filename);
-        }
-        CloseHandle(h);
-        unit->filename = g_strdup(filename);
-        unit->file_object = g_file_new_for_path(filename);
-        unit->stream = g_file_read(unit->file_object, NULL, NULL);
-        b = unit->stream != NULL;
-        if (!b) {
-            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-            g_object_unref(unit->file_object);
-            unit->file_object = NULL;
-        }
-    } else {
-        SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
-    }
+    b = device_cd_open_stream(unit, filename) == 0;
     return b;
 }
-#else
-static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
-{
-    gboolean b = FALSE;
-    int fd = open(
-        filename,
-        O_RDONLY | O_NONBLOCK);
-    if (fd > 0) {
-        struct stat file_stat;
-        if (fstat(fd, &file_stat) || file_stat.st_size == 0) {
-            file_stat.st_size = 0;
-            ioctl(fd, BLKGETSIZE64, &file_stat.st_size);
-            ioctl(fd, BLKSSZGET, &unit->blockSize);
-        }
-        unit->size = file_stat.st_size;
-        if (unit->filename) {
-            g_free(unit->filename);
-        }
-        close(fd);
-        unit->filename = g_strdup(filename);
-        unit->file_object = g_file_new_for_path(filename);
-        unit->stream = g_file_read(unit->file_object, NULL, NULL);
-        b = unit->stream != NULL;
-        if (!b) {
-            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-            g_object_unref(unit->file_object);
-            unit->file_object = NULL;
-        }
-    }
-    else {
-        SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
-    }
 
-    return b;
-}
-#endif
-
-static void close_stream(SpiceUsbLU *unit)
+static void close_stream(SpiceCdLU *unit)
 {
     if (unit->stream) {
         g_object_unref(unit->stream);
@@ -378,19 +290,6 @@ static void usbredir_write_flush_callback(void *user_data)
 
     if (!b) {
         SPICE_DEBUG("%s ch %p (not ready)", __FUNCTION__, ch);
-    }
-}
-
-void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
-{
-    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
-    cd_scsi_device_info cd_info;
-
-    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
-        d->units[lun].loaded = cd_info.loaded;
-        if (notify_backend) {
-            indicate_lun_change(notify_backend, d);
-        }
     }
 }
 
@@ -490,6 +389,24 @@ static gboolean lock_lun(SpiceUsbBackendDevice *d, int unit, gboolean lock)
     return !cd_usb_bulk_msd_lock(d->d.msc, unit, lock);
 }
 
+// called when a change happens on SCSI layer
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
+{
+    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
+    cd_scsi_device_info cd_info;
+
+    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
+        // load or unload command received from SCSI
+        if (d->units[lun].loaded != cd_info.loaded) {
+            load_lun(d, lun, cd_info.loaded);
+        }
+    }
+
+    if (notify_backend) {
+        indicate_lun_change(notify_backend, d);
+    }
+}
+
 static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
 {
     gboolean b = FALSE;
@@ -513,6 +430,7 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
         }
         if (!b) {
             close_stream(&d->units[unit]);
+            cd_usb_bulk_msd_unrealize(d->d.msc, unit);
         }
     }
     return b;

@@ -33,15 +33,15 @@ typedef struct _SpiceUsbBackendChannel SpiceUsbBackendChannel;
 
 typedef struct _UsbDeviceInformation
 {
-    unsigned short bus;
-    unsigned short address;
-    unsigned short vid;
-    unsigned short pid;
-    unsigned char class;
-    unsigned char subclass;
-    unsigned char protocol;
-    unsigned char isochronous;
-    unsigned char is_cd;
+    uint16_t bus;
+    uint16_t address;
+    uint16_t vid;
+    uint16_t pid;
+    uint8_t class;
+    uint8_t subclass;
+    uint8_t protocol;
+    uint8_t isochronous;
+    uint8_t is_cd;
 } UsbDeviceInformation;
 
 typedef struct _SpiceUsbBackendChannelInitData
