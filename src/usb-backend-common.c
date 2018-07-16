@@ -293,19 +293,6 @@ static void usbredir_write_flush_callback(void *user_data)
     }
 }
 
-void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
-{
-    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
-    cd_scsi_device_info cd_info;
-
-    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
-        d->units[lun].loaded = cd_info.loaded;
-        if (notify_backend) {
-            indicate_lun_change(notify_backend, d);
-        }
-    }
-}
-
 void cd_usb_bulk_msd_read_complete(void *user_data,
     uint8_t *data, uint32_t length, cd_usb_bulk_status status)
 {
@@ -400,6 +387,24 @@ static gboolean lock_lun(SpiceUsbBackendDevice *d, int unit, gboolean lock)
 {
     SPICE_DEBUG("%s: locking %s", __FUNCTION__, d->units[unit].filename);
     return !cd_usb_bulk_msd_lock(d->d.msc, unit, lock);
+}
+
+// called when a change happens on SCSI layer
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
+{
+    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
+    cd_scsi_device_info cd_info;
+
+    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
+        // load or unload command received from SCSI
+        if (d->units[lun].loaded != cd_info.loaded) {
+            load_lun(d, lun, cd_info.loaded);
+        }
+    }
+
+    if (notify_backend) {
+        indicate_lun_change(notify_backend, d);
+    }
 }
 
 static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)

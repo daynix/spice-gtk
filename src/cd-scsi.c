@@ -468,7 +468,7 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
         return -1;
     }
     dev = &st->units[lun];
-    if (dev->loaded) {
+    if (dev->loaded && dev->stream) {
         // ToDo: implement re-loading with media change notification
         SPICE_ERROR("Load, lun:%" G_GUINT32_FORMAT " already loaded", lun);
         return -1;
@@ -526,7 +526,7 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
     dev = &st->units[lun];
     if (!dev->loaded) {
         SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " not loaded yet", lun);
-        return -1;
+        return 0;
     }
     if (dev->prevent_media_removal) {
         SPICE_ERROR("Unload, lun:%" G_GUINT32_FORMAT " prevent_media_removal set", lun);
