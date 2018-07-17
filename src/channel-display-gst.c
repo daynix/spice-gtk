@@ -400,7 +400,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
      * prepare-window-handle message is received
      */
     decoder->win_handle = get_window_handle(decoder->base.stream);
-    SPICE_DEBUG("Creating Gstreamer pipline (handle for overlay %s)\n",
+    SPICE_DEBUG("Creating Gstreamer pipeline (handle for overlay %s)\n",
                 decoder->win_handle ? "received" : "not received");
     if (decoder->win_handle == 0) {
         sink = gst_element_factory_make("appsink", "sink");
