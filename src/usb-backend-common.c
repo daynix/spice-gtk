@@ -252,7 +252,7 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
 static gboolean open_stream(SpiceCdLU *unit, const char *filename)
 {
     gboolean b = FALSE;
-    b = device_cd_open_stream(unit, filename) == 0;
+    b = cd_device_open_stream(unit, filename) == 0;
     return b;
 }
 
@@ -358,6 +358,16 @@ void cd_usb_bulk_msd_reset_complete(void *user_data, int status)
 static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
 {
     gboolean b = TRUE;
+    if (load && d->units[unit].device) {
+        // there is one possible problem in case our backend is the
+        // local CD device and it is ejected
+        cd_device_load(&d->units[unit], TRUE);
+        close_stream(&d->units[unit]);
+        if (cd_device_check(&d->units[unit]) || !open_stream(&d->units[unit], NULL)) {
+            return FALSE;
+        }
+    }
+
     if (load) {
         cd_scsi_media_parameters media_params = { 0 };
 
@@ -379,6 +389,7 @@ static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
         SPICE_DEBUG("%s: unloading %s", __FUNCTION__, d->units[unit].filename);
         cd_usb_bulk_msd_unload(d->d.msc, unit);
         d->units[unit].loaded = FALSE;
+        cd_device_load(&d->units[unit], FALSE);
     }
     return b;
 }
@@ -398,7 +409,10 @@ void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
     if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
         // load or unload command received from SCSI
         if (d->units[lun].loaded != cd_info.loaded) {
-            load_lun(d, lun, cd_info.loaded);
+            if (!load_lun(d, lun, cd_info.loaded && cd_info.loaded)) {
+                SPICE_DEBUG("%s: load failed, unloading unit", __FUNCTION__);
+                cd_usb_bulk_msd_unload(d->d.msc, lun);
+            }
         }
     }
 

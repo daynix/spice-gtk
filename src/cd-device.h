@@ -33,9 +33,9 @@ typedef struct _SpiceCdLU
     uint32_t device : 1;
 } SpiceCdLU;
 
-int device_cd_open_stream(SpiceCdLU *unit, const char *filename);
-int device_cd_load(SpiceCdLU *unit, gboolean load);
-int device_cd_check(SpiceCdLU *unit);
+int cd_device_open_stream(SpiceCdLU *unit, const char *filename);
+int cd_device_load(SpiceCdLU *unit, gboolean load);
+int cd_device_check(SpiceCdLU *unit);
 
 
 #endif
