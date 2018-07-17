@@ -71,7 +71,12 @@ int cd_device_load(SpiceCdLU *unit, gboolean load)
     }
     int fd = open(unit->filename, O_RDONLY | O_NONBLOCK);
     if (fd > 0) {
-        error = ioctl(fd, load ? CDROMCLOSETRAY : CDROMEJECT, 0);
+        if (load) {
+            error = ioctl(fd, CDROMCLOSETRAY, 0);
+        } else {
+            error = ioctl(fd, CDROM_LOCKDOOR, 0);
+            error = ioctl(fd, CDROMEJECT, 0);
+        }
         if (error) {
             // note that ejecting might be available only for root
             // loading might be available also for regular user

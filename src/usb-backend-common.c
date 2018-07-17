@@ -389,7 +389,13 @@ static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
         SPICE_DEBUG("%s: unloading %s", __FUNCTION__, d->units[unit].filename);
         cd_usb_bulk_msd_unload(d->d.msc, unit);
         d->units[unit].loaded = FALSE;
+// I do not see why we need to eject the physical CD-ROM when the eject
+// on VM requested. On Linux this may require root privilege, as this
+// affects those who opened files on CD-ROM. I suppose this is user's
+// responsibility to keep CD door close when it shares it with VM
+#if DO_CD_DEVICE_EJECT
         cd_device_load(&d->units[unit], FALSE);
+#endif
     }
     return b;
 }
