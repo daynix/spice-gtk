@@ -35,6 +35,7 @@
 #include "spice-util.h"
 #include "usb-backend.h"
 #include "cd-usb-bulk-msd.h"
+#include "cd-device.h"
 #if defined(G_OS_WIN32)
 #include <windows.h>
 #include "win-usb-dev.h"
@@ -75,16 +76,6 @@ static FILE *fLog;
 
 static void *g_mutex;
 
-typedef struct _SpiceUsbLU
-{
-    char *filename;
-    GFile *file_object;
-    GFileInputStream *stream;
-    uint64_t size;
-    uint32_t blockSize;
-    uint32_t loaded : 1;
-} SpiceUsbLU;
-
 struct _SpiceUsbBackendDevice
 {
     union
@@ -98,12 +89,12 @@ struct _SpiceUsbBackendDevice
     void *mutex;
     SpiceUsbBackendChannel *attached_to;
     UsbDeviceInformation device_info;
-    SpiceUsbLU units[MAX_LUN_PER_DEVICE];
+    SpiceCdLU units[MAX_LUN_PER_DEVICE];
 };
 
 static struct OwnUsbDevices
 {
-    unsigned long active_devices;
+    uint32_t active_devices;
     SpiceUsbBackendDevice devices[MAX_OWN_DEVICES];
 } own_devices;
 
@@ -115,6 +106,7 @@ struct _SpiceUsbBackend
     libusb_hotplug_callback_handle hp_handle;
     void *dev_change_user_data;
     backend_device_change_callback dev_change_callback;
+    uint32_t suppressed : 1;
 };
 
 /* backend object for device change notification */
@@ -257,93 +249,14 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
     return TRUE;
 }
 
-#if defined(G_OS_WIN32)
-static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
+static gboolean open_stream(SpiceCdLU *unit, const char *filename)
 {
     gboolean b = FALSE;
-    HANDLE h = CreateFileA(
-        filename,
-        GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        NULL, OPEN_EXISTING,
-        FILE_FLAG_OVERLAPPED,
-        NULL);
-    if (h != INVALID_HANDLE_VALUE) {
-        LARGE_INTEGER size = {0};
-        if (!GetFileSizeEx(h, &size)) {
-            uint64_t buffer[256];
-            unsigned long ret;
-            if (DeviceIoControl(h,
-                IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
-                NULL,
-                0,
-                buffer,
-                sizeof(buffer),
-                &ret,
-                NULL))
-            {
-                DISK_GEOMETRY_EX *pg = (DISK_GEOMETRY_EX *)buffer;
-                unit->blockSize = pg->Geometry.BytesPerSector;
-                size = pg->DiskSize;
-            }
-        }
-        unit->size = size.QuadPart;
-        if (unit->filename) {
-           g_free(unit->filename);
-        }
-        CloseHandle(h);
-        unit->filename = g_strdup(filename);
-        unit->file_object = g_file_new_for_path(filename);
-        unit->stream = g_file_read(unit->file_object, NULL, NULL);
-        b = unit->stream != NULL;
-        if (!b) {
-            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-            g_object_unref(unit->file_object);
-            unit->file_object = NULL;
-        }
-    } else {
-        SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
-    }
+    b = cd_device_open_stream(unit, filename) == 0;
     return b;
 }
-#else
-static gboolean open_stream(SpiceUsbLU *unit, const char *filename)
-{
-    gboolean b = FALSE;
-    int fd = open(
-        filename,
-        O_RDONLY | O_NONBLOCK);
-    if (fd > 0) {
-        struct stat file_stat;
-        if (fstat(fd, &file_stat) || file_stat.st_size == 0) {
-            file_stat.st_size = 0;
-            ioctl(fd, BLKGETSIZE64, &file_stat.st_size);
-            ioctl(fd, BLKSSZGET, &unit->blockSize);
-        }
-        unit->size = file_stat.st_size;
-        if (unit->filename) {
-            g_free(unit->filename);
-        }
-        close(fd);
-        unit->filename = g_strdup(filename);
-        unit->file_object = g_file_new_for_path(filename);
-        unit->stream = g_file_read(unit->file_object, NULL, NULL);
-        b = unit->stream != NULL;
-        if (!b) {
-            SPICE_DEBUG("%s: can't open stream on %s", __FUNCTION__, filename);
-            g_object_unref(unit->file_object);
-            unit->file_object = NULL;
-        }
-    }
-    else {
-        SPICE_DEBUG("%s: can't open file %s", __FUNCTION__, filename);
-    }
 
-    return b;
-}
-#endif
-
-static void close_stream(SpiceUsbLU *unit)
+static void close_stream(SpiceCdLU *unit)
 {
     if (unit->stream) {
         g_object_unref(unit->stream);
@@ -377,14 +290,6 @@ static void usbredir_write_flush_callback(void *user_data)
 
     if (!b) {
         SPICE_DEBUG("%s ch %p (not ready)", __FUNCTION__, ch);
-    }
-}
-
-void cd_usb_bulk_msd_changed(void *user_data)
-{
-    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
-    if (notify_backend) {
-        indicate_lun_change(notify_backend, d);
     }
 }
 
@@ -453,6 +358,16 @@ void cd_usb_bulk_msd_reset_complete(void *user_data, int status)
 static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
 {
     gboolean b = TRUE;
+    if (load && d->units[unit].device) {
+        // there is one possible problem in case our backend is the
+        // local CD device and it is ejected
+        cd_device_load(&d->units[unit], TRUE);
+        close_stream(&d->units[unit]);
+        if (cd_device_check(&d->units[unit]) || !open_stream(&d->units[unit], NULL)) {
+            return FALSE;
+        }
+    }
+
     if (load) {
         cd_scsi_media_parameters media_params = { 0 };
 
@@ -474,8 +389,36 @@ static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
         SPICE_DEBUG("%s: unloading %s", __FUNCTION__, d->units[unit].filename);
         cd_usb_bulk_msd_unload(d->d.msc, unit);
         d->units[unit].loaded = FALSE;
+        cd_device_load(&d->units[unit], FALSE);
     }
     return b;
+}
+
+static gboolean lock_lun(SpiceUsbBackendDevice *d, int unit, gboolean lock)
+{
+    SPICE_DEBUG("%s: locking %s", __FUNCTION__, d->units[unit].filename);
+    return !cd_usb_bulk_msd_lock(d->d.msc, unit, lock);
+}
+
+// called when a change happens on SCSI layer
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
+{
+    SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
+    cd_scsi_device_info cd_info;
+
+    if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
+        // load or unload command received from SCSI
+        if (d->units[lun].loaded != cd_info.loaded) {
+            if (!load_lun(d, lun, cd_info.loaded && cd_info.loaded)) {
+                SPICE_DEBUG("%s: load failed, unloading unit", __FUNCTION__);
+                cd_usb_bulk_msd_unload(d->d.msc, lun);
+            }
+        }
+    }
+
+    if (notify_backend) {
+        indicate_lun_change(notify_backend, d);
+    }
 }
 
 static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
@@ -485,7 +428,6 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
     dev_params.vendor = info->vendor;
     dev_params.product = info->product;
     dev_params.version = info->revision;
-    dev_params.alias = info->alias;
 
     if (!d->d.msc) {
         d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);
@@ -497,11 +439,12 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
     b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &dev_params);
     if (b) {
         b = open_stream(&d->units[unit], info->file_path);
-        if (b && info->loaded) {
+        if (b && info->initially_loaded) {
             b = load_lun(d, unit, TRUE);
         }
         if (!b) {
             close_stream(&d->units[unit]);
+            cd_usb_bulk_msd_unrealize(d->d.msc, unit);
         }
     }
     return b;
@@ -536,6 +479,12 @@ gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_devic
 {
     int i;
     gboolean b = FALSE;
+
+    if (be->suppressed) {
+        SPICE_DEBUG("%s: CD sharing is suppressed", __FUNCTION__);
+        return FALSE;
+    }
+
     for (i = 0; !b && i < MAX_OWN_DEVICES; i++) {
         if ((1 << i) & ~own_devices.active_devices) { /* inactive usb device */
             SPICE_DEBUG("%s: add file %s to device %d (activate now) as lun 0",
@@ -652,7 +601,6 @@ gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
             info->vendor = cd_info.parameters.vendor;
             info->product = cd_info.parameters.product;
             info->revision = cd_info.parameters.version;
-            info->alias = cd_info.parameters.alias;
             return TRUE;
         }
     }
@@ -674,6 +622,29 @@ gboolean spice_usb_backend_load_cd_lun(
         gboolean b = load_lun(bdev, lun, load);
         SPICE_DEBUG("%s: %sload %s", __FUNCTION__,
             load ? "" : "un", b ? "succeeded" : "failed");
+        if (b) {
+            indicate_lun_change(be, bdev);
+        }
+        return b;
+    }
+
+    return FALSE;
+}
+
+gboolean spice_usb_backend_lock_cd_lun(
+    SpiceUsbBackend *be,
+    SpiceUsbBackendDevice *bdev,
+    guint lun,
+    gboolean lock)
+{
+    if (!check_device(bdev, lun, NULL)) {
+        return FALSE;
+    }
+
+    if (bdev->units[lun].filename) {
+        gboolean b = lock_lun(bdev, lun, lock);
+        SPICE_DEBUG("%s: %slock %s", __FUNCTION__,
+            lock ? "" : "un", b ? "succeeded" : "failed");
         if (b) {
             indicate_lun_change(be, bdev);
         }
@@ -807,6 +778,9 @@ SpiceUsbBackend *spice_usb_backend_initialize(void)
     }
     be = (SpiceUsbBackend *)g_new0(SpiceUsbBackend, 1);
     if (be) {
+#ifndef USE_CD_SHARING
+        be->suppressed = TRUE;
+#endif
         int rc;
         rc = libusb_init(&be->libusbContext);
         if (rc < 0) {
@@ -994,10 +968,10 @@ gboolean spice_usb_backend_device_is_hub(SpiceUsbBackendDevice *dev)
     return dev->device_info.class == LIBUSB_CLASS_HUB;
 }
 
-static unsigned char is_libusb_isochronous(libusb_device *libdev)
+static uint8_t is_libusb_isochronous(libusb_device *libdev)
 {
     struct libusb_config_descriptor *conf_desc;
-    unsigned char isoc_found = FALSE;
+    uint8_t isoc_found = FALSE;
     gint i, j, k;
 
     if (!libdev) {
@@ -1946,9 +1920,10 @@ void spice_usb_backend_channel_get_guest_filter(
         SPICE_DEBUG("%s ch %p: %d filters", __FUNCTION__, ch, *count);
     }
     for (i = 0; i < *count; i++) {
+        const struct usbredirfilter_rule *ra = *r;
         SPICE_DEBUG("%s class %d, %X:%X",
-            r[i]->allow ? "allowed" : "denied", r[i]->device_class,
-            (uint32_t)r[i]->vendor_id, (uint32_t)r[i]->product_id);
+            ra[i].allow ? "allowed" : "denied", ra[i].device_class,
+            (uint32_t)ra[i].vendor_id, (uint32_t)ra[i].product_id);
     }
 }
 

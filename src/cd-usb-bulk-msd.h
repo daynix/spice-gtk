@@ -48,7 +48,7 @@ void cd_usb_bulk_msd_read_complete(void *user_data,
 /* called when state of device's unit changed to signal GUI component
    user_data - user_data in unit parameters structure
 */
-void cd_usb_bulk_msd_changed(void *user_data);
+void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun);
 
 /* called on completed device reset
    user_data - user_data in unit parameters structure
@@ -70,6 +70,11 @@ void cd_usb_bulk_msd_free(void *device);
 */
 int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
                             const cd_scsi_device_parameters *dev_params);
+
+/* lock the device, prevent unloading
+   returns: error code
+*/
+int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock);
 
 /* load new media, if already loaded, simulate media change
    returns: error code

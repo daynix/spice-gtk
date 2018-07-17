@@ -216,7 +216,8 @@ leave:
 G_GNUC_INTERNAL
 void spice_usb_util_get_device_strings(int bus, int address,
                                        int vendor_id, int product_id,
-                                       gchar **manufacturer, gchar **product)
+                                       gchar **manufacturer, gchar **product,
+                                       gboolean fill_always)
 {
     usb_product_info *product_info;
     int i, j;
@@ -256,17 +257,20 @@ void spice_usb_util_get_device_strings(int bus, int address,
         }
     }
 
-    if (!*manufacturer)
+    if (!*manufacturer && fill_always)
         *manufacturer = g_strdup(_("USB"));
-    if (!*product)
+    if (!*product && fill_always)
         *product = g_strdup(_("Device"));
 
     /* Some devices have unwanted whitespace in their strings */
-    g_strstrip(*manufacturer);
-    g_strstrip(*product);
+    if (*manufacturer)
+        g_strstrip(*manufacturer);
+    if (*product)
+        g_strstrip(*product);
 
     /* Some devices repeat the manufacturer at the beginning of product */
-    if (g_str_has_prefix(*product, *manufacturer) &&
+    if (*manufacturer && *product &&
+            g_str_has_prefix(*product, *manufacturer) &&
             strlen(*product) > strlen(*manufacturer)) {
         gchar *tmp = g_strdup(*product + strlen(*manufacturer));
         g_free(*product);

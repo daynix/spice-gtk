@@ -11,7 +11,6 @@ typedef struct _cd_scsi_device_parameters
     const char *product;
     const char *version;
     const char *serial;
-    const char *alias;
 } cd_scsi_device_parameters;
 
 typedef struct _cd_scsi_device_info
@@ -19,6 +18,7 @@ typedef struct _cd_scsi_device_info
     cd_scsi_device_parameters parameters;
     uint32_t started    : 1;
     uint32_t locked     : 1;
+    uint32_t loaded     : 1;
 } cd_scsi_device_info;
 
 typedef struct _cd_scsi_media_parameters

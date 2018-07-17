@@ -155,7 +155,6 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     scsi_dev_params.product = dev_params->product ? : "USB-CD";
     scsi_dev_params.version = dev_params->version ? : "0.1";
     scsi_dev_params.serial = dev_params->serial ? : "123456";
-    scsi_dev_params.alias = dev_params->alias ? : "";
 
     rc = cd_scsi_dev_realize(cd->scsi_target, lun, &scsi_dev_params);
     if (rc != 0) {
@@ -169,6 +168,21 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
     }
 
     SPICE_DEBUG("Realize OK lun:%" G_GUINT32_FORMAT, lun);
+    return 0;
+}
+
+int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    int rc;
+
+    rc = cd_scsi_dev_lock(cd->scsi_target, lun, lock);
+    if (rc != 0) {
+        SPICE_ERROR("Failed to lock lun:%" G_GUINT32_FORMAT, lun);
+        return rc;
+    }
+
+    SPICE_DEBUG("Lock OK lun:%" G_GUINT32_FORMAT, lun);
     return 0;
 }
 
@@ -528,6 +542,14 @@ void cd_scsi_target_reset_complete(void *target_user_data)
 {
     usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_INIT);
+}
+
+void cd_scsi_dev_changed(void *target_user_data, uint32_t lun)
+{
+    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
+    SPICE_DEBUG("Device changed, state: %s lun: %" G_GUINT32_FORMAT,
+                usb_cd_state_str(cd->state), lun);
+    cd_usb_bulk_msd_lun_changed(cd->usb_user_data, lun);
 }
 
 #endif /* USE_USBREDIR */
