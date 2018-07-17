@@ -863,6 +863,10 @@ gboolean spice_usb_backend_handle_hotplug(
 
     be->hp_callback = proc;
     be->hp_user_data = user_data;
+    if (!be->libusbContext) {
+        // it is acceptable if libusb is not available at all
+        return TRUE;
+    }
     rc = libusb_hotplug_register_callback(be->libusbContext,
         LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
         LIBUSB_HOTPLUG_ENUMERATE, LIBUSB_HOTPLUG_MATCH_ANY,
@@ -1677,7 +1681,8 @@ static void usbredir_hello(void *priv,
     struct usb_redir_device_connect_header device_connect;
     struct usb_redir_ep_info_header ep_info = { 0 };
     struct usb_redir_interface_info_header interface_info = { 0 };
-    SPICE_DEBUG("%s %p %s", __FUNCTION__, ch, hello ? "" : "(internal)");
+    SPICE_DEBUG("%s %p %sattached %s", __FUNCTION__, ch,
+        ch->attached ? "" : "not ",  hello ? "" : "(internal)");
     if (ch->attached) {
         interface_info.interface_count = 1;
         interface_info.interface_class[0] = CD_DEV_CLASS;
@@ -1703,14 +1708,25 @@ static void usbredir_hello(void *priv,
     }
 }
 
-static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch)
+/*
+    We initialize the usbredirparser with HELLO enabled only in case
+    the libusb is not active and the usbredirhost does not function.
+    Then the parser sends session HELLO and receives server's response.
+    Otherwise (usbredirparser initialized with HELLO disabled):
+    - the usbredirhost sends session HELLO
+    - we look into it to know set of capabilities we shall initialize
+      the parser with
+    - we cache server's response to HELLO and provide it to parser on
+      first activation (attach of emulated device) to have it synchronized
+      with server's capabilities
+*/
+static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch, gboolean bHello)
 {
     struct usbredirparser *parser = usbredirparser_create();
     if (parser) {
         uint32_t caps[USB_REDIR_CAPS_SIZE] = { 0 };
-        uint32_t flags =
-            usbredirparser_fl_no_hello |
-            usbredirparser_fl_write_cb_owns_buffer |
+        uint32_t flags = bHello ? 0 : usbredirparser_fl_no_hello;
+        flags |= usbredirparser_fl_write_cb_owns_buffer |
             usbredirparser_fl_usb_host;
         parser->priv = ch;
         parser->log_func = usbredir_log;
@@ -1734,6 +1750,16 @@ static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch)
         parser->filter_reject_func = usbredir_filter_reject;
         parser->filter_filter_func = usbredir_filter_filter;
         parser->device_disconnect_ack_func = usbredir_device_disconnect_ack;
+
+        if (bHello) {
+            ch->hello_sent = 1;
+            ch->host_caps |= 1 << usb_redir_cap_connect_device_version;
+            ch->host_caps |= 1 << usb_redir_cap_device_disconnect_ack;
+            ch->host_caps |= 1 << usb_redir_cap_ep_info_max_packet_size;
+            ch->host_caps |= 1 << usb_redir_cap_64bits_ids;
+            ch->host_caps |= 1 << usb_redir_cap_32bits_bulk_length;
+        }
+
         if (ch->host_caps & (1 << usb_redir_cap_connect_device_version)) {
             usbredirparser_caps_set_cap(caps, usb_redir_cap_connect_device_version);
         }
@@ -1838,7 +1864,7 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_initialize(
     gboolean ok = FALSE;
     if (ch) {
         ch->data = *init_data;
-        ch->hiddenhost =
+        ch->hiddenhost = !be->libusbContext ? NULL :
             usbredirhost_open_full(
                 be->libusbContext,
                 NULL,
@@ -1853,8 +1879,8 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_initialize(
                 ch, PACKAGE_STRING,
                 init_data->debug ? usbredirparser_debug : usbredirparser_warning,
                 usbredirhost_fl_write_cb_owns_buffer);
-        ok = ch->hiddenhost != NULL;
-        if (ok) {
+        ok = be->libusbContext == NULL || ch->hiddenhost != NULL;
+        if (ch->hiddenhost) {
 #if USBREDIR_VERSION >= 0x000701
             usbredirhost_set_buffered_output_size_cb(ch->hiddenhost, usbredir_buffered_output_size_callback);
 #endif
@@ -1879,9 +1905,15 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_initialize(
 
 void spice_usb_backend_channel_up(SpiceUsbBackendChannel *ch)
 {
-    SPICE_DEBUG("%s %p, host %p, parser %p", __FUNCTION__, ch, ch->usbredirhost, ch->parser);
-    usbredirhost_write_guest_data(ch->usbredirhost);
-    ch->hiddenparser = create_parser(ch);
+    SPICE_DEBUG("%s %p, host %p", __FUNCTION__, ch, ch->usbredirhost);
+    if (ch->usbredirhost) {
+        usbredirhost_write_guest_data(ch->usbredirhost);
+        ch->hiddenparser = create_parser(ch, FALSE);
+    } else if (!ch->hiddenparser) {
+        ch->hiddenparser = create_parser(ch, TRUE);
+        ch->parser = ch->hiddenparser;
+        usbredirparser_do_write(ch->parser);
+    }
 }
 
 void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch)
