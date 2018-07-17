@@ -9,6 +9,7 @@
 #include "cd-device.h"
 #include "spice-client.h"
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
@@ -71,6 +72,12 @@ int cd_device_load(SpiceCdLU *unit, gboolean load)
     int fd = open(unit->filename, O_RDONLY | O_NONBLOCK);
     if (fd > 0) {
         error = ioctl(fd, load ? CDROMCLOSETRAY : CDROMEJECT, 0);
+        if (error) {
+            // note that ejecting might be available only for root
+            // loading might be available also for regular user
+            SPICE_DEBUG("%s: can't %sload %s, res %d, errno %d",
+                __FUNCTION__, load ? "" : "un", unit->filename, error, errno);
+        }
         close(fd);
     } else {
         error = -1; //TODO
