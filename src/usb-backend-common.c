@@ -94,7 +94,7 @@ struct _SpiceUsbBackendDevice
 
 static struct OwnUsbDevices
 {
-    unsigned long active_devices;
+    uint32_t active_devices;
     SpiceUsbBackendDevice devices[MAX_OWN_DEVICES];
 } own_devices;
 
@@ -968,10 +968,10 @@ gboolean spice_usb_backend_device_is_hub(SpiceUsbBackendDevice *dev)
     return dev->device_info.class == LIBUSB_CLASS_HUB;
 }
 
-static unsigned char is_libusb_isochronous(libusb_device *libdev)
+static uint8_t is_libusb_isochronous(libusb_device *libdev)
 {
     struct libusb_config_descriptor *conf_desc;
-    unsigned char isoc_found = FALSE;
+    uint8_t isoc_found = FALSE;
     gint i, j, k;
 
     if (!libdev) {
