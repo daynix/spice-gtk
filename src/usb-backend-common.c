@@ -433,8 +433,7 @@ static void process_default_parameters(cd_scsi_device_parameters *params,
     if (!params->product || *params->product == 0) {
         const char *name = strrchr(info->file_path, '\\');
         if (!name) name = strrchr(info->file_path, '/');
-        if (!name) name = info->file_path;
-        params->product = name + 1;
+        params->product = name ? (name + 1) : info->file_path;
     }
     if (!params->version || *params->version == 0) {
         static char s[8];
