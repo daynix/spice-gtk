@@ -1796,7 +1796,7 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #endif
 }
 
-void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
+void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription *info)
 {
 #ifdef USE_USBREDIR
     g_return_if_fail(device != NULL);

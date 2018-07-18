@@ -260,7 +260,7 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
     GtkTreeStore *tree_store = priv->tree_store;
     SpiceUsbDeviceManager *usb_dev_mgr = priv->manager;
     GtkTreeIter new_dev_iter;
-    spice_usb_device_info dev_info;
+    SpiceUsbDeviceDescription dev_info;
     GtkTreePath *new_dev_path;
     gboolean is_dev_redirected, is_dev_connected, is_dev_cd;
     gchar *addr_str;

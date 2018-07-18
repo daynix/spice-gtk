@@ -104,7 +104,18 @@ GType spice_usb_device_manager_get_type(void);
 
 gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format);
 
-typedef struct _spice_usb_device_info
+/**
+* SpiceUsbDeviceDescription:
+* @bus: USB bus number.
+* @address: address on the bus.
+* @vendor_id: vendor ID value from device descriptor.
+* @product_id: product ID value from device descriptor.
+* @vendor: vendor name (new string allocated on return)
+* @product: vendor name (new string allocated on return)
+*
+* Structure containing description of Spice USB device.
+*/
+typedef struct _SpiceUsbDeviceDescription
 {
     guint16 bus;
     guint16 address;
@@ -113,14 +124,14 @@ typedef struct _spice_usb_device_info
     // (OUT) allocated strings for vendor and product
     gchar *vendor;
     gchar *product;
-} spice_usb_device_info;
+} SpiceUsbDeviceDescription;
 
 /*
 spice_usb_device_get_info is similar to spice_usb_device_get_description,
 i.e. 'vendor' and 'product' strings are allocated by callee and shall be
 freed by caller
 */
-void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info);
+void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription *info);
 gconstpointer spice_usb_device_get_libusb_device(const SpiceUsbDevice *device);
 
 SpiceUsbDeviceManager *spice_usb_device_manager_get(SpiceSession *session,
