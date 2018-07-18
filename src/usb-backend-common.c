@@ -427,6 +427,25 @@ void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
     }
 }
 
+static void process_default_parameters(cd_scsi_device_parameters *params,
+    const spice_usb_device_lun_info *info, int unit)
+{
+    if (!params->product || *params->product == 0) {
+        const char *name = strrchr(info->file_path, '\\');
+        if (!name) name = strrchr(info->file_path, '/');
+        if (!name) name = info->file_path;
+        params->product = name + 1;
+    }
+    if (!params->version || *params->version == 0) {
+        static char s[8];
+        g_snprintf(s, sizeof(s), "%d", unit);
+        params->version = s;
+    }
+    if (!params->vendor || *params->vendor == 0) {
+        params->vendor = "SPICE";
+    }
+}
+
 static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
 {
     gboolean b = FALSE;
@@ -434,6 +453,8 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device
     dev_params.vendor = info->vendor;
     dev_params.product = info->product;
     dev_params.version = info->revision;
+
+    process_default_parameters(&dev_params, info, unit);
 
     if (!d->d.msc) {
         d->d.msc = cd_usb_bulk_msd_alloc(d, MAX_LUN_PER_DEVICE);

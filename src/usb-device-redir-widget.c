@@ -1072,11 +1072,12 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* vendor entry */
     vendor_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(vendor_entry), 8);
-    gtk_entry_set_text(GTK_ENTRY(vendor_entry),
-        !lun_info ? SPICE_DEFAULT_CD_LUN_VENDOR : lun_info->vendor);
     if (lun_info) {
         gtk_widget_set_sensitive(vendor_entry, FALSE);
         gtk_widget_set_can_focus(vendor_entry, FALSE);
+        gtk_entry_set_text(GTK_ENTRY(vendor_entry), lun_info->vendor);
+    } else {
+        gtk_entry_set_placeholder_text(GTK_ENTRY(vendor_entry), "auto");
     }
     gtk_grid_attach(GTK_GRID(advanced_grid),
             vendor_entry,
@@ -1086,11 +1087,12 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* product entry */
     product_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(product_entry), 16);
-    gtk_entry_set_text(GTK_ENTRY(product_entry),
-        !lun_info ? SPICE_DEFAULT_CD_LUN_DEVICE : lun_info->product);
     if (lun_info) {
         gtk_widget_set_sensitive(product_entry, FALSE);
         gtk_widget_set_can_focus(product_entry, FALSE);
+        gtk_entry_set_text(GTK_ENTRY(product_entry), lun_info->product);
+    } else {
+        gtk_entry_set_placeholder_text(GTK_ENTRY(product_entry), "auto");
     }
     gtk_grid_attach(GTK_GRID(advanced_grid),
             product_entry,
@@ -1100,11 +1102,12 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
     /* revision entry */
     revision_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(revision_entry), 4);
-    gtk_entry_set_text(GTK_ENTRY(revision_entry),
-        !lun_info ? SPICE_DEFAULT_CD_LUN_REVISION : lun_info->revision);
     if (lun_info) {
         gtk_widget_set_sensitive(revision_entry, FALSE);
         gtk_widget_set_can_focus(revision_entry, FALSE);
+        gtk_entry_set_text(GTK_ENTRY(revision_entry), lun_info->revision);
+    } else {
+        gtk_entry_set_placeholder_text(GTK_ENTRY(revision_entry), "auto");
     }
     gtk_grid_attach(GTK_GRID(advanced_grid),
             revision_entry,
