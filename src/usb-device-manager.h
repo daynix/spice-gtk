@@ -131,7 +131,9 @@ spice_usb_device_get_info is similar to spice_usb_device_get_description,
 i.e. 'vendor' and 'product' strings are allocated by callee and shall be
 freed by caller
 */
-void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription *info);
+void spice_usb_device_get_info(SpiceUsbDeviceManager *manager,
+                               SpiceUsbDevice *device,
+                               SpiceUsbDeviceDescription *info);
 gconstpointer spice_usb_device_get_libusb_device(const SpiceUsbDevice *device);
 
 SpiceUsbDeviceManager *spice_usb_device_manager_get(SpiceSession *session,

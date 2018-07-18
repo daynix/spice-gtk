@@ -1796,7 +1796,9 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #endif
 }
 
-void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription *info)
+void spice_usb_device_get_info(SpiceUsbDeviceManager  *self,
+                               SpiceUsbDevice *device,
+                               SpiceUsbDeviceDescription *info)
 {
 #ifdef USE_USBREDIR
     g_return_if_fail(device != NULL);
@@ -1806,7 +1808,7 @@ void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription
     info->vendor_id = spice_usb_device_get_vid(device);
     info->product_id = spice_usb_device_get_pid(device);
 
-    if (0x1c6b == info->vendor_id) {
+    if (spice_usb_device_manager_is_device_cd(self, device)) {
         info->vendor = g_strdup("RedHat Inc.");
         info->product = g_strdup("Spice CD drive");
         return;
