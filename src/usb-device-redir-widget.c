@@ -189,6 +189,25 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
                                           SpiceUsbDevice *usb_device,
                                           GtkTreeIter *old_dev_iter);
 
+static gchar *usb_device_description(SpiceUsbDeviceManager *manager,
+                                     SpiceUsbDevice *device,
+                                     const gchar *format)
+{
+    SpiceUsbDeviceDescription desc;
+    gchar *descriptor;
+    gchar *res;
+    spice_usb_device_get_info(manager, device, &desc);
+    descriptor = g_strdup_printf("[%04x:%04x]", desc.vendor_id, desc.product_id);
+    if (!format) {
+        format = _("%s %s %s at %d-%d");
+    }
+    res = g_strdup_printf(format, desc.vendor, desc.product, descriptor, desc.bus, desc.address);
+    g_free(desc.vendor);
+    g_free(desc.product);
+    g_free(descriptor);
+    return res;
+}
+
 static GtkTreeStore* usb_widget_create_tree_store(void)
 {
     GtkTreeStore *tree_store;
@@ -274,7 +293,7 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
         gtk_tree_store_remove(tree_store, old_dev_iter);
     }
 
-    spice_usb_device_get_info(usb_device, &dev_info);
+    spice_usb_device_get_info(usb_dev_mgr, usb_device, &dev_info);
     addr_str = g_strdup_printf("%d:%d", (gint)dev_info.bus, (gint)dev_info.address);
     is_dev_connected = spice_usb_device_manager_is_device_connected(usb_dev_mgr, usb_device);
     is_dev_redirected = is_dev_connected;
@@ -599,7 +618,7 @@ static void usb_widget_connect_cb(GObject *source_object, GAsyncResult *res, gpo
         return;
     }
 
-    desc = spice_usb_device_get_description(usb_dev, priv->device_format_string);
+    desc = usb_device_description(priv->manager, usb_dev, priv->device_format_string);
     SPICE_DEBUG("Connect cb: %p %s", usb_dev, desc);
 
     finished = spice_usb_device_manager_connect_device_finish(priv->manager, res, &err);
@@ -650,7 +669,7 @@ static void usb_widget_disconnect_cb(GObject *source_object, GAsyncResult *res, 
         return;
     }
 
-    desc = spice_usb_device_get_description(usb_dev, priv->device_format_string);
+    desc = usb_device_description(priv->manager, usb_dev, priv->device_format_string);
     SPICE_DEBUG("Disconnect cb: %p %s", usb_dev, desc);
 
     finished = spice_usb_device_manager_disconnect_device_finish(priv->manager, res, &err);
