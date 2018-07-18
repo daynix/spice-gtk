@@ -175,7 +175,7 @@ typedef struct _usb_widget_lun_item {
     SpiceUsbDeviceManager *manager;
     SpiceUsbDevice *device;
     guint lun;
-    spice_usb_device_lun_info info;
+    SpiceUsbDeviceLunInfo info;
 } usb_widget_lun_item;
 
 typedef struct _tree_find_usb_dev {
@@ -952,7 +952,7 @@ static void lun_properties_dialog_toggle_advanced(GtkWidget *widget, gpointer us
 
 static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
                                          GtkWidget *parent_window,
-                                         spice_usb_device_lun_info *lun_info,
+                                         SpiceUsbDeviceLunInfo *lun_info,
                                          lun_properties_dialog *lun_dialog)
 {
     // SpiceUsbDeviceWidgetPrivate *priv = self->priv;
@@ -1179,7 +1179,7 @@ static void create_lun_properties_dialog(SpiceUsbDeviceWidget *self,
 }
 
 static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
-                                           spice_usb_device_lun_info *lun_info)
+                                            SpiceUsbDeviceLunInfo *lun_info)
 {
     lun_info->file_path = gtk_entry_get_text(GTK_ENTRY(lun_dialog->file_entry));
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
@@ -1288,7 +1288,7 @@ static void view_popup_menu_on_settings(GtkWidget *menuitem, gpointer user_data)
 
             resp = gtk_dialog_run(GTK_DIALOG(lun_dialog.dialog));
             if (resp == GTK_RESPONSE_ACCEPT) {
-                spice_usb_device_lun_info lun_info;
+                SpiceUsbDeviceLunInfo lun_info;
                 SPICE_DEBUG("response is ACCEPT");
                 lun_properties_dialog_get_info(&lun_dialog, &lun_info);
                 spice_usb_device_manager_device_lun_change_media(
@@ -1405,7 +1405,7 @@ static void add_cd_lun_button_clicked_cb(GtkWidget *add_cd_button, gpointer user
 
     resp = gtk_dialog_run(GTK_DIALOG(lun_dialog.dialog));
     if (resp == GTK_RESPONSE_ACCEPT) {
-        spice_usb_device_lun_info lun_info;
+        SpiceUsbDeviceLunInfo lun_info;
         SPICE_DEBUG("response is ACCEPT");
         lun_properties_dialog_get_info(&lun_dialog, &lun_info);
         spice_usb_device_manager_add_cd_lun(priv->manager, &lun_info);
