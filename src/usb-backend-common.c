@@ -64,8 +64,9 @@ static FILE *fLog;
 
 #define OWN_BUS_NUM             0xff
 #define USB2_BCD                0x200
-#define CD_DEV_VID              0x1c6b
-#define CD_DEV_PID              0xa223
+// TODO: communicate usage of this VID/PID
+#define CD_DEV_VID              0x2b23
+#define CD_DEV_PID              0xCDCD
 #define CD_DEV_CLASS            8
 #define CD_DEV_SUBCLASS         6
 #define CD_DEV_PROTOCOL         0x50
