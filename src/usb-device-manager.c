@@ -760,11 +760,11 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
     /**
     * SpiceUsbDeviceManager::device-changed:
     * @manager: #SpiceUsbDeviceManager that emitted the signal
-    * @device:  #SpiceUsbDevice boxed object corresponding to the device which has an error
+    * @device:  #SpiceUsbDevice boxed object corresponding to the device which was changed
     *
-    * The #SpiceUsbDeviceManager::device-changed signal is emitted whenever an
-    * error happens which causes a device to no longer be available to the
-    * guest.
+    * The #SpiceUsbDeviceManager::device-changed signal is emitted whenever
+    * the change happens with one or more logical CD units of the device.
+    * Applicable only to emulated CD sharing devices
     **/
     signals[DEVICE_CHANGED] =
         g_signal_new("device-changed",
