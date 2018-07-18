@@ -546,7 +546,7 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
     case PROP_SHARE_CD:
     {
 #ifdef USE_USBREDIR
-        spice_usb_device_lun_info info = { 0 };
+        SpiceUsbDeviceLunInfo info = { 0 };
         const gchar *name = g_value_get_string(value);
         /* the string is temporary, no need to keep it */
         SPICE_DEBUG("share_cd set to %s", name);
@@ -1796,7 +1796,7 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #endif
 }
 
-void spice_usb_device_get_info(SpiceUsbDevice *device, spice_usb_device_info *info)
+void spice_usb_device_get_info(SpiceUsbDevice *device, SpiceUsbDeviceDescription *info)
 {
 #ifdef USE_USBREDIR
     g_return_if_fail(device != NULL);
@@ -2095,7 +2095,7 @@ gboolean spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
 }
 
 gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
-    spice_usb_device_lun_info *lun_info)
+    SpiceUsbDeviceLunInfo *lun_info)
 {
     return spice_usb_backend_add_cd_lun(self->priv->context, lun_info);
 }
@@ -2118,7 +2118,7 @@ gboolean
 spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
     guint lun,
-    spice_usb_device_lun_info *lun_info)
+    SpiceUsbDeviceLunInfo *lun_info)
 {
     gboolean b = FALSE;
     SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
@@ -2148,7 +2148,7 @@ gboolean
 spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
     guint lun,
-    const spice_usb_device_lun_info *lun_info)
+    const SpiceUsbDeviceLunInfo *lun_info)
 {
     gboolean b = FALSE;
     SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);

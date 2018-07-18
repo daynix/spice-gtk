@@ -94,17 +94,17 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch, cons
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
 void spice_usb_backend_channel_finalize(SpiceUsbBackendChannel *ch);
 
-gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_device_lun_info *info);
+gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const SpiceUsbDeviceLunInfo *info);
 gboolean spice_usb_backend_remove_cd_lun(SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev, guint lun);
 uint32_t spice_usb_backend_get_cd_luns_bitmask(SpiceUsbBackendDevice *bdev);
-gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev, guint lun, spice_usb_device_lun_info *info);
+gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev, guint lun, SpiceUsbDeviceLunInfo *info);
 gboolean spice_usb_backend_load_cd_lun(SpiceUsbBackend *be,
     SpiceUsbBackendDevice *bdev, guint lun, gboolean load);
 gboolean spice_usb_backend_lock_cd_lun(SpiceUsbBackend *be,
     SpiceUsbBackendDevice *bdev, guint lun, gboolean lock);
 gboolean spice_usb_backend_change_cd_lun(
     SpiceUsbBackend *be, SpiceUsbBackendDevice *bdev,
-    guint lun, const spice_usb_device_lun_info *info);
+    guint lun, const SpiceUsbDeviceLunInfo *info);
 
 G_END_DECLS
 

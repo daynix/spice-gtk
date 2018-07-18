@@ -428,7 +428,7 @@ void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
 }
 
 static void process_default_parameters(cd_scsi_device_parameters *params,
-    const spice_usb_device_lun_info *info, int unit)
+    const SpiceUsbDeviceLunInfo *info, int unit)
 {
     if (!params->product || *params->product == 0) {
         const char *name = strrchr(info->file_path, '\\');
@@ -446,7 +446,7 @@ static void process_default_parameters(cd_scsi_device_parameters *params,
     }
 }
 
-static gboolean activate_device(SpiceUsbBackendDevice *d, const spice_usb_device_lun_info *info, int unit)
+static gboolean activate_device(SpiceUsbBackendDevice *d, const SpiceUsbDeviceLunInfo *info, int unit)
 {
     gboolean b = FALSE;
     cd_scsi_device_parameters dev_params = { 0 };
@@ -502,7 +502,7 @@ static gboolean stop_device(SpiceUsbBackendDevice *d, int unit)
     return empty;
 }
 
-gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const spice_usb_device_lun_info *info)
+gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const SpiceUsbDeviceLunInfo *info)
 {
     int i;
     gboolean b = FALSE;
@@ -612,7 +612,7 @@ uint32_t spice_usb_backend_get_cd_luns_bitmask(SpiceUsbBackendDevice *bdev)
 }
 
 gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
-    guint lun, spice_usb_device_lun_info *info)
+    guint lun, SpiceUsbDeviceLunInfo *info)
 {
     if (!check_device(bdev, lun, NULL)) {
         return FALSE;
@@ -684,7 +684,7 @@ gboolean spice_usb_backend_lock_cd_lun(
 gboolean spice_usb_backend_change_cd_lun(
     SpiceUsbBackend *be,
     SpiceUsbBackendDevice *bdev,
-    guint lun, const spice_usb_device_lun_info *lun_info)
+    guint lun, const SpiceUsbDeviceLunInfo *lun_info)
 {
     gboolean b = FALSE;
 
