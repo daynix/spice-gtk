@@ -550,9 +550,6 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
         const gchar *name = g_value_get_string(value);
         /* the string is temporary, no need to keep it */
         SPICE_DEBUG("share_cd set to %s", name);
-        info.vendor = SPICE_DEFAULT_CD_LUN_VENDOR;
-        info.product = SPICE_DEFAULT_CD_LUN_DEVICE;
-        info.revision = SPICE_DEFAULT_CD_LUN_REVISION;
         info.started = TRUE;
         info.loaded = TRUE;
         info.file_path = name;
