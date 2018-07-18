@@ -36,6 +36,12 @@ typedef enum _cd_usb_bulk_status
     BULK_STATUS_STALL,
 } cd_usb_bulk_status;
 
+// to be removed after renaming
+typedef cd_usb_bulk_status CdUsbBulkStatus;
+typedef cd_scsi_media_parameters CdScsiMediaParameters;
+typedef cd_scsi_device_info CdScsiDeviceInfo;
+typedef cd_scsi_device_parameters CdScsiDeviceParameters;
+
 /* USB backend callbacks */
 
 /* called on completed read data bulk transfer

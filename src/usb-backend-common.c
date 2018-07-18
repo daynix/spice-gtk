@@ -113,7 +113,7 @@ struct _SpiceUsbBackend
 /* backend object for device change notification */
 static SpiceUsbBackend *notify_backend;
 
-struct _read_bulk 
+struct BufferedBulkRead
 {
     struct usb_redir_bulk_packet_header hout;
     uint64_t id;
@@ -139,7 +139,7 @@ struct _SpiceUsbBackendChannel
     SpiceUsbBackendDevice *attached;
     SpiceUsbBackendChannelInitData data;
     uint32_t num_reads;
-    struct _read_bulk read_bulk[MAX_BULK_IN_REQUESTS];
+    struct BufferedBulkRead read_bulk[MAX_BULK_IN_REQUESTS];
 };
 
 static const char *spice_usbutil_libusb_strerror(enum libusb_error error_code)
@@ -295,7 +295,7 @@ static void usbredir_write_flush_callback(void *user_data)
 }
 
 void cd_usb_bulk_msd_read_complete(void *user_data,
-    uint8_t *data, uint32_t length, cd_usb_bulk_status status)
+    uint8_t *data, uint32_t length, CdUsbBulkStatus status)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
     SpiceUsbBackendChannel *ch = d->attached_to;
@@ -370,7 +370,7 @@ static gboolean load_lun(SpiceUsbBackendDevice *d, int unit, gboolean load)
     }
 
     if (load) {
-        cd_scsi_media_parameters media_params = { 0 };
+        CdScsiMediaParameters media_params = { 0 };
 
         media_params.stream = d->units[unit].stream;
         media_params.size = d->units[unit].size;
@@ -411,7 +411,7 @@ static gboolean lock_lun(SpiceUsbBackendDevice *d, int unit, gboolean lock)
 void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
 {
     SpiceUsbBackendDevice *d = (SpiceUsbBackendDevice *)user_data;
-    cd_scsi_device_info cd_info;
+    CdScsiDeviceInfo cd_info;
 
     if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
         // load or unload command received from SCSI
@@ -428,7 +428,7 @@ void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
     }
 }
 
-static void process_default_parameters(cd_scsi_device_parameters *params,
+static void process_default_parameters(CdScsiDeviceParameters *params,
     const SpiceUsbDeviceLunInfo *info, int unit)
 {
     if (!params->product || *params->product == 0) {
@@ -449,7 +449,7 @@ static void process_default_parameters(cd_scsi_device_parameters *params,
 static gboolean activate_device(SpiceUsbBackendDevice *d, const SpiceUsbDeviceLunInfo *info, int unit)
 {
     gboolean b = FALSE;
-    cd_scsi_device_parameters dev_params = { 0 };
+    CdScsiDeviceParameters dev_params = { 0 };
     dev_params.vendor = info->vendor;
     dev_params.product = info->product;
     dev_params.version = info->revision;
@@ -619,7 +619,7 @@ gboolean spice_usb_backend_get_cd_lun_info(SpiceUsbBackendDevice *bdev,
     }
 
     if (bdev->units[lun].filename) {
-        cd_scsi_device_info cd_info;
+        CdScsiDeviceInfo cd_info;
         if (!cd_usb_bulk_msd_get_info(bdev->d.msc, lun, &cd_info)) {
             info->started = cd_info.started;
             info->loaded = bdev->units[lun].loaded;
