@@ -226,6 +226,7 @@
 #define TYPE_NOT_PRESENT    0x1f
 #define TYPE_INACTIVE       0x20
 #define TYPE_NO_LUN         0x7f
+#define TYPE_FOR_NOT_REALIZED       TYPE_ROM
 
 /* Mode page codes for mode sense/set */
 #define MODE_PAGE_R_W_ERROR                   0x01

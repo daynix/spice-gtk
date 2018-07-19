@@ -36,6 +36,10 @@
 
 struct _cd_scsi_target; /* forward declaration */
 
+#define PERIF_QUALIFIER_CONNECTED           0x00
+#define PERIF_QUALIFIER_NOT_CONNECTED       0x01
+#define PERIF_QUALIFIER_UNSUPPORTED         0x03
+
 enum cd_scsi_power_condition {
     CD_SCSI_POWER_STOPPED,
     CD_SCSI_POWER_ACTIVE,
@@ -234,6 +238,11 @@ const scsi_short_sense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
     .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01
 };
 
+/* Unit attention, Inquiry data changed */
+const scsi_short_sense sense_code_UNIT_ATTENTION_INQUIRY_DATA_CHANGED = {
+    .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x05
+};
+
 static inline gboolean cd_scsi_opcode_ua_supress(uint32_t opcode)
 {
     switch (opcode) {
@@ -295,6 +304,12 @@ static inline void cd_scsi_dev_sense_power_on(cd_scsi_lu *dev)
 {
     dev->short_sense = sense_code_RESET;
 }
+
+static inline void cd_scsi_dev_sense_on_realize(cd_scsi_lu *dev)
+{
+    dev->short_sense = sense_code_UNIT_ATTENTION_INQUIRY_DATA_CHANGED;
+}
+
 
 static void cd_scsi_pending_sense(cd_scsi_lu *dev, cd_scsi_request *req)
 {
@@ -395,7 +410,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
 
-    cd_scsi_dev_sense_power_on(dev);
+    cd_scsi_dev_sense_on_realize(dev);
 
     st->num_luns ++;
 
@@ -575,6 +590,9 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
     dev->loaded = FALSE;
     dev->realized = FALSE;
     dev->power_cond = CD_SCSI_POWER_STOPPED;
+    dev->size = 0;
+    dev->block_size = 0;
+    dev->num_blocks = 0;
 
     st->num_luns --;
 
@@ -760,7 +778,7 @@ static void cd_scsi_cmd_test_unit_ready(cd_scsi_lu *dev, cd_scsi_request *req)
             cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
         }
     } else {
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        cd_scsi_sense_check_cond(dev, req, dev->realized ? &sense_code_INIT_CMD_REQUIRED : &sense_code_LUN_NOT_READY);
     }
 }
 
@@ -774,6 +792,10 @@ static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
 
     if (dev->short_sense.key == NO_SENSE) {
         cd_scsi_build_fixed_sense(dev->fixed_sense, &dev->short_sense);
+    } else {
+        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT " %x:%02x:%02x",
+            __FUNCTION__, req->lun,
+            dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq);
     }
     memcpy(req->buf, dev->fixed_sense, sizeof(dev->fixed_sense));
     cd_scsi_dev_sense_reset(dev); /* clear reported sense */
@@ -844,14 +866,22 @@ static void cd_scsi_cmd_inquiry_vpd_no_lun(cd_scsi_lu *dev, cd_scsi_request *req
     cd_scsi_cmd_complete_good(dev, req);
 }
 
+static uint8_t unit_type(cd_scsi_lu *dev)
+{
+    uint8_t val = dev->realized ? TYPE_ROM: TYPE_FOR_NOT_REALIZED;
+    if (!dev->realized) val |= PERIF_QUALIFIER_NOT_CONNECTED << 5;
+    return val;
+}
+
 static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint8_t page_code = req->cdb[2];
     int buflen = 0;
     int start;
+    const char *serial = dev->realized ? dev->serial : "11";
 
-    outbuf[buflen++] = TYPE_ROM;
+    outbuf[buflen++] = unit_type(dev);
     outbuf[buflen++] = page_code ; // this page
     outbuf[buflen++] = 0x00;
     outbuf[buflen++] = 0x00;
@@ -863,7 +893,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         SPICE_DEBUG("Inquiry EVPD[Supported pages] "
                     "buffer size %" G_GUINT64_FORMAT, req->req_len);
         outbuf[buflen++] = 0x00; // list of supported pages (this page)
-        if (dev->serial) {
+        if (serial) {
             outbuf[buflen++] = 0x80; // unit serial number
         }
         outbuf[buflen++] = 0x83; // device identification
@@ -874,20 +904,20 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
     {
         int serial_len;
 
-        serial_len = strlen(dev->serial);
+        serial_len = strlen(serial);
         if (serial_len > 36) {
             serial_len = 36;
         }
 
         SPICE_DEBUG("Inquiry EVPD[Serial num] xfer size %" G_GUINT64_FORMAT,
                     req->req_len);
-        memcpy(outbuf+buflen, dev->serial, serial_len);
+        memcpy(outbuf+buflen, serial, serial_len);
         buflen += serial_len;
         break;
     }
     case 0x83: /* Device identification page, mandatory */
     {
-        int serial_len = strlen(dev->serial);
+        int serial_len = strlen(serial);
         int max_len = 20;
 
         if (serial_len > max_len) {
@@ -901,7 +931,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
         outbuf[buflen++] = 0;   // reserved
         outbuf[buflen++] = serial_len; // length of data following
 
-        memcpy(outbuf+buflen, dev->serial, serial_len);
+        memcpy(outbuf+buflen, serial, serial_len);
         buflen += serial_len;
         break;
     }
@@ -924,10 +954,6 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_STANDARD_LEN_MIN            36
 #define INQUIRY_STANDARD_LEN                96
 #define INQUIRY_STANDARD_LEN_NO_VER         57
-
-#define PERIF_QUALIFIER_CONNECTED           0x00
-#define PERIF_QUALIFIER_NOT_CONNECTED       0x01
-#define PERIF_QUALIFIER_UNSUPPORTED         0x03
 
 #define INQUIRY_REMOVABLE_MEDIUM            0x80
 
@@ -968,22 +994,29 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request
 static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
+    uint32_t claim_version = dev->claim_version || !dev->realized;
+    uint32_t resp_len = (claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
 
-    outbuf[0] = (PERIF_QUALIFIER_CONNECTED << 5) | TYPE_ROM;
-    outbuf[1] = (dev->removable) ? INQUIRY_REMOVABLE_MEDIUM : 0;
-    outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
+    outbuf[0] = unit_type(dev);
+    outbuf[1] = INQUIRY_REMOVABLE_MEDIUM;
+    outbuf[2] = (claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_NORM_ACA | INQUIRY_RESP_HISUP | INQUIRY_RESP_DATA_FORMAT_SPC3;
 
     outbuf[4] = resp_len - 4;
 
     /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
 
-    strpadcpy((char *) &outbuf[8], 8, dev->vendor, ' ');
-    strpadcpy((char *) &outbuf[16], 16, dev->product, ' ');
-    memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
+    if (dev->realized) {
+        strpadcpy((char *)&outbuf[8], 8, dev->vendor, ' ');
+        strpadcpy((char *)&outbuf[16], 16, dev->product, ' ');
+        memcpy(&outbuf[32], dev->version, MIN(4, strlen(dev->version)));
+    } else {
+        strpadcpy((char *)&outbuf[8], 8, "SPICE", ' ');
+        strpadcpy((char *)&outbuf[16], 16, "INACTIVE", ' ');
+        strpadcpy((char *)&outbuf[32], 4, "", ' ');
+    }
 
-    if (dev->claim_version > 0) {
+    if (claim_version > 0) {
         /* now supporting only 3 */
         outbuf[58] = (INQUIRY_VERSION_DESC_SAM2 >> 8) & 0xff;
         outbuf[59] = INQUIRY_VERSION_DESC_SAM2 & 0xff;
@@ -2447,16 +2480,15 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
     }
     if (!cd_scsi_target_lun_realized(st, lun)) {
         SPICE_ERROR("request_submit, absent lun:%" G_GUINT32_FORMAT, lun);
+//        cd_scsi_sense_check_cond(dev, req, &sense_code_UNIT_ATTENTION_INQUIRY_DATA_CHANGED);
+/*
         if (opcode == INQUIRY) {
-            if (req->cdb[1] & 0x1) {
-                cd_scsi_cmd_inquiry_vpd_no_lun(dev, req, PERIF_QUALIFIER_NOT_CONNECTED);
-            } else {
-                cd_scsi_cmd_inquiry_standard_no_lun(dev, req, PERIF_QUALIFIER_NOT_CONNECTED);
-            }
+            cd_scsi_cmd_inquiry(dev, req);
         } else {
-            cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+            cd_scsi_sense_check_cond(dev, req, &sense_code_UNIT_ATTENTION_INQUIRY_DATA_CHANGED);
         }
         goto done;
+*/
     }
 
     if (dev->short_sense.key != NO_SENSE) {
