@@ -2083,17 +2083,17 @@ static void on_device_change(void *user_data, SpiceUsbBackendDevice *bdev)
     }
 }
 
-gboolean spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
+guint spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device)
 {
-    gboolean b = FALSE;
+    guint val = 0;
     SpiceUsbBackendDevice *bdev = spice_usb_device_manager_device_to_bdev(self, device);
     if (bdev) {
         const UsbDeviceInformation *info = spice_usb_backend_device_get_info(bdev);
-        b = info->is_cd != 0;
+        val = info->max_luns;
         spice_usb_backend_device_release(bdev);
     }
-    return b;
+    return val;
 }
 
 gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,

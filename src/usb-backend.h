@@ -41,7 +41,7 @@ typedef struct _UsbDeviceInformation
     uint8_t subclass;
     uint8_t protocol;
     uint8_t isochronous;
-    uint8_t is_cd;
+    uint8_t max_luns;
 } UsbDeviceInformation;
 
 typedef struct _SpiceUsbBackendChannelInitData

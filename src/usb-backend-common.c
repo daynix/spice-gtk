@@ -1033,7 +1033,7 @@ static uint8_t is_libusb_isochronous(libusb_device *libdev)
 const UsbDeviceInformation*  spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev)
 {
     dev->device_info.isochronous = dev->isLibUsb ? is_libusb_isochronous(dev->d.libusb_device) : 0;
-    dev->device_info.is_cd = !dev->isLibUsb;
+    dev->device_info.max_luns = dev->isLibUsb ? 0 : MAX_LUN_PER_DEVICE;
     return &dev->device_info;
 }
 
