@@ -774,6 +774,10 @@ static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
 
     if (dev->short_sense.key == NO_SENSE) {
         cd_scsi_build_fixed_sense(dev->fixed_sense, &dev->short_sense);
+    } else {
+        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT "%X:%X:%X",
+            __FUNCTION__, req->lun,
+            dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq);
     }
     memcpy(req->buf, dev->fixed_sense, sizeof(dev->fixed_sense));
     cd_scsi_dev_sense_reset(dev); /* clear reported sense */
