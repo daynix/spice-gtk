@@ -58,6 +58,9 @@
 #define DEV_ID_FMT "0x%04x:0x%04x"
 #endif
 
+#define CD_SHARE_VENDOR         "RedHat Inc."
+#define CD_SHARE_PRODUCT        "Spice CD drive"
+
 /**
  * SECTION:usb-device-manager
  * @short_description: USB device management
@@ -1764,6 +1767,7 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 #ifdef USE_USBREDIR
     guint16 bus, address, vid, pid;
     gchar *description, *descriptor, *manufacturer = NULL, *product = NULL;
+    UsbDeviceInformation info;
 
     g_return_val_if_fail(device != NULL, NULL);
 
@@ -1778,8 +1782,13 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
         descriptor = g_strdup("");
     }
 
-    spice_usb_util_get_device_strings(bus, address, vid, pid,
-                                      &manufacturer, &product, TRUE);
+    if (spice_usb_backend_device_get_info_by_address(bus, address, &info) && info.max_luns) {
+        manufacturer = g_strdup(CD_SHARE_VENDOR);
+        product = g_strdup(CD_SHARE_PRODUCT);
+    } else {
+        spice_usb_util_get_device_strings(bus, address, vid, pid,
+            &manufacturer, &product, TRUE);
+    }
 
     if (!format)
         format = _("%s %s %s at %d-%d");
@@ -1809,8 +1818,8 @@ void spice_usb_device_get_info(SpiceUsbDeviceManager  *self,
     info->product_id = spice_usb_device_get_pid(device);
 
     if (spice_usb_device_manager_is_device_cd(self, device)) {
-        info->vendor = g_strdup("RedHat Inc.");
-        info->product = g_strdup("Spice CD drive");
+        info->vendor = g_strdup(CD_SHARE_VENDOR);
+        info->product = g_strdup(CD_SHARE_PRODUCT);
         return;
     }
     spice_usb_util_get_device_strings(info->bus, info->address,
