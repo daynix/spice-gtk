@@ -598,6 +598,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
     dev = &st->units[lun];
 
     dev->prevent_media_removal = FALSE;
+    dev->power_cond = CD_SCSI_POWER_ACTIVE;
     cd_scsi_dev_sense_power_on(dev);
 
     SPICE_DEBUG("Device reset lun:%" G_GUINT32_FORMAT, lun);
