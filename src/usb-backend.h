@@ -82,6 +82,7 @@ void spice_usb_backend_device_release(SpiceUsbBackendDevice *dev);
 gboolean spice_usb_backend_devices_same(SpiceUsbBackendDevice *dev1, SpiceUsbBackendDevice *dev2);
 gconstpointer spice_usb_backend_device_get_libdev(SpiceUsbBackendDevice *dev);
 const UsbDeviceInformation*  spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev);
+gboolean  spice_usb_backend_device_get_info_by_address(guint8 bus, guint8 addr, UsbDeviceInformation *info);
 // returns 0 if the device passes the filter
 int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev, const struct usbredirfilter_rule *rules, int count);
 

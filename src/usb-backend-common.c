@@ -246,6 +246,7 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
         pi->subclass = desc.bDeviceSubClass;
         pi->protocol = desc.bDeviceProtocol;
         pi->isochronous = 0;
+        pi->max_luns = 0;
     }
     return TRUE;
 }
@@ -750,6 +751,7 @@ static void initialize_own_devices(void)
         own_devices.devices[i].device_info.class = 0;
         own_devices.devices[i].device_info.subclass = 0;
         own_devices.devices[i].device_info.protocol = 0;
+        own_devices.devices[i].device_info.max_luns = MAX_LUN_PER_DEVICE;
     }
 }
 
@@ -1033,7 +1035,6 @@ static uint8_t is_libusb_isochronous(libusb_device *libdev)
 const UsbDeviceInformation*  spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev)
 {
     dev->device_info.isochronous = dev->isLibUsb ? is_libusb_isochronous(dev->d.libusb_device) : 0;
-    dev->device_info.max_luns = dev->isLibUsb ? 0 : MAX_LUN_PER_DEVICE;
     return &dev->device_info;
 }
 
@@ -1984,6 +1985,21 @@ void spice_usb_backend_channel_get_guest_filter(
             ra[i].allow ? "allowed" : "denied", ra[i].device_class,
             (uint32_t)ra[i].vendor_id, (uint32_t)ra[i].product_id);
     }
+}
+
+gboolean  spice_usb_backend_device_get_info_by_address(guint8 bus, guint8 addr, UsbDeviceInformation *info)
+{
+    int i;
+    if (bus != OWN_BUS_NUM) {
+        return FALSE;
+    }
+    for (i = 0; i < MAX_OWN_DEVICES; i++) {
+        if (own_devices.devices[i].device_info.address == addr) {
+            *info = own_devices.devices[i].device_info;
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 #endif // USB_REDIR
