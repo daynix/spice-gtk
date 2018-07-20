@@ -22,9 +22,10 @@
 #include "config.h"
 
 #include <glib-object.h>
-#include <errno.h>
 
 #ifdef USE_USBREDIR
+
+#include <errno.h>
 
 #ifdef G_OS_WIN32
 #include <windows.h>
@@ -1996,6 +1997,8 @@ static void spice_usb_device_unref(SpiceUsbDevice *device)
 #ifndef G_OS_WIN32
         spice_usb_backend_device_release(info->bdev);
 #endif
+        info->vid = info->pid = 0;
+        SPICE_DEBUG("%s: deleting %p", __FUNCTION__, info);
         g_free(info);
     }
 }
