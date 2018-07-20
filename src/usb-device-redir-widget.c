@@ -285,6 +285,7 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
     gchar *addr_str;
     GArray *lun_array;
     guint lun_index;
+    GError *error = NULL;
 
     if (old_dev_iter == NULL) {
         gtk_tree_store_append(tree_store, &new_dev_iter, NULL);
@@ -313,10 +314,11 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
         COL_DEV_ITEM, TRUE, /* USB device item */
         COL_ITEM_DATA, (gpointer)usb_device,
         COL_CONNECTED, is_dev_connected,
-        COL_CAN_REDIRECT, TRUE,
+        COL_CAN_REDIRECT, spice_usb_device_manager_can_redirect_device(usb_dev_mgr, usb_device, &error),
         COL_ROW_COLOR, "beige",
         COL_ROW_COLOR_SET, TRUE,
         -1);
+    g_clear_error(&error);
 
     priv->device_count++;
 
@@ -1831,7 +1833,7 @@ static gboolean usb_widget_tree_store_check_redirect_foreach_cb(GtkTreeModel *tr
             g_clear_error(&err);
         }
         gtk_tree_store_set(priv->tree_store, iter,
-                           COL_CAN_REDIRECT, TRUE, //can_redirect,
+                           COL_CAN_REDIRECT, can_redirect,
                            -1);
     }
     return FALSE; /* continue iterating */
