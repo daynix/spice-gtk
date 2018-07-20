@@ -271,7 +271,7 @@ static gboolean spice_usbredir_channel_open_device(
     SpiceUsbredirChannelPrivate *priv = channel->priv;
     SpiceSession *session;
     SpiceUsbDeviceManager *manager;
-    const char *msg;
+    const char *msg = NULL;
 
     g_return_val_if_fail(priv->state == STATE_DISCONNECTED
 #ifdef USE_POLKIT
@@ -282,8 +282,13 @@ static gboolean spice_usbredir_channel_open_device(
     priv->catch_error = err;
     if (!spice_usb_backend_channel_attach(priv->host, priv->device, &msg)) {
         priv->catch_error = NULL;
-        g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
-            "Error attaching device: %s", msg);
+        if (*err == NULL) {
+            if (!msg) {
+                msg = "Exact error not reported";
+            }
+            g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                "Error attaching device: %s", msg);
+        }
         return FALSE;
     }
     priv->catch_error = NULL;
@@ -588,7 +593,7 @@ static void usbredir_log(void *user_data, const char *msg, gboolean error)
         else
             g_set_error_literal(priv->catch_error, SPICE_CLIENT_ERROR,
                 SPICE_CLIENT_ERROR_FAILED, msg);
-        return;
+        priv->catch_error = NULL;
     }
 }
 
