@@ -598,7 +598,7 @@ static void connect_cb_data_free(connect_cb_data *user_data)
 {
     spice_usb_device_widget_update_status(user_data->self);
     g_object_unref(user_data->self);
-    //g_object_unref(user_data->usb_dev);
+    g_boxed_free(spice_usb_device_get_type(), user_data->usb_dev);
     g_free(user_data);
 }
 
@@ -708,7 +708,7 @@ static void tree_item_toggled_cb_redirect(GtkCellRendererToggle *cell, gchar *pa
 
     gtk_tree_model_get(GTK_TREE_MODEL(tree_store), &iter, COL_ITEM_DATA, (gpointer *)&usb_dev, -1);
     cb_data->self = g_object_ref(self);
-    cb_data->usb_dev = usb_dev; // g_object_ref(usb_dev);
+    cb_data->usb_dev = g_boxed_copy(spice_usb_device_get_type(), usb_dev);
 
     if (new_redirect_val) {
         spice_usb_device_manager_connect_device_async(priv->manager, usb_dev,
