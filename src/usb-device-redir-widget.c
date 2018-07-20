@@ -128,12 +128,12 @@ enum column_id
     COL_CD_ICON,
     COL_VENDOR,
     COL_PRODUCT,
-    COL_REVISION,
     COL_FILE,
     COL_LOADED,
     COL_LOCKED,
     COL_IDLE,
     /* internal columns */
+    COL_REVISION,
     COL_CD_DEV,
     COL_LUN_ITEM,
     COL_DEV_ITEM,
@@ -155,12 +155,12 @@ static const char *col_name[NUM_COLS] =
     "CD",
     "Vendor",
     "Product", 
-    "Revision",
     "File/Device Path",
     "Loaded",
     "Locked",
     "Idle",
     /* internal columns - should not be displayed */
+    "?Revision",
     "?CD_DEV",
     "?LUN_ITEM",
     "?DEV_ITEM",
@@ -219,12 +219,12 @@ static GtkTreeStore* usb_widget_create_tree_store(void)
                         GDK_TYPE_PIXBUF, /* COL_CD_ICON */
                         G_TYPE_STRING, /* COL_VENDOR */
                         G_TYPE_STRING, /* COL_PRODUCT */
-                        G_TYPE_STRING, /* COL_ADDR_REV */
                         G_TYPE_STRING, /* COL_FILE */
                         G_TYPE_BOOLEAN, /* COL_LOADED */
                         G_TYPE_BOOLEAN, /* COL_LOCKED */
                         G_TYPE_BOOLEAN, /* COL_IDLE */
                         /* internal columns */
+                        G_TYPE_STRING, /* COL_REVISION */
                         G_TYPE_BOOLEAN, /* COL_CD_DEV */
                         G_TYPE_BOOLEAN, /* COL_LUN_ITEM */
                         G_TYPE_BOOLEAN, /* COL_DEV_ITEM */
@@ -1542,8 +1542,6 @@ static void spice_usb_device_widget_create_tree_view(SpiceUsbDeviceWidget *self)
 
     view_add_text_column(self, COL_VENDOR);
     view_add_text_column(self, COL_PRODUCT);
-    view_add_text_column(self, COL_REVISION);
-
     view_add_text_column(self, COL_FILE);
 
     view_add_read_only_toggle_column(self, COL_LOADED, COL_LUN_ITEM);
