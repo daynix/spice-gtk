@@ -1088,10 +1088,10 @@ static void cd_scsi_cmd_read_capacity(CdScsiLU *dev, CdScsiRequest *req)
 #define RDI_DISC_COMPLETE           0x02
 #define RDI_DISC_RANDOM_WR          0x03
 
-#define RDI_DISC_PMA_TYPE_CD_ROM        0x00
-#define RDI_DISC_PMA_TYPE_CDI           0x10
-#define RDI_DISC_PMA_TYPE_DDCD          0x20
-#define RDI_DISC_PMA_TYPE_UNDEFINED     0xFF
+#define RDI_DISC_PMA_TYPE_CD_ROM    0x00
+#define RDI_DISC_PMA_TYPE_CDI       0x10
+#define RDI_DISC_PMA_TYPE_DDCD      0x20
+#define RDI_DISC_PMA_TYPE_UNDEFINED 0xFF
 
 static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, CdScsiRequest *req)
 {
@@ -1105,7 +1105,8 @@ static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, CdScsiRequest *
 
     data_type = req->cdb[1] & 0x7;
     if (data_type != RDI_TYPE_STANDARD) {
-        SPICE_DEBUG("read_disc_information, lun:%" G_GUINT32_FORMAT " unsupported data type: %02x", 
+        SPICE_DEBUG("read_disc_information, lun:%" G_GUINT32_FORMAT
+                    " unsupported data type: %02x",
                     req->lun, data_type);
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
@@ -1166,7 +1167,8 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
     case RTI_ADDR_TYPE_LBA:
         if (addr_num > last_addr) {
             SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
-                        " addr_type LBA: %" G_GUINT32_FORMAT " invalid LBA: %" G_GUINT32_FORMAT,
+                        " addr_type LBA: %" G_GUINT32_FORMAT
+                        " invalid LBA: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
             cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
@@ -1175,7 +1177,8 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
     case RTI_ADDR_TYPE_TRACK_NUM:
         if (addr_num != track_num) {
             SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
-                        " addr_type track: %" G_GUINT32_FORMAT " invalid track: %" G_GUINT32_FORMAT,
+                        " addr_type track: %" G_GUINT32_FORMAT
+                        " invalid track: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
             cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
@@ -1184,7 +1187,8 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
     case RTI_ADDR_TYPE_SESSION_NUM:
         if (addr_num != session_num) {
             SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
-                        " addr_type session: %" G_GUINT32_FORMAT " invalid session: %" G_GUINT32_FORMAT,
+                        " addr_type session: %" G_GUINT32_FORMAT
+                        " invalid session: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
             cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
@@ -1192,7 +1196,8 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
         break;
     default:
         SPICE_DEBUG("read_track_information, lun:%" G_GUINT32_FORMAT
-                    "invalid addr_type: %" G_GUINT32_FORMAT " addr_num: %" G_GUINT32_FORMAT,
+                    "invalid addr_type: %" G_GUINT32_FORMAT
+                    " addr_num: %" G_GUINT32_FORMAT,
                     req->lun, addr_type, addr_num);
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
@@ -1957,8 +1962,6 @@ static void cd_scsi_cmd_send_event(CdScsiLU *dev, CdScsiRequest *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-
-
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW                 0x00
 #define CD_MEDIUM_REMOVAL_REQ_PREVENT               0x01
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER         0x02
@@ -2056,7 +2059,8 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
         if (!start) { /* stop the unit */
             if (load_eject) { /* eject medium */
                 if (dev->prevent_media_removal) {
-                    SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " prevent_media_removal set, eject failed", req->lun);
+                    SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
+                                " prevent_media_removal set, eject failed", req->lun);
                     cd_scsi_sense_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
                     return;
                 }
@@ -2232,9 +2236,9 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
     case CD_PERF_TYPE_WRITE_SPEED: /* unsupported, irrelevant */
     default:
         SPICE_DEBUG("get_performance, lun:%" G_GUINT32_FORMAT
-                " unsupported type:0x%x"
-                " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
-                req->lun, type, data_type, max_num_descr);
+                    " unsupported type:0x%x"
+                    " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
+                    req->lun, type, data_type, max_num_descr);
         cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }

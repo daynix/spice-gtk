@@ -43,7 +43,8 @@ typedef enum _CdUsbBulkStatus
    status - bulk status code
 */
 void cd_usb_bulk_msd_read_complete(void *user_data,
-    uint8_t *data, uint32_t length, CdUsbBulkStatus status);
+                                   uint8_t *data, uint32_t length,
+                                   CdUsbBulkStatus status);
 
 /* called when state of device's unit changed to signal GUI component
    user_data - user_data in unit parameters structure

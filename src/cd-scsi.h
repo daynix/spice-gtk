@@ -49,9 +49,9 @@ typedef struct _ScsiShortSense
 
 typedef enum _ScsiXferDir
 {
-    SCSI_XFER_NONE = 0,  /* TEST_UNIT_READY, ...            */
-    SCSI_XFER_FROM_DEV,  /* READ, INQUIRY, MODE_SENSE, ...  */
-    SCSI_XFER_TO_DEV,    /* WRITE, MODE_SELECT, ...         */
+    SCSI_XFER_NONE = 0,  /* TEST_UNIT_READY, ...           */
+    SCSI_XFER_FROM_DEV,  /* READ, INQUIRY, MODE_SENSE, ... */
+    SCSI_XFER_TO_DEV,    /* WRITE, MODE_SELECT, ...        */
 } ScsiXferDir;
 
 #define SCSI_CDB_BUF_SIZE   16
