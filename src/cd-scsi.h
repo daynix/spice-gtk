@@ -40,33 +40,33 @@
 #define htobe32(x)          htonl(x)
 #endif
 
-typedef struct _scsi_short_sense
+typedef struct _ScsiShortSense
 {
     uint8_t key;
     uint8_t asc;
     uint8_t ascq;
-} scsi_short_sense;
+} ScsiShortSense;
 
-typedef enum _scsi_xfer_dir
+typedef enum _ScsiXferDir
 {
     SCSI_XFER_NONE = 0,  /* TEST_UNIT_READY, ...            */
     SCSI_XFER_FROM_DEV,  /* READ, INQUIRY, MODE_SENSE, ...  */
     SCSI_XFER_TO_DEV,    /* WRITE, MODE_SELECT, ...         */
-} scsi_xfer_dir;
+} ScsiXferDir;
 
 #define SCSI_CDB_BUF_SIZE   16
 #define SCSI_SENSE_BUF_SIZE 64
 
-typedef enum _cd_scsi_req_state
+typedef enum _CdScsiReqState
 {
     SCSI_REQ_IDLE = 0,
     SCSI_REQ_RUNNING,
     SCSI_REQ_COMPLETE,
     SCSI_REQ_CANCELED,
     SCSI_REQ_DISPOSED,
-} cd_scsi_req_state;
+} CdScsiReqState;
 
-typedef struct _cd_scsi_request
+typedef struct _CdScsiRequest
 {
     /* request */
     uint8_t cdb[SCSI_CDB_BUF_SIZE];
@@ -79,8 +79,8 @@ typedef struct _cd_scsi_request
     uint32_t buf_len;
 
     /* internal */
-    cd_scsi_req_state req_state;
-    scsi_xfer_dir xfer_dir;
+    CdScsiReqState req_state;
+    ScsiXferDir xfer_dir;
     uint64_t cancel_id;
     void *priv_data;
 
@@ -94,26 +94,26 @@ typedef struct _cd_scsi_request
     uint64_t in_len; /* length of data actually available after read */
     uint32_t status; /* SCSI status code */
 
-} cd_scsi_request;
+} CdScsiRequest;
 
-cd_scsi_req_state cd_scsi_get_req_state(cd_scsi_request *req);
+CdScsiReqState cd_scsi_get_req_state(CdScsiRequest *req);
 
 /* SCSI target/device API */
 
 void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns); /* to be used in callbacks */
 void cd_scsi_target_free(void *scsi_target);
 
-int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, const cd_scsi_device_parameters *dev_params);
+int cd_scsi_dev_realize(void *scsi_target, uint32_t lun, const CdScsiDeviceParameters *dev_params);
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun);
 
 int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock);
-int cd_scsi_dev_load(void *scsi_target, uint32_t lun, const cd_scsi_media_parameters *media_params);
-int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info);
+int cd_scsi_dev_load(void *scsi_target, uint32_t lun, const CdScsiMediaParameters *media_params);
+int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, CdScsiDeviceInfo *lun_info);
 int cd_scsi_dev_unload(void *scsi_target, uint32_t lun);
 
-void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *request);
-void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *request);
-void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *request);
+void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *request);
+void cd_scsi_dev_request_cancel(void *scsi_target, CdScsiRequest *request);
+void cd_scsi_dev_request_release(void *scsi_target, CdScsiRequest *request);
 
 int cd_scsi_dev_reset(void *scsi_target, uint32_t lun);
 
@@ -121,7 +121,7 @@ int cd_scsi_target_reset(void *scsi_target);
 
 /* Callbacks */
 
-void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *request);
+void cd_scsi_dev_request_complete(void *target_user_data, CdScsiRequest *request);
 void cd_scsi_dev_changed(void *target_user_data, uint32_t lun);
 void cd_scsi_dev_reset_complete(void *target_user_data, uint32_t lun);
 void cd_scsi_target_reset_complete(void *target_user_data);

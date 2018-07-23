@@ -28,19 +28,13 @@ G_BEGIN_DECLS
 
 #include "cd-scsi-dev-params.h"
 
-typedef enum _cd_usb_bulk_status
+typedef enum _CdUsbBulkStatus
 {
     BULK_STATUS_GOOD = 0,
     BULK_STATUS_ERROR,
     BULK_STATUS_CANCELED,
     BULK_STATUS_STALL,
-} cd_usb_bulk_status;
-
-// to be removed after renaming
-typedef cd_usb_bulk_status CdUsbBulkStatus;
-typedef cd_scsi_media_parameters CdScsiMediaParameters;
-typedef cd_scsi_device_info CdScsiDeviceInfo;
-typedef cd_scsi_device_parameters CdScsiDeviceParameters;
+} CdUsbBulkStatus;
 
 /* USB backend callbacks */
 
@@ -49,7 +43,7 @@ typedef cd_scsi_device_parameters CdScsiDeviceParameters;
    status - bulk status code
 */
 void cd_usb_bulk_msd_read_complete(void *user_data,
-    uint8_t *data, uint32_t length, cd_usb_bulk_status status);
+    uint8_t *data, uint32_t length, CdUsbBulkStatus status);
 
 /* called when state of device's unit changed to signal GUI component
    user_data - user_data in unit parameters structure
@@ -75,7 +69,7 @@ void cd_usb_bulk_msd_free(void *device);
    returns: error code
 */
 int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
-                            const cd_scsi_device_parameters *dev_params);
+                            const CdScsiDeviceParameters *dev_params);
 
 /* lock the device, prevent unloading
    returns: error code
@@ -86,13 +80,13 @@ int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock);
    returns: error code
 */
 int cd_usb_bulk_msd_load(void *device, uint32_t lun,
-                         const cd_scsi_media_parameters *media_params);
+                         const CdScsiMediaParameters *media_params);
 
 /* query unit parameters and status
    returns: error code
 */
 int cd_usb_bulk_msd_get_info(void *device, uint32_t lun,
-    cd_scsi_device_info *lun_info);
+                             CdScsiDeviceInfo *lun_info);
 
 /* unload the media
    returns: error code

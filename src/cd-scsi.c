@@ -70,7 +70,7 @@ typedef struct _CdScsiLU
 
     GFileInputStream *stream;
 
-    scsi_short_sense short_sense; /* currently held sense of the scsi device */
+    ScsiShortSense short_sense; /* currently held sense of the scsi device */
     uint8_t fixed_sense[FIXED_SENSE_LEN];
 } CdScsiLU;
 
@@ -85,7 +85,7 @@ struct _CdScsiTarget
     void *user_data;
 
     CdScsiTargetState state;
-    cd_scsi_request *cur_req;
+    CdScsiRequest *cur_req;
     GCancellable *cancellable;
 
     uint32_t num_luns;
@@ -96,142 +96,142 @@ struct _CdScsiTarget
 /* Predefined sense codes */
 
 /* No sense data available */
-const scsi_short_sense sense_code_NO_SENSE = {
+const ScsiShortSense sense_code_NO_SENSE = {
     .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00
 };
 
 /* LUN not ready, Caused not reportable */
-const scsi_short_sense sense_code_LUN_NOT_READY = {
+const ScsiShortSense sense_code_LUN_NOT_READY = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x00
 };
 
 /* LUN not ready, in process of becoming ready */
-const scsi_short_sense sense_code_BECOMING_READY = {
+const ScsiShortSense sense_code_BECOMING_READY = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x01
 };
 
 /* LUN not ready, Caused not reportable */
-const scsi_short_sense sense_code_INIT_CMD_REQUIRED = {
+const ScsiShortSense sense_code_INIT_CMD_REQUIRED = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x02
 };
 
 /* LUN not ready, Manual intervention required */
-const scsi_short_sense sense_code_INTERVENTION_REQUIRED = {
+const ScsiShortSense sense_code_INTERVENTION_REQUIRED = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x03
 };
 
 /* LUN not ready, Medium not present */
-const scsi_short_sense sense_code_NO_MEDIUM = {
+const ScsiShortSense sense_code_NO_MEDIUM = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x00
 };
 
 /* LUN not ready, Medium not present - Tray Closed */
-const scsi_short_sense sense_code_NO_MEDIUM_TRAY_CLOSED = {
+const ScsiShortSense sense_code_NO_MEDIUM_TRAY_CLOSED = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x01
 };
 
 /* LUN not ready, Medium not present - Tray Open */
-const scsi_short_sense sense_code_NO_MEDIUM_TRAY_OPEN = {
+const ScsiShortSense sense_code_NO_MEDIUM_TRAY_OPEN = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x02
 };
 
 /* LUN not ready, medium removal prevented */
-const scsi_short_sense sense_code_NOT_READY_REMOVAL_PREVENTED = {
+const ScsiShortSense sense_code_NOT_READY_REMOVAL_PREVENTED = {
     .key = NOT_READY, .asc = 0x53, .ascq = 0x02
 };
 
 /* Hardware error, internal target failure */
-const scsi_short_sense sense_code_TARGET_FAILURE = {
+const ScsiShortSense sense_code_TARGET_FAILURE = {
     .key = HARDWARE_ERROR, .asc = 0x44, .ascq = 0x00
 };
 
 /* Illegal request, invalid command operation code */
-const scsi_short_sense sense_code_INVALID_OPCODE = {
+const ScsiShortSense sense_code_INVALID_OPCODE = {
     .key = ILLEGAL_REQUEST, .asc = 0x20, .ascq = 0x00
 };
 
 /* Illegal request, LBA out of range */
-const scsi_short_sense sense_code_LBA_OUT_OF_RANGE = {
+const ScsiShortSense sense_code_LBA_OUT_OF_RANGE = {
     .key = ILLEGAL_REQUEST, .asc = 0x21, .ascq = 0x00
 };
 
 /* Illegal request, Invalid field in CDB */
-const scsi_short_sense sense_code_INVALID_FIELD = {
+const ScsiShortSense sense_code_INVALID_FIELD = {
     .key = ILLEGAL_REQUEST, .asc = 0x24, .ascq = 0x00
 };
 
 /* Illegal request, Invalid field in parameter list */
-const scsi_short_sense sense_code_INVALID_PARAM = {
+const ScsiShortSense sense_code_INVALID_PARAM = {
     .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x00
 };
 
 /* Illegal request, Parameter list length error */
-const scsi_short_sense sense_code_INVALID_PARAM_LEN = {
+const ScsiShortSense sense_code_INVALID_PARAM_LEN = {
     .key = ILLEGAL_REQUEST, .asc = 0x1a, .ascq = 0x00
 };
 
 /* Illegal request, LUN not supported */
-const scsi_short_sense sense_code_LUN_NOT_SUPPORTED = {
+const ScsiShortSense sense_code_LUN_NOT_SUPPORTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x25, .ascq = 0x00
 };
 
 /* Illegal request, Saving parameters not supported */
-const scsi_short_sense sense_code_SAVING_PARAMS_NOT_SUPPORTED = {
+const ScsiShortSense sense_code_SAVING_PARAMS_NOT_SUPPORTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x39, .ascq = 0x00
 };
 
 /* Illegal request, Incompatible medium installed */
-const scsi_short_sense sense_code_INCOMPATIBLE_FORMAT = {
+const ScsiShortSense sense_code_INCOMPATIBLE_FORMAT = {
     .key = ILLEGAL_REQUEST, .asc = 0x30, .ascq = 0x00
 };
 
 /* Illegal request, medium removal prevented */
-const scsi_short_sense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
+const ScsiShortSense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02
 };
 
 /* Unit attention, Mode Parameters has changed */
-const scsi_short_sense sense_code_MODE_PARAMS_CHANGED = {
+const ScsiShortSense sense_code_MODE_PARAMS_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x01
 };
 
 /* Unit attention, Capacity data has changed */
-const scsi_short_sense sense_code_CAPACITY_CHANGED = {
+const ScsiShortSense sense_code_CAPACITY_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x09
 };
 
 /* Unit attention, Power on, reset or bus device reset occurred */
-const scsi_short_sense sense_code_RESET = {
+const ScsiShortSense sense_code_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x00
 };
 
 /* Unit attention, SCSI bus reset */
-const scsi_short_sense sense_code_SCSI_BUS_RESET = {
+const ScsiShortSense sense_code_SCSI_BUS_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x02
 };
 
 /* Unit attention, No medium */
-const scsi_short_sense sense_code_UNIT_ATTENTION_NO_MEDIUM = {
+const ScsiShortSense sense_code_UNIT_ATTENTION_NO_MEDIUM = {
     .key = UNIT_ATTENTION, .asc = 0x3a, .ascq = 0x00
 };
 
 /* Unit attention, Medium may have changed */
-const scsi_short_sense sense_code_MEDIUM_CHANGED = {
+const ScsiShortSense sense_code_MEDIUM_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x28, .ascq = 0x00
 };
 
 /* Unit attention, Reported LUNs data has changed */
-const scsi_short_sense sense_code_REPORTED_LUNS_CHANGED = {
+const ScsiShortSense sense_code_REPORTED_LUNS_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x0e
 };
 
 /* Unit attention, Device internal reset */
-const scsi_short_sense sense_code_DEVICE_INTERNAL_RESET = {
+const ScsiShortSense sense_code_DEVICE_INTERNAL_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04
 };
 
 /* Unit attention, Operator Medium removal request */
-const scsi_short_sense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
+const ScsiShortSense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
     .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01
 };
 
@@ -249,7 +249,7 @@ static inline gboolean cd_scsi_opcode_ua_supress(uint32_t opcode)
     }
 }
 
-static inline const char *cd_scsi_req_state_str(cd_scsi_req_state state)
+static inline const char *CdScsiReqState_str(CdScsiReqState state)
 {
     switch(state) {
     case SCSI_REQ_IDLE:
@@ -265,7 +265,7 @@ static inline const char *cd_scsi_req_state_str(cd_scsi_req_state state)
     }
 }
 
-static uint32_t cd_scsi_build_fixed_sense(uint8_t *buf, const scsi_short_sense *short_sense)
+static uint32_t cd_scsi_build_fixed_sense(uint8_t *buf, const ScsiShortSense *short_sense)
 {
     memset(buf, 0, FIXED_SENSE_LEN);
 
@@ -278,7 +278,7 @@ static uint32_t cd_scsi_build_fixed_sense(uint8_t *buf, const scsi_short_sense *
     return FIXED_SENSE_LEN;
 }
 
-static inline void cd_scsi_req_init(cd_scsi_request *req)
+static inline void cd_scsi_req_init(CdScsiRequest *req)
 {
     req->req_state = SCSI_REQ_IDLE;
     req->xfer_dir = SCSI_XFER_NONE;
@@ -297,15 +297,15 @@ static inline void cd_scsi_dev_sense_power_on(CdScsiLU *dev)
     dev->short_sense = sense_code_RESET;
 }
 
-static void cd_scsi_pending_sense(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_pending_sense(CdScsiLU *dev, CdScsiRequest *req)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = CHECK_CONDITION;
     req->in_len = 0;
 }
 
-static void cd_scsi_sense_check_cond(CdScsiLU *dev, cd_scsi_request *req,
-                                     const scsi_short_sense *short_sense)
+static void cd_scsi_sense_check_cond(CdScsiLU *dev, CdScsiRequest *req,
+                                     const ScsiShortSense *short_sense)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = CHECK_CONDITION;
@@ -315,7 +315,7 @@ static void cd_scsi_sense_check_cond(CdScsiLU *dev, cd_scsi_request *req,
     cd_scsi_build_fixed_sense(dev->fixed_sense, short_sense);
 }
 
-static void cd_scsi_cmd_complete_good(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_complete_good(CdScsiLU *dev, CdScsiRequest *req)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = GOOD;
@@ -362,7 +362,7 @@ static inline gboolean cd_scsi_target_lun_realized(CdScsiTarget *st, uint32_t lu
 }
 
 int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
-                        const cd_scsi_device_parameters *dev_params)
+                        const CdScsiDeviceParameters *dev_params)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     CdScsiLU *dev;
@@ -435,7 +435,7 @@ int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock)
 }
 
 static void cd_scsi_lu_load(CdScsiLU *dev,
-                            const cd_scsi_media_parameters *media_params)
+                            const CdScsiMediaParameters *media_params)
 {
     if (media_params != NULL) {
         dev->stream = media_params->stream;
@@ -455,7 +455,7 @@ static void cd_scsi_lu_unload(CdScsiLU *dev)
 }
 
 int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
-                     const cd_scsi_media_parameters *media_params)
+                     const CdScsiMediaParameters *media_params)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     CdScsiLU *dev;
@@ -484,7 +484,7 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
     return 0;
 }
 
-int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info)
+int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, CdScsiDeviceInfo *lun_info)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     CdScsiLU *dev;
@@ -644,7 +644,7 @@ int cd_scsi_target_reset(void *scsi_target)
     return 0;
 }
 
-cd_scsi_req_state cd_scsi_get_req_state(cd_scsi_request *req)
+CdScsiReqState cd_scsi_get_req_state(CdScsiRequest *req)
 {
     return req->req_state;
 }
@@ -750,7 +750,7 @@ static uint32_t scsi_cdb_xfer_length(uint8_t *cdb, int cdb_len)
 
 /* SCSI commands */
 
-static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, CdScsiRequest *req)
 {
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
@@ -766,7 +766,7 @@ static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, cd_scsi_request *req)
     }
 }
 
-static void cd_scsi_cmd_request_sense(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_request_sense(CdScsiLU *dev, CdScsiRequest *req)
 {
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -788,7 +788,7 @@ static void cd_scsi_cmd_request_sense(CdScsiLU *dev, cd_scsi_request *req)
 }
 
 static void cd_scsi_cmd_report_luns(CdScsiTarget *st, CdScsiLU *dev,
-                                    cd_scsi_request *req)
+                                    CdScsiRequest *req)
 {
     uint8_t *out_buf = req->buf;
     uint32_t num_luns = st->num_luns;
@@ -829,7 +829,7 @@ static void cd_scsi_cmd_report_luns(CdScsiTarget *st, CdScsiLU *dev,
 #define SCSI_MAX_INQUIRY_LEN        256
 #define SCSI_MAX_MODE_LEN           256
 
-static void cd_scsi_cmd_inquiry_vpd_no_lun(CdScsiLU *dev, cd_scsi_request *req,
+static void cd_scsi_cmd_inquiry_vpd_no_lun(CdScsiLU *dev, CdScsiRequest *req,
                                            uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
@@ -850,7 +850,7 @@ static void cd_scsi_cmd_inquiry_vpd_no_lun(CdScsiLU *dev, cd_scsi_request *req,
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint8_t page_code = req->cdb[2];
@@ -950,7 +950,7 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, cd_scsi_request *req)
 #define INQUIRY_VERSION_DESC_MMC3           0x2A0
 #define INQUIRY_VERSION_DESC_SBC2           0x320
 
-static void cd_scsi_cmd_inquiry_standard_no_lun(CdScsiLU *dev, cd_scsi_request *req,
+static void cd_scsi_cmd_inquiry_standard_no_lun(CdScsiLU *dev, CdScsiRequest *req,
                                                 uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
@@ -971,7 +971,7 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(CdScsiLU *dev, cd_scsi_request *
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
@@ -1015,7 +1015,7 @@ static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, cd_scsi_request *req)
 #define CD_INQUIRY_FLAG_EVPD                0x01
 #define CD_INQUIRY_FLAG_CMD_DT              0x02
 
-static void cd_scsi_cmd_inquiry(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry(CdScsiLU *dev, CdScsiRequest *req)
 {
     gboolean evpd, cmd_data;
 
@@ -1048,7 +1048,7 @@ static void cd_scsi_cmd_inquiry(CdScsiLU *dev, cd_scsi_request *req)
     }
 }
 
-static void cd_scsi_cmd_read_capacity(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read_capacity(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint32_t last_blk = dev->num_blocks - 1;
     uint32_t blk_size = dev->block_size;
@@ -1093,7 +1093,7 @@ static void cd_scsi_cmd_read_capacity(CdScsiLU *dev, cd_scsi_request *req)
 #define RDI_DISC_PMA_TYPE_DDCD          0x20
 #define RDI_DISC_PMA_TYPE_UNDEFINED     0xFF
 
-static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t data_type;
@@ -1146,7 +1146,7 @@ static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, cd_scsi_request
 
 #define TIB_LRA_VALID               (0x01 << 1)
 
-static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t track_size = dev->num_blocks;
@@ -1231,7 +1231,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, cd_scsi_reques
 #define READ_TOC_TRACK_DESC_LEN     8
 #define READ_TOC_RESP_LEN           (4 + 2*READ_TOC_TRACK_DESC_LEN)
 
-static void cd_scsi_cmd_read_toc(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read_toc(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t msf, format, track_num;
@@ -1345,7 +1345,7 @@ static uint32_t cd_scsi_add_mode_page_caps_mech_status(CdScsiLU *dev, uint8_t *o
     return page_len;
 }
 
-static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     int long_lba, dbd, page, sub_page, pc;
@@ -1408,7 +1408,7 @@ static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_mode_select_6(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_select_6(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *block_desc_data, *mode_data;
     uint32_t page_format, save_pages, list_len; /* cdb */
@@ -1464,7 +1464,7 @@ static void cd_scsi_cmd_mode_select_6(CdScsiLU *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_mode_select_10(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_select_10(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint32_t page_format, save_pages, list_len;
 
@@ -1740,7 +1740,7 @@ static uint32_t cd_scsi_add_feature_timeout(CdScsiLU *dev, uint8_t *outbuf,
     return feature_len;
 }
 
-static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t profile_num = (!dev->cd_rom) ? MMC_PROFILE_DVD_ROM : MMC_PROFILE_CD_ROM;
@@ -1861,7 +1861,7 @@ static uint32_t cd_scsi_cmd_get_event_resp_add_media(CdScsiLU *dev, uint8_t *out
     return CD_GET_EVENT_LEN_MEDIA;
 }
 
-static void cd_scsi_cmd_get_event_status_notification(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_event_status_notification(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t immed, class_req;
@@ -1908,7 +1908,7 @@ static void cd_scsi_cmd_get_event_status_notification(CdScsiLU *dev, cd_scsi_req
 #define CD_EXT_REQ_CODE_STOP                    0x106
 #define CD_EXT_REQ_CODE_ASCII_BASE              0x200 /* SCSII value is LSB */
 
-static void cd_scsi_cmd_send_event(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_send_event(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *param, *event;
     uint32_t immed, param_list_len;
@@ -1964,7 +1964,7 @@ static void cd_scsi_cmd_send_event(CdScsiLU *dev, cd_scsi_request *req)
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER         0x02
 #define CD_MEDIUM_REMOVAL_REQ_PREVENT_CHANGER       0x03
 
-static void cd_scsi_cmd_allow_medium_removal(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_allow_medium_removal(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint32_t prevent;
 
@@ -1981,14 +1981,14 @@ static void cd_scsi_cmd_allow_medium_removal(CdScsiLU *dev, cd_scsi_request *req
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_report_key(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_report_key(CdScsiLU *dev, CdScsiRequest *req)
 {
     SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
-static void cd_scsi_cmd_send_key(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_send_key(CdScsiLU *dev, CdScsiRequest *req)
 {
     SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
@@ -2033,7 +2033,7 @@ static inline const char *cd_scsi_start_stop_power_cond_name(uint32_t power_cond
     }
 }
 
-static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
 {
     gboolean immed, start, load_eject;
     uint32_t power_cond;
@@ -2115,7 +2115,7 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, cd_scsi_request *req)
 #define CD_PERF_TYPE_PERFORMANCE_REPORT_EXCEPT  0x10
 
 
-static void cd_scsi_get_performance_resp_empty(CdScsiLU *dev, cd_scsi_request *req,
+static void cd_scsi_get_performance_resp_empty(CdScsiLU *dev, CdScsiRequest *req,
                                                uint32_t type, uint32_t data_type,
                                                uint32_t max_num_descr)
 {
@@ -2135,7 +2135,7 @@ static void cd_scsi_get_performance_resp_empty(CdScsiLU *dev, cd_scsi_request *r
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_get_performance_resp_performance(CdScsiLU *dev, cd_scsi_request *req,
+static void cd_scsi_get_performance_resp_performance(CdScsiLU *dev, CdScsiRequest *req,
                                                      uint32_t start_lba,
                                                      uint32_t data_type,
                                                      uint32_t max_num_descr)
@@ -2208,7 +2208,7 @@ static void cd_scsi_get_performance_resp_performance(CdScsiLU *dev, cd_scsi_requ
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_get_performance(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint32_t data_type, max_num_descr, start_lba, type;
 
@@ -2264,7 +2264,7 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, cd_scsi_request *req)
 #define CD_MECHANISM_SLOT_DISK_CWP_V    0x02
 #define CD_MECHANISM_SLOT_DISK_CWP      0x01
 
-static void cd_scsi_cmd_mechanism_status(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mechanism_status(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf, *slot;
     uint32_t resp_len = CD_MECHANISM_STATUS_HDR_LEN;
@@ -2297,7 +2297,7 @@ static void cd_scsi_read_async_complete(GObject *src_object,
                                         gpointer user_data)
 {
     GFileInputStream *stream = G_FILE_INPUT_STREAM(src_object);
-    cd_scsi_request *req = (cd_scsi_request *)user_data;
+    CdScsiRequest *req = (CdScsiRequest *)user_data;
     CdScsiTarget *st = (CdScsiTarget *)req->priv_data;
     CdScsiLU *dev = &st->units[req->lun];
     GError *error = NULL;
@@ -2343,7 +2343,7 @@ static void cd_scsi_read_async_complete(GObject *src_object,
 
 static void cd_scsi_read_async_canceled(GCancellable *cancellable, gpointer user_data)
 {
-    cd_scsi_request *req = (cd_scsi_request *)user_data;
+    CdScsiRequest *req = (CdScsiRequest *)user_data;
     CdScsiTarget *st = (CdScsiTarget *)req->priv_data;
 
     g_assert(cancellable == st->cancellable);
@@ -2357,7 +2357,7 @@ static void cd_scsi_read_async_canceled(GCancellable *cancellable, gpointer user
     cd_scsi_dev_request_complete(st->user_data, req);
 }
 
-static int cd_scsi_read_async_start(CdScsiLU *dev, cd_scsi_request *req)
+static int cd_scsi_read_async_start(CdScsiLU *dev, CdScsiRequest *req)
 {
     CdScsiTarget *st = dev->tgt;
     GFileInputStream *stream = dev->stream;
@@ -2392,7 +2392,7 @@ static int cd_scsi_read_async_start(CdScsiLU *dev, cd_scsi_request *req)
     return 0;
 }
 
-static void cd_scsi_cmd_read(CdScsiLU *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read(CdScsiLU *dev, CdScsiRequest *req)
 {
     if (dev->power_cond == CD_SCSI_POWER_STOPPED) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
@@ -2415,7 +2415,7 @@ static void cd_scsi_cmd_read(CdScsiLU *dev, cd_scsi_request *req)
     cd_scsi_read_async_start(dev, req);
 }
 
-void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
+void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     uint32_t lun = req->lun;
@@ -2568,14 +2568,14 @@ void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
 done:
     SPICE_DEBUG("request_submit done, lun: %" G_GUINT32_FORMAT 
                 " op: 0x%02x state: %s status: %" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
-                lun, opcode, cd_scsi_req_state_str(req->req_state), req->status, req->in_len);
+                lun, opcode, CdScsiReqState_str(req->req_state), req->status, req->in_len);
 
     if (req->req_state == SCSI_REQ_COMPLETE) {
         cd_scsi_dev_request_complete(st->user_data, req);
     }
 }
 
-void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *req)
+void cd_scsi_dev_request_cancel(void *scsi_target, CdScsiRequest *req)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
 
@@ -2593,7 +2593,7 @@ void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *req)
     }
 }
 
-void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
+void cd_scsi_dev_request_release(void *scsi_target, CdScsiRequest *req)
 {
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
 

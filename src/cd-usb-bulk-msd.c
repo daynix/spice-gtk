@@ -33,7 +33,7 @@
 #define SPICE_ERROR(fmt, ...) \
     do { SPICE_DEBUG("usb-msd error: " fmt , ## __VA_ARGS__); } while (0)
 
-enum usb_cd_state {
+typedef enum _UsbCdState {
     USB_CD_STATE_INIT, /* Not ready */
     USB_CD_STATE_CBW, /* Waiting for Command Block */
     USB_CD_STATE_DATAOUT, /* Transfer data to device */
@@ -42,9 +42,9 @@ enum usb_cd_state {
     USB_CD_STATE_CSW, /* Send Command Status */
     USB_CD_STATE_DEVICE_RESET, /* reset of a single device */
     USB_CD_STATE_TARGET_RESET /* reset of entire target */
-};
+} UsbCdState;
 
-struct __attribute__((__packed__)) usb_cd_cbw {
+struct __attribute__((__packed__)) UsbCdCBW {
     uint32_t sig;
     uint32_t tag;
     uint32_t exp_data_len; /* expected data xfer length for the request */
@@ -54,22 +54,22 @@ struct __attribute__((__packed__)) usb_cd_cbw {
     uint8_t cmd[16]; /* scsi command to perform */
 };
 
-struct __attribute__((__packed__)) usb_cd_csw {
+struct __attribute__((__packed__)) UsbCdCSW {
     uint32_t sig;
     uint32_t tag;
     uint32_t residue;
     uint8_t status;
 };
 
-typedef enum _usb_msd_status {
+typedef enum _UsbMsdStatus {
     USB_MSD_STATUS_GOOD = 0,
     USB_MSD_STATUS_FAILED = 1,
     USB_MSD_STATUS_PHASE_ERR = 2,
-} usb_msd_status;
+} UsbMsdStatus;
 
-typedef struct _usb_cd_bulk_msd_request
+typedef struct _UsbCdBulkMsdRequest
 {
-    cd_scsi_request scsi_req;
+    CdScsiRequest scsi_req;
 
     uint32_t lun;
     uint32_t usb_tag;
@@ -79,20 +79,20 @@ typedef struct _usb_cd_bulk_msd_request
     uint32_t xfer_len; /* length of data transfered until now */
     uint32_t bulk_in_len; /* length of the last postponed bulk-in request */
 
-    struct usb_cd_csw csw; /* usb status header */
-} usb_cd_bulk_msd_request;
+    struct UsbCdCSW csw; /* usb status header */
+} UsbCdBulkMsdRequest;
 
-typedef struct _usb_cd_bulk_msd_device
+typedef struct _UsbCdBulkMsdDevice
 {
-    enum usb_cd_state state;
+    UsbCdState state;
     void *scsi_target; /* scsi handle */
     void *usb_user_data; /* used in callbacks to usb */
-    usb_cd_bulk_msd_request usb_req; /* now supporting a single cmd */
+    UsbCdBulkMsdRequest usb_req; /* now supporting a single cmd */
     uint8_t *data_buf;
     uint32_t data_buf_len;
-} usb_cd_bulk_msd_device;
+} UsbCdBulkMsdDevice;
 
-static inline const char *usb_cd_state_str(enum usb_cd_state state)
+static inline const char *usb_cd_state_str(UsbCdState state)
 {
     switch(state)
     {
@@ -117,7 +117,7 @@ static inline const char *usb_cd_state_str(enum usb_cd_state state)
     }
 }
 
-static void cd_usb_bulk_msd_set_state(usb_cd_bulk_msd_device *cd, enum usb_cd_state state)
+static void cd_usb_bulk_msd_set_state(UsbCdBulkMsdDevice *cd, UsbCdState state)
 {
     SPICE_DEBUG("State %s -> %s", usb_cd_state_str(cd->state), usb_cd_state_str(state));
     cd->state = state;
@@ -125,7 +125,7 @@ static void cd_usb_bulk_msd_set_state(usb_cd_bulk_msd_device *cd, enum usb_cd_st
 
 void *cd_usb_bulk_msd_alloc(void *usb_user_data, uint32_t max_luns)
 {
-    usb_cd_bulk_msd_device *cd;
+    UsbCdBulkMsdDevice *cd;
 
     cd = g_malloc0(sizeof(*cd));
 
@@ -145,10 +145,10 @@ void *cd_usb_bulk_msd_alloc(void *usb_user_data, uint32_t max_luns)
 }
 
 int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
-                            const cd_scsi_device_parameters *dev_params)
+                            const CdScsiDeviceParameters *dev_params)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
-    cd_scsi_device_parameters scsi_dev_params;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
+    CdScsiDeviceParameters scsi_dev_params;
     int rc;
 
     scsi_dev_params.vendor = dev_params->vendor ? : "SPICE";
@@ -173,7 +173,7 @@ int cd_usb_bulk_msd_realize(void *device, uint32_t lun,
 
 int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
     int rc;
 
     rc = cd_scsi_dev_lock(cd->scsi_target, lun, lock);
@@ -187,9 +187,9 @@ int cd_usb_bulk_msd_lock(void *device, uint32_t lun, gboolean lock)
 }
 
 int cd_usb_bulk_msd_load(void *device, uint32_t lun,
-                         const cd_scsi_media_parameters *media_params)
+                         const CdScsiMediaParameters *media_params)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
     int rc;
 
     rc = cd_scsi_dev_load(cd->scsi_target, lun, media_params);
@@ -202,9 +202,9 @@ int cd_usb_bulk_msd_load(void *device, uint32_t lun,
     return 0;
 }
 
-int cd_usb_bulk_msd_get_info(void *device, uint32_t lun, cd_scsi_device_info *lun_info)
+int cd_usb_bulk_msd_get_info(void *device, uint32_t lun, CdScsiDeviceInfo *lun_info)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
     int rc;
 
     rc = cd_scsi_dev_get_info(cd->scsi_target, lun, lun_info);
@@ -218,7 +218,7 @@ int cd_usb_bulk_msd_get_info(void *device, uint32_t lun, cd_scsi_device_info *lu
 
 int cd_usb_bulk_msd_unload(void *device, uint32_t lun)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
     int rc;
 
     rc = cd_scsi_dev_unload(cd->scsi_target, lun);
@@ -233,7 +233,7 @@ int cd_usb_bulk_msd_unload(void *device, uint32_t lun)
 
 int cd_usb_bulk_msd_unrealize(void *device, uint32_t lun)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
     int rc;
 
     rc = cd_scsi_dev_unrealize(cd->scsi_target, lun);
@@ -248,7 +248,7 @@ int cd_usb_bulk_msd_unrealize(void *device, uint32_t lun)
 
 void cd_usb_bulk_msd_free(void *device)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
 
     cd_scsi_target_free(cd->scsi_target);
     g_free(cd);
@@ -258,7 +258,7 @@ void cd_usb_bulk_msd_free(void *device)
 
 int cd_usb_bulk_msd_reset(void *device)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
 
     cd_scsi_target_reset(cd->scsi_target);
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CBW);
@@ -267,11 +267,11 @@ int cd_usb_bulk_msd_reset(void *device)
     return 0;
 }
 
-static int parse_usb_msd_cmd(usb_cd_bulk_msd_device *cd, uint8_t *buf, uint32_t cbw_len)
+static int parse_usb_msd_cmd(UsbCdBulkMsdDevice *cd, uint8_t *buf, uint32_t cbw_len)
 {
-    struct usb_cd_cbw *cbw = (struct usb_cd_cbw *)buf;
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
-    cd_scsi_request *scsi_req = &usb_req->scsi_req;
+    struct UsbCdCBW *cbw = (struct UsbCdCBW *)buf;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
+    CdScsiRequest *scsi_req = &usb_req->scsi_req;
 
     if (cbw_len != 31) {
         SPICE_ERROR("CMD: Bad CBW size:%" G_GUINT32_FORMAT, cbw_len);
@@ -325,18 +325,18 @@ static int parse_usb_msd_cmd(usb_cd_bulk_msd_device *cd, uint8_t *buf, uint32_t 
     return 0;
 }
 
-static void usb_cd_cmd_done(usb_cd_bulk_msd_device *cd)
+static void usb_cd_cmd_done(UsbCdBulkMsdDevice *cd)
 {
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
-    cd_scsi_request *scsi_req = &usb_req->scsi_req;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
+    CdScsiRequest *scsi_req = &usb_req->scsi_req;
 
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CBW); /* Command next */
     cd_scsi_dev_request_release(cd->scsi_target, scsi_req);
 }
 
-static void usb_cd_send_status(usb_cd_bulk_msd_device *cd)
+static void usb_cd_send_status(UsbCdBulkMsdDevice *cd)
 {
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
 
     SPICE_DEBUG("Command CSW tag:0x%x msd_status:%d len:%" G_GUINT64_FORMAT,
                 le32toh(usb_req->csw.tag), (int)usb_req->csw.status, sizeof(usb_req->csw));
@@ -349,9 +349,9 @@ static void usb_cd_send_status(usb_cd_bulk_msd_device *cd)
                                   BULK_STATUS_GOOD);
 }
 
-static void usb_cd_send_canceled(usb_cd_bulk_msd_device *cd)
+static void usb_cd_send_canceled(UsbCdBulkMsdDevice *cd)
 {
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
 
     SPICE_DEBUG("Canceled cmd tag:0x%x, len:%" G_GUINT64_FORMAT,
                 le32toh(usb_req->csw.tag), sizeof(usb_req->csw));
@@ -363,10 +363,10 @@ static void usb_cd_send_canceled(usb_cd_bulk_msd_device *cd)
                                   BULK_STATUS_CANCELED);
 }
 
-static void usb_cd_send_data_in(usb_cd_bulk_msd_device *cd, uint32_t max_len)
+static void usb_cd_send_data_in(UsbCdBulkMsdDevice *cd, uint32_t max_len)
 {
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
-    cd_scsi_request *scsi_req = &usb_req->scsi_req;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
+    CdScsiRequest *scsi_req = &usb_req->scsi_req;
     uint8_t *buf = ((uint8_t *)scsi_req->buf) + usb_req->xfer_len;
     uint32_t avail_len = usb_req->scsi_in_len - usb_req->xfer_len;
     uint32_t send_len = (avail_len <= max_len) ? avail_len : max_len;
@@ -400,9 +400,9 @@ static void usb_cd_send_data_in(usb_cd_bulk_msd_device *cd, uint32_t max_len)
 
 int cd_usb_bulk_msd_read(void *device, uint32_t max_len)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
-    cd_scsi_request *scsi_req = &usb_req->scsi_req;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
+    CdScsiRequest *scsi_req = &usb_req->scsi_req;
 
     SPICE_DEBUG("msd_read, state: %s, len %" G_GUINT32_FORMAT,
                 usb_cd_state_str(cd->state), max_len);
@@ -451,10 +451,10 @@ fail:
     return -1;
 }
 
-void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *scsi_req)
+void cd_scsi_dev_request_complete(void *target_user_data, CdScsiRequest *scsi_req)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)target_user_data;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
 
     g_assert(scsi_req == &usb_req->scsi_req);
 
@@ -492,9 +492,9 @@ void cd_scsi_dev_request_complete(void *target_user_data, cd_scsi_request *scsi_
 
 int cd_usb_bulk_msd_cancel_read(void *device)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
-    usb_cd_bulk_msd_request *usb_req = &cd->usb_req;
-    cd_scsi_request *scsi_req = &usb_req->scsi_req;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
+    UsbCdBulkMsdRequest *usb_req = &cd->usb_req;
+    CdScsiRequest *scsi_req = &usb_req->scsi_req;
 
     cd_scsi_dev_request_cancel(cd->scsi_target, scsi_req);
     return 0;
@@ -502,7 +502,7 @@ int cd_usb_bulk_msd_cancel_read(void *device)
 
 int cd_usb_bulk_msd_write(void *device, uint8_t *buf_out, uint32_t buf_out_len)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)device;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)device;
 
     switch (cd->state) {
     case USB_CD_STATE_CBW: /* Command Block */
@@ -530,7 +530,7 @@ fail:
 
 void cd_scsi_dev_reset_complete(void *target_user_data, uint32_t lun)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)target_user_data;
 
     if (cd->state == USB_CD_STATE_DEVICE_RESET) {
         cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_CBW);
@@ -540,13 +540,13 @@ void cd_scsi_dev_reset_complete(void *target_user_data, uint32_t lun)
 
 void cd_scsi_target_reset_complete(void *target_user_data)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)target_user_data;
     cd_usb_bulk_msd_set_state(cd, USB_CD_STATE_INIT);
 }
 
 void cd_scsi_dev_changed(void *target_user_data, uint32_t lun)
 {
-    usb_cd_bulk_msd_device *cd = (usb_cd_bulk_msd_device *)target_user_data;
+    UsbCdBulkMsdDevice *cd = (UsbCdBulkMsdDevice *)target_user_data;
     SPICE_DEBUG("Device changed, state: %s lun: %" G_GUINT32_FORMAT,
                 usb_cd_state_str(cd->state), lun);
     cd_usb_bulk_msd_lun_changed(cd->usb_user_data, lun);
