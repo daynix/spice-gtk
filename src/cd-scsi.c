@@ -34,18 +34,19 @@
 
 #define MAX_LUNS   32
 
-struct _cd_scsi_target; /* forward declaration */
+struct _CdScsiTarget; /* forward declaration */
+typedef struct _CdScsiTarget CdScsiTarget;
 
-enum cd_scsi_power_condition {
+typedef enum _CdScsiPowerCondition {
     CD_SCSI_POWER_STOPPED,
     CD_SCSI_POWER_ACTIVE,
     CD_SCSI_POWER_IDLE,
     CD_SCSI_POWER_STANDBY
-};
+} CdScsiPowerCondition;
 
-typedef struct _cd_scsi_lu
+typedef struct _CdScsiLU
 {
-    struct _cd_scsi_target *tgt;
+    CdScsiTarget *tgt;
     uint32_t lun;
 
     gboolean realized;
@@ -54,7 +55,7 @@ typedef struct _cd_scsi_lu
     gboolean prevent_media_removal;
     gboolean cd_rom;
 
-    enum cd_scsi_power_condition power_cond;
+    CdScsiPowerCondition power_cond;
 
     uint32_t claim_version;
 
@@ -71,26 +72,26 @@ typedef struct _cd_scsi_lu
 
     scsi_short_sense short_sense; /* currently held sense of the scsi device */
     uint8_t fixed_sense[FIXED_SENSE_LEN];
-} cd_scsi_lu;
+} CdScsiLU;
 
-typedef enum _cd_scsi_target_state
+typedef enum _CdScsiTargetState
 {
     CD_SCSI_TGT_STATE_RUNNING,
     CD_SCSI_TGT_STATE_RESET,
-} cd_scsi_target_state;
+} CdScsiTargetState;
 
-typedef struct _cd_scsi_target
+struct _CdScsiTarget
 {
     void *user_data;
 
-    cd_scsi_target_state state;
+    CdScsiTargetState state;
     cd_scsi_request *cur_req;
     GCancellable *cancellable;
 
     uint32_t num_luns;
     uint32_t max_luns;
-    cd_scsi_lu units[MAX_LUNS];
-} cd_scsi_target;
+    CdScsiLU units[MAX_LUNS];
+};
 
 /* Predefined sense codes */
 
@@ -286,24 +287,24 @@ static inline void cd_scsi_req_init(cd_scsi_request *req)
     req->status = GOOD;
 }
 
-static inline void cd_scsi_dev_sense_reset(cd_scsi_lu *dev)
+static inline void cd_scsi_dev_sense_reset(CdScsiLU *dev)
 {
     memset(&dev->short_sense, 0, sizeof(dev->short_sense));
 }
 
-static inline void cd_scsi_dev_sense_power_on(cd_scsi_lu *dev)
+static inline void cd_scsi_dev_sense_power_on(CdScsiLU *dev)
 {
     dev->short_sense = sense_code_RESET;
 }
 
-static void cd_scsi_pending_sense(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_pending_sense(CdScsiLU *dev, cd_scsi_request *req)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = CHECK_CONDITION;
     req->in_len = 0;
 }
 
-static void cd_scsi_sense_check_cond(cd_scsi_lu *dev, cd_scsi_request *req,
+static void cd_scsi_sense_check_cond(CdScsiLU *dev, cd_scsi_request *req,
                                      const scsi_short_sense *short_sense)
 {
     req->req_state = SCSI_REQ_COMPLETE;
@@ -314,7 +315,7 @@ static void cd_scsi_sense_check_cond(cd_scsi_lu *dev, cd_scsi_request *req,
     cd_scsi_build_fixed_sense(dev->fixed_sense, short_sense);
 }
 
-static void cd_scsi_cmd_complete_good(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_complete_good(CdScsiLU *dev, cd_scsi_request *req)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = GOOD;
@@ -324,7 +325,7 @@ static void cd_scsi_cmd_complete_good(cd_scsi_lu *dev, cd_scsi_request *req)
 
 void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns)
 {
-    cd_scsi_target *st;
+    CdScsiTarget *st;
 
     if (max_luns == 0 || max_luns > MAX_LUNS) {
         SPICE_ERROR("Alloc, illegal max_luns:%" G_GUINT32_FORMAT, max_luns);
@@ -350,12 +351,12 @@ void cd_scsi_target_free(void *scsi_target)
 
 /* SCSI Device */
 
-static inline gboolean cd_scsi_target_lun_legal(cd_scsi_target *st, uint32_t lun)
+static inline gboolean cd_scsi_target_lun_legal(CdScsiTarget *st, uint32_t lun)
 {
     return (lun < st->max_luns) ? TRUE : FALSE;
 }
 
-static inline gboolean cd_scsi_target_lun_realized(cd_scsi_target *st, uint32_t lun)
+static inline gboolean cd_scsi_target_lun_realized(CdScsiTarget *st, uint32_t lun)
 {
     return (st->num_luns == 0 || !st->units[lun].realized) ? FALSE : TRUE;
 }
@@ -363,8 +364,8 @@ static inline gboolean cd_scsi_target_lun_realized(cd_scsi_target *st, uint32_t 
 int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
                         const cd_scsi_device_parameters *dev_params)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Realize, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -406,7 +407,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     return 0;
 }
 
-static void cd_scsi_lu_media_reset(cd_scsi_lu *dev)
+static void cd_scsi_lu_media_reset(CdScsiLU *dev)
 {
     dev->stream = NULL;
     dev->size = 0;
@@ -416,8 +417,8 @@ static void cd_scsi_lu_media_reset(cd_scsi_lu *dev)
 
 int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Lock, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -433,7 +434,7 @@ int cd_scsi_dev_lock(void *scsi_target, uint32_t lun, gboolean lock)
     return 0;
 }
 
-static void cd_scsi_lu_load(cd_scsi_lu *dev,
+static void cd_scsi_lu_load(CdScsiLU *dev,
                             const cd_scsi_media_parameters *media_params)
 {
     if (media_params != NULL) {
@@ -447,7 +448,7 @@ static void cd_scsi_lu_load(cd_scsi_lu *dev,
     dev->loaded = TRUE;
 }
 
-static void cd_scsi_lu_unload(cd_scsi_lu *dev)
+static void cd_scsi_lu_unload(CdScsiLU *dev)
 {
     cd_scsi_lu_media_reset(dev);
     dev->loaded = FALSE;
@@ -456,8 +457,8 @@ static void cd_scsi_lu_unload(cd_scsi_lu *dev)
 int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
                      const cd_scsi_media_parameters *media_params)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Load, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -485,8 +486,8 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
 
 int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *lun_info)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Load, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -512,8 +513,8 @@ int cd_scsi_dev_get_info(void *scsi_target, uint32_t lun, cd_scsi_device_info *l
 
 int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Unload, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -542,8 +543,8 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
 
 int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Unrealize, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -584,8 +585,8 @@ int cd_scsi_dev_unrealize(void *scsi_target, uint32_t lun)
 
 int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
-    cd_scsi_lu *dev;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
+    CdScsiLU *dev;
 
     if (!cd_scsi_target_lun_legal(st, lun)) {
         SPICE_ERROR("Device reset, illegal lun:%" G_GUINT32_FORMAT, lun);
@@ -605,7 +606,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
     return 0;
 }
 
-static void cd_scsi_target_do_reset(cd_scsi_target *st)
+static void cd_scsi_target_do_reset(CdScsiTarget *st)
 {
     uint32_t lun;
 
@@ -622,7 +623,7 @@ static void cd_scsi_target_do_reset(cd_scsi_target *st)
 
 int cd_scsi_target_reset(void *scsi_target)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
 
     if (st->state == CD_SCSI_TGT_STATE_RESET) {
         SPICE_DEBUG("Target already in reset");
@@ -749,7 +750,7 @@ static uint32_t scsi_cdb_xfer_length(uint8_t *cdb, int cdb_len)
 
 /* SCSI commands */
 
-static void cd_scsi_cmd_test_unit_ready(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, cd_scsi_request *req)
 {
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
@@ -765,7 +766,7 @@ static void cd_scsi_cmd_test_unit_ready(cd_scsi_lu *dev, cd_scsi_request *req)
     }
 }
 
-static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_request_sense(CdScsiLU *dev, cd_scsi_request *req)
 {
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
@@ -786,7 +787,7 @@ static void cd_scsi_cmd_request_sense(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_report_luns(cd_scsi_target *st, cd_scsi_lu *dev,
+static void cd_scsi_cmd_report_luns(CdScsiTarget *st, CdScsiLU *dev,
                                     cd_scsi_request *req)
 {
     uint8_t *out_buf = req->buf;
@@ -828,7 +829,7 @@ static void cd_scsi_cmd_report_luns(cd_scsi_target *st, cd_scsi_lu *dev,
 #define SCSI_MAX_INQUIRY_LEN        256
 #define SCSI_MAX_MODE_LEN           256
 
-static void cd_scsi_cmd_inquiry_vpd_no_lun(cd_scsi_lu *dev, cd_scsi_request *req,
+static void cd_scsi_cmd_inquiry_vpd_no_lun(CdScsiLU *dev, cd_scsi_request *req,
                                            uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
@@ -849,7 +850,7 @@ static void cd_scsi_cmd_inquiry_vpd_no_lun(cd_scsi_lu *dev, cd_scsi_request *req
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint8_t page_code = req->cdb[2];
@@ -949,7 +950,7 @@ static void cd_scsi_cmd_inquiry_vpd(cd_scsi_lu *dev, cd_scsi_request *req)
 #define INQUIRY_VERSION_DESC_MMC3           0x2A0
 #define INQUIRY_VERSION_DESC_SBC2           0x320
 
-static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request *req,
+static void cd_scsi_cmd_inquiry_standard_no_lun(CdScsiLU *dev, cd_scsi_request *req,
                                                 uint32_t perif_qual)
 {
     uint8_t *outbuf = req->buf;
@@ -970,7 +971,7 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(cd_scsi_lu *dev, cd_scsi_request
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t resp_len = (dev->claim_version == 0) ? INQUIRY_STANDARD_LEN_NO_VER : INQUIRY_STANDARD_LEN;
@@ -1014,7 +1015,7 @@ static void cd_scsi_cmd_inquiry_standard(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_INQUIRY_FLAG_EVPD                0x01
 #define CD_INQUIRY_FLAG_CMD_DT              0x02
 
-static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_inquiry(CdScsiLU *dev, cd_scsi_request *req)
 {
     gboolean evpd, cmd_data;
 
@@ -1047,7 +1048,7 @@ static void cd_scsi_cmd_inquiry(cd_scsi_lu *dev, cd_scsi_request *req)
     }
 }
 
-static void cd_scsi_cmd_read_capacity(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read_capacity(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint32_t last_blk = dev->num_blocks - 1;
     uint32_t blk_size = dev->block_size;
@@ -1092,7 +1093,7 @@ static void cd_scsi_cmd_read_capacity(cd_scsi_lu *dev, cd_scsi_request *req)
 #define RDI_DISC_PMA_TYPE_DDCD          0x20
 #define RDI_DISC_PMA_TYPE_UNDEFINED     0xFF
 
-static void cd_scsi_cmd_get_read_disc_information(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t data_type;
@@ -1145,7 +1146,7 @@ static void cd_scsi_cmd_get_read_disc_information(cd_scsi_lu *dev, cd_scsi_reque
 
 #define TIB_LRA_VALID               (0x01 << 1)
 
-static void cd_scsi_cmd_get_read_track_information(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t track_size = dev->num_blocks;
@@ -1230,7 +1231,7 @@ static void cd_scsi_cmd_get_read_track_information(cd_scsi_lu *dev, cd_scsi_requ
 #define READ_TOC_TRACK_DESC_LEN     8
 #define READ_TOC_RESP_LEN           (4 + 2*READ_TOC_TRACK_DESC_LEN)
 
-static void cd_scsi_cmd_read_toc(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read_toc(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t msf, format, track_num;
@@ -1276,7 +1277,7 @@ static void cd_scsi_cmd_read_toc(cd_scsi_lu *dev, cd_scsi_request *req)
 
 #define CD_MODE_PAGE_LEN_RW_ERROR               12
 
-static uint32_t cd_scsi_add_mode_page_rw_error_recovery(cd_scsi_lu *dev, uint8_t *outbuf)
+static uint32_t cd_scsi_add_mode_page_rw_error_recovery(CdScsiLU *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_RW_ERROR;
 
@@ -1289,7 +1290,7 @@ static uint32_t cd_scsi_add_mode_page_rw_error_recovery(cd_scsi_lu *dev, uint8_t
 
 #define CD_MODE_PAGE_LEN_POWER                  12
 
-static uint32_t cd_scsi_add_mode_page_power_condition(cd_scsi_lu *dev, uint8_t *outbuf)
+static uint32_t cd_scsi_add_mode_page_power_condition(CdScsiLU *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_POWER;
 
@@ -1302,7 +1303,7 @@ static uint32_t cd_scsi_add_mode_page_power_condition(cd_scsi_lu *dev, uint8_t *
 #define CD_MODE_PAGE_LEN_FAULT_FAIL             12
 #define CD_MODE_PAGE_FAULT_FAIL_FLAG_PERF       0x80
 
-static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *outbuf)
+static uint32_t cd_scsi_add_mode_page_fault_reporting(CdScsiLU *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_FAULT_FAIL;
 
@@ -1327,7 +1328,7 @@ static uint32_t cd_scsi_add_mode_page_fault_reporting(cd_scsi_lu *dev, uint8_t *
 #define CD_MODE_PAGE_CAPS_EJECT                 (0x01 << 3)
 #define CD_MODE_PAGE_CAPS_LOADING_TRAY          (0x01 << 5)
 
-static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t *outbuf)
+static uint32_t cd_scsi_add_mode_page_caps_mech_status(CdScsiLU *dev, uint8_t *outbuf)
 {
     uint32_t page_len = CD_MODE_PAGE_LEN_CAPS_MECH_STATUS_RO; /* no write */
 
@@ -1344,7 +1345,7 @@ static uint32_t cd_scsi_add_mode_page_caps_mech_status(cd_scsi_lu *dev, uint8_t 
     return page_len;
 }
 
-static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     int long_lba, dbd, page, sub_page, pc;
@@ -1407,7 +1408,7 @@ static void cd_scsi_cmd_mode_sense_10(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_mode_select_6(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_select_6(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *block_desc_data, *mode_data;
     uint32_t page_format, save_pages, list_len; /* cdb */
@@ -1463,7 +1464,7 @@ static void cd_scsi_cmd_mode_select_6(cd_scsi_lu *dev, cd_scsi_request *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_mode_select_10(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mode_select_10(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint32_t page_format, save_pages, list_len;
 
@@ -1535,7 +1536,7 @@ static gboolean cd_scsi_feature_reportable(uint32_t feature, uint32_t start_feat
            (feature >= start_feature);
 }
 
-static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_profiles_list(CdScsiLU *dev, uint8_t *outbuf,
                                                   uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1576,7 +1577,7 @@ static uint32_t cd_scsi_add_feature_profiles_list(cd_scsi_lu *dev, uint8_t *outb
 
 #define CD_FEATURE_CORE_PHYS_PROFILE_LEN    4
 
-static uint32_t cd_scsi_add_feature_core(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_core(CdScsiLU *dev, uint8_t *outbuf,
                                          uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1598,7 +1599,7 @@ static uint32_t cd_scsi_add_feature_core(cd_scsi_lu *dev, uint8_t *outbuf,
 #define CD_FEATURE_MORPH_PROGILE_LEN    4
 #define CD_FEATURE_MORPH_ASYNC_EVENTS   0x01
 
-static uint32_t cd_scsi_add_feature_morph(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_morph(CdScsiLU *dev, uint8_t *outbuf,
                                           uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1618,7 +1619,7 @@ static uint32_t cd_scsi_add_feature_morph(cd_scsi_lu *dev, uint8_t *outbuf,
 
 #define CD_FEATURE_REMOVABLE_PROFILE_LEN    4
 
-static uint32_t cd_scsi_add_feature_removable(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_removable(CdScsiLU *dev, uint8_t *outbuf,
                                               uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1641,7 +1642,7 @@ static uint32_t cd_scsi_add_feature_removable(cd_scsi_lu *dev, uint8_t *outbuf,
 
 #define CD_FEATURE_RANDOM_READ_PROFILE_LEN    8
 
-static uint32_t cd_scsi_add_feature_random_read(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_random_read(CdScsiLU *dev, uint8_t *outbuf,
                                                 uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1666,7 +1667,7 @@ static uint32_t cd_scsi_add_feature_random_read(cd_scsi_lu *dev, uint8_t *outbuf
 
 #define CD_FEATURE_CD_READ_PROFILE_LEN    4
 
-static uint32_t cd_scsi_add_feature_cd_read(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_cd_read(CdScsiLU *dev, uint8_t *outbuf,
                                             uint32_t start_feature, uint32_t req_type)
 {
     uint8_t *profile = outbuf + CD_FEATURE_DESC_LEN;
@@ -1687,7 +1688,7 @@ static uint32_t cd_scsi_add_feature_cd_read(cd_scsi_lu *dev, uint8_t *outbuf,
 
 #define CD_FEATURE_DVD_READ_PROFILE_LEN    0
 
-static uint32_t cd_scsi_add_feature_dvd_read(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_dvd_read(CdScsiLU *dev, uint8_t *outbuf,
                                              uint32_t start_feature, uint32_t req_type)
 {
     uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_DVD_READ_PROFILE_LEN;
@@ -1705,7 +1706,7 @@ static uint32_t cd_scsi_add_feature_dvd_read(cd_scsi_lu *dev, uint8_t *outbuf,
 
 #define CD_FEATURE_POWER_MNGT_PROFILE_LEN    0
 
-static uint32_t cd_scsi_add_feature_power_mgmt(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_power_mgmt(CdScsiLU *dev, uint8_t *outbuf,
                                                uint32_t start_feature, uint32_t req_type)
 {
     uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_POWER_MNGT_PROFILE_LEN;
@@ -1723,7 +1724,7 @@ static uint32_t cd_scsi_add_feature_power_mgmt(cd_scsi_lu *dev, uint8_t *outbuf,
 
 #define CD_FEATURE_TIMEOUT_PROFILE_LEN    0
 
-static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
+static uint32_t cd_scsi_add_feature_timeout(CdScsiLU *dev, uint8_t *outbuf,
                                             uint32_t start_feature, uint32_t req_type)
 {
     uint32_t feature_len = CD_FEATURE_DESC_LEN + CD_FEATURE_TIMEOUT_PROFILE_LEN;
@@ -1739,7 +1740,7 @@ static uint32_t cd_scsi_add_feature_timeout(cd_scsi_lu *dev, uint8_t *outbuf,
     return feature_len;
 }
 
-static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t profile_num = (!dev->cd_rom) ? MMC_PROFILE_DVD_ROM : MMC_PROFILE_CD_ROM;
@@ -1852,7 +1853,7 @@ static void cd_scsi_cmd_get_configuration(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_MEDIA_STATUS_MEDIA_PRESENT       0x1
 #define CD_MEDIA_STATUS_TRAY_OPEN           0x2
 
-static uint32_t cd_scsi_cmd_get_event_resp_add_media(cd_scsi_lu *dev, uint8_t *outbuf)
+static uint32_t cd_scsi_cmd_get_event_resp_add_media(CdScsiLU *dev, uint8_t *outbuf)
 {
     outbuf[0] = CD_MEDIA_EVENT_NO_CHANGE & 0x0f;
     outbuf[1] = CD_MEDIA_STATUS_MEDIA_PRESENT;
@@ -1860,7 +1861,7 @@ static uint32_t cd_scsi_cmd_get_event_resp_add_media(cd_scsi_lu *dev, uint8_t *o
     return CD_GET_EVENT_LEN_MEDIA;
 }
 
-static void cd_scsi_cmd_get_event_status_notification(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_event_status_notification(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf;
     uint32_t immed, class_req;
@@ -1907,7 +1908,7 @@ static void cd_scsi_cmd_get_event_status_notification(cd_scsi_lu *dev, cd_scsi_r
 #define CD_EXT_REQ_CODE_STOP                    0x106
 #define CD_EXT_REQ_CODE_ASCII_BASE              0x200 /* SCSII value is LSB */
 
-static void cd_scsi_cmd_send_event(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_send_event(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *param, *event;
     uint32_t immed, param_list_len;
@@ -1963,7 +1964,7 @@ static void cd_scsi_cmd_send_event(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_MEDIUM_REMOVAL_REQ_ALLOW_CHANGER         0x02
 #define CD_MEDIUM_REMOVAL_REQ_PREVENT_CHANGER       0x03
 
-static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_allow_medium_removal(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint32_t prevent;
 
@@ -1980,14 +1981,14 @@ static void cd_scsi_cmd_allow_medium_removal(cd_scsi_lu *dev, cd_scsi_request *r
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_report_key(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_report_key(CdScsiLU *dev, cd_scsi_request *req)
 {
     SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
     cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
-static void cd_scsi_cmd_send_key(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_send_key(CdScsiLU *dev, cd_scsi_request *req)
 {
     SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
@@ -2032,7 +2033,7 @@ static inline const char *cd_scsi_start_stop_power_cond_name(uint32_t power_cond
     }
 }
 
-static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, cd_scsi_request *req)
 {
     gboolean immed, start, load_eject;
     uint32_t power_cond;
@@ -2114,7 +2115,7 @@ static void cd_scsi_cmd_start_stop_unit(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_PERF_TYPE_PERFORMANCE_REPORT_EXCEPT  0x10
 
 
-static void cd_scsi_get_performance_resp_empty(cd_scsi_lu *dev, cd_scsi_request *req,
+static void cd_scsi_get_performance_resp_empty(CdScsiLU *dev, cd_scsi_request *req,
                                                uint32_t type, uint32_t data_type,
                                                uint32_t max_num_descr)
 {
@@ -2134,7 +2135,7 @@ static void cd_scsi_get_performance_resp_empty(cd_scsi_lu *dev, cd_scsi_request 
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_request *req, 
+static void cd_scsi_get_performance_resp_performance(CdScsiLU *dev, cd_scsi_request *req,
                                                      uint32_t start_lba,
                                                      uint32_t data_type,
                                                      uint32_t max_num_descr)
@@ -2207,7 +2208,7 @@ static void cd_scsi_get_performance_resp_performance(cd_scsi_lu *dev, cd_scsi_re
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_get_performance(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint32_t data_type, max_num_descr, start_lba, type;
 
@@ -2263,7 +2264,7 @@ static void cd_scsi_cmd_get_performance(cd_scsi_lu *dev, cd_scsi_request *req)
 #define CD_MECHANISM_SLOT_DISK_CWP_V    0x02
 #define CD_MECHANISM_SLOT_DISK_CWP      0x01
 
-static void cd_scsi_cmd_mechanism_status(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_mechanism_status(CdScsiLU *dev, cd_scsi_request *req)
 {
     uint8_t *outbuf = req->buf, *slot;
     uint32_t resp_len = CD_MECHANISM_STATUS_HDR_LEN;
@@ -2297,8 +2298,8 @@ static void cd_scsi_read_async_complete(GObject *src_object,
 {
     GFileInputStream *stream = G_FILE_INPUT_STREAM(src_object);
     cd_scsi_request *req = (cd_scsi_request *)user_data;
-    cd_scsi_target *st = (cd_scsi_target *)req->priv_data;
-    cd_scsi_lu *dev = &st->units[req->lun];
+    CdScsiTarget *st = (CdScsiTarget *)req->priv_data;
+    CdScsiLU *dev = &st->units[req->lun];
     GError *error = NULL;
     gsize bytes_read;
     gboolean finished;
@@ -2343,7 +2344,7 @@ static void cd_scsi_read_async_complete(GObject *src_object,
 static void cd_scsi_read_async_canceled(GCancellable *cancellable, gpointer user_data)
 {
     cd_scsi_request *req = (cd_scsi_request *)user_data;
-    cd_scsi_target *st = (cd_scsi_target *)req->priv_data;
+    CdScsiTarget *st = (CdScsiTarget *)req->priv_data;
 
     g_assert(cancellable == st->cancellable);
     g_cancellable_disconnect(cancellable, req->cancel_id);
@@ -2356,9 +2357,9 @@ static void cd_scsi_read_async_canceled(GCancellable *cancellable, gpointer user
     cd_scsi_dev_request_complete(st->user_data, req);
 }
 
-static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
+static int cd_scsi_read_async_start(CdScsiLU *dev, cd_scsi_request *req)
 {
-    cd_scsi_target *st = dev->tgt;
+    CdScsiTarget *st = dev->tgt;
     GFileInputStream *stream = dev->stream;
 
     SPICE_DEBUG("read_async_start, lun:%" G_GUINT32_FORMAT
@@ -2391,7 +2392,7 @@ static int cd_scsi_read_async_start(cd_scsi_lu *dev, cd_scsi_request *req)
     return 0;
 }
 
-static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
+static void cd_scsi_cmd_read(CdScsiLU *dev, cd_scsi_request *req)
 {
     if (dev->power_cond == CD_SCSI_POWER_STOPPED) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
@@ -2416,10 +2417,10 @@ static void cd_scsi_cmd_read(cd_scsi_lu *dev, cd_scsi_request *req)
 
 void cd_scsi_dev_request_submit(void *scsi_target, cd_scsi_request *req)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     uint32_t lun = req->lun;
     uint32_t opcode = (uint32_t)req->cdb[0];
-    cd_scsi_lu *dev = &st->units[lun];
+    CdScsiLU *dev = &st->units[lun];
 
     SPICE_DEBUG("request_submit, lun: %" G_GUINT32_FORMAT " op: 0x%02x", lun, opcode);
 
@@ -2576,7 +2577,7 @@ done:
 
 void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *req)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
 
     if (st->cur_req == req) {
         if (req->req_state == SCSI_REQ_RUNNING) {
@@ -2594,7 +2595,7 @@ void cd_scsi_dev_request_cancel(void *scsi_target, cd_scsi_request *req)
 
 void cd_scsi_dev_request_release(void *scsi_target, cd_scsi_request *req)
 {
-    cd_scsi_target *st = (cd_scsi_target *)scsi_target;
+    CdScsiTarget *st = (CdScsiTarget *)scsi_target;
 
     st->cur_req = NULL;
     cd_scsi_req_init(req);
