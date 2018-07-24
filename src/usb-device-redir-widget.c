@@ -504,7 +504,8 @@ static GtkTreeViewColumn* view_add_read_only_toggle_column(SpiceUsbDeviceWidget 
 }
 
 static GtkTreeViewColumn* view_add_text_column(SpiceUsbDeviceWidget *self,
-                                               enum column_id col_id)
+                                               enum column_id col_id,
+                                               gboolean expandable)
 {
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
     GtkCellRenderer     *renderer;
@@ -522,7 +523,7 @@ static GtkTreeViewColumn* view_add_text_column(SpiceUsbDeviceWidget *self,
 
     gtk_tree_view_column_set_sizing(view_col, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
     gtk_tree_view_column_set_resizable(view_col, TRUE);
-    gtk_tree_view_column_set_expand(view_col, TRUE);
+    gtk_tree_view_column_set_expand(view_col, expandable);
 
     gtk_tree_view_append_column(priv->tree_view, view_col);
 
@@ -1535,14 +1536,14 @@ static void spice_usb_device_widget_create_tree_view(SpiceUsbDeviceWidget *self)
 
     view_add_toggle_column(self, COL_REDIRECT, COL_DEV_ITEM, COL_CAN_REDIRECT, tree_item_toggled_cb_redirect);
 
-    view_add_text_column(self, COL_ADDRESS);
+    view_add_text_column(self, COL_ADDRESS, FALSE);
 
     view_add_pixbuf_column(self, COL_CONNECT_ICON, COL_REDIRECT);
     view_add_pixbuf_column(self, COL_CD_ICON, COL_CD_DEV);
 
-    view_add_text_column(self, COL_VENDOR);
-    view_add_text_column(self, COL_PRODUCT);
-    view_add_text_column(self, COL_FILE);
+    view_add_text_column(self, COL_VENDOR, TRUE);
+    view_add_text_column(self, COL_PRODUCT, TRUE);
+    view_add_text_column(self, COL_FILE, TRUE);
 
     view_add_read_only_toggle_column(self, COL_LOADED, COL_LUN_ITEM);
     view_add_read_only_toggle_column(self, COL_LOCKED, COL_LUN_ITEM);
