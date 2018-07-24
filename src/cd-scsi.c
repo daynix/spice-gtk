@@ -290,29 +290,39 @@ static inline void cd_scsi_req_init(CdScsiRequest *req)
 static inline void cd_scsi_dev_sense_reset(CdScsiLU *dev)
 {
     memset(&dev->short_sense, 0, sizeof(dev->short_sense));
+    cd_scsi_build_fixed_sense(dev->fixed_sense, &dev->short_sense);
 }
 
-static inline void cd_scsi_dev_sense_power_on(CdScsiLU *dev)
+static inline void cd_scsi_dev_sense_set(CdScsiLU *dev, const ScsiShortSense *short_sense)
 {
-    dev->short_sense = sense_code_RESET;
+    if (short_sense != NULL) {
+        /* copy short sense and generate full sense in fixed format */
+        dev->short_sense = *short_sense;
+        cd_scsi_build_fixed_sense(dev->fixed_sense, short_sense);
+    }
 }
 
-static void cd_scsi_pending_sense(CdScsiLU *dev, CdScsiRequest *req)
+static inline void cd_scsi_dev_sense_set_power_on(CdScsiLU *dev)
+{
+    cd_scsi_dev_sense_set(dev, &sense_code_RESET);
+}
+
+static void cd_scsi_cmd_complete_check_cond(CdScsiLU *dev, CdScsiRequest *req,
+                                            const ScsiShortSense *short_sense)
 {
     req->req_state = SCSI_REQ_COMPLETE;
     req->status = CHECK_CONDITION;
     req->in_len = 0;
-}
 
-static void cd_scsi_sense_check_cond(CdScsiLU *dev, CdScsiRequest *req,
-                                     const ScsiShortSense *short_sense)
-{
-    req->req_state = SCSI_REQ_COMPLETE;
-    req->status = CHECK_CONDITION;
-    req->in_len = 0;
+    cd_scsi_dev_sense_set(dev, short_sense);
 
-    dev->short_sense = *short_sense;
-    cd_scsi_build_fixed_sense(dev->fixed_sense, short_sense);
+    SPICE_DEBUG("CHECK_COND, request lun:%" G_GUINT32_FORMAT
+                " op: 0x%02x, pending sense: %s0x%02x %02x %02x",
+                dev->lun, (uint32_t)req->cdb[0],
+                (dev->short_sense.key == UNIT_ATTENTION) ? "UNIT_ATT " : "",
+                (uint32_t)dev->short_sense.key,
+                (uint32_t)dev->short_sense.asc,
+                (uint32_t)dev->short_sense.ascq);
 }
 
 static void cd_scsi_cmd_complete_good(CdScsiLU *dev, CdScsiRequest *req)
@@ -396,7 +406,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->version = g_strdup(dev_params->version);
     dev->serial = g_strdup(dev_params->serial);
 
-    cd_scsi_dev_sense_power_on(dev);
+    cd_scsi_dev_sense_set_power_on(dev);
 
     st->num_luns ++;
 
@@ -600,7 +610,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
 
     dev->prevent_media_removal = FALSE;
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
-    cd_scsi_dev_sense_power_on(dev);
+    cd_scsi_dev_sense_set_power_on(dev);
 
     SPICE_DEBUG("Device reset lun:%" G_GUINT32_FORMAT, lun);
     return 0;
@@ -759,10 +769,10 @@ static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, CdScsiRequest *req)
         if (dev->loaded) {
             cd_scsi_cmd_complete_good(dev, req);
         } else {
-            cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NO_MEDIUM);
         }
     } else {
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
     }
 }
 
@@ -774,12 +784,11 @@ static void cd_scsi_cmd_request_sense(CdScsiLU *dev, CdScsiRequest *req)
     req->in_len = (req->req_len < sizeof(dev->fixed_sense)) ?
                    req->req_len : sizeof(dev->fixed_sense);
 
-    if (dev->short_sense.key == NO_SENSE) {
-        cd_scsi_build_fixed_sense(dev->fixed_sense, &dev->short_sense);
-    } else {
-        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT "%X:%X:%X",
-            __FUNCTION__, req->lun,
-            dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq);
+    if (dev->short_sense.key != NO_SENSE) {
+        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT " reported sense: %s0x%02x %02x %02x",
+                    __FUNCTION__, req->lun,
+                    (dev->short_sense.key == UNIT_ATTENTION) ? "UNIT_ATT " : "",
+                    dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq);
     }
     memcpy(req->buf, dev->fixed_sense, sizeof(dev->fixed_sense));
     cd_scsi_dev_sense_reset(dev); /* clear reported sense */
@@ -913,7 +922,7 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
     }
 
     default:
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid page_code: %02x", 
                     req->lun, (int)page_code);
         return;
@@ -1028,7 +1037,7 @@ static void cd_scsi_cmd_inquiry(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("inquiry, lun:%" G_GUINT32_FORMAT " CmdDT bit set - unsupported, "
                     "cdb[1]:0x%02x cdb[1]:0x%02x",
                     req->lun, (int)req->cdb[1], (int)req->cdb[2]);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 
@@ -1041,7 +1050,7 @@ static void cd_scsi_cmd_inquiry(CdScsiLU *dev, CdScsiRequest *req)
         if (req->cdb[2] != 0) {
             SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " non-zero page code: %02x",
                         req->lun, (int)req->cdb[2]);
-            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
         }
         cd_scsi_cmd_inquiry_standard(dev, req);
@@ -1108,7 +1117,7 @@ static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, CdScsiRequest *
         SPICE_DEBUG("read_disc_information, lun:%" G_GUINT32_FORMAT
                     " unsupported data type: %02x",
                     req->lun, data_type);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 
@@ -1170,7 +1179,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type LBA: %" G_GUINT32_FORMAT
                         " invalid LBA: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
         }
         break;
@@ -1180,7 +1189,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type track: %" G_GUINT32_FORMAT
                         " invalid track: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
         }
         break;
@@ -1190,7 +1199,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type session: %" G_GUINT32_FORMAT
                         " invalid session: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
             return;
         }
         break;
@@ -1199,7 +1208,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                     "invalid addr_type: %" G_GUINT32_FORMAT
                     " addr_num: %" G_GUINT32_FORMAT,
                     req->lun, addr_type, addr_num);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 
@@ -1396,7 +1405,7 @@ static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT
                     " page 0x%x not implemented",
                     req->lun, (unsigned)page);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 
@@ -1430,7 +1439,7 @@ static void cd_scsi_cmd_mode_select_6(CdScsiLU *dev, CdScsiRequest *req)
                     " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
                     " list_len:%" G_GUINT32_FORMAT " exceeds data_len:%" G_GUINT32_FORMAT,
                     req->lun, page_format, save_pages, list_len, req->buf_len);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
         return;
     }
 
@@ -1482,7 +1491,7 @@ static void cd_scsi_cmd_mode_select_10(CdScsiLU *dev, CdScsiRequest *req)
                     " pf:%" G_GUINT32_FORMAT " sp:%" G_GUINT32_FORMAT
                     " list_len:%" G_GUINT32_FORMAT " exceeds data_len:%" G_GUINT32_FORMAT,
                     req->lun, page_format, save_pages, list_len, req->buf_len);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
         return;
     }
 
@@ -1810,7 +1819,7 @@ static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("get_configuration, lun:%" G_GUINT32_FORMAT 
                     " invalid rt:%" G_GUINT32_FORMAT " start_f:%" G_GUINT32_FORMAT,
                     req->lun, req_type, start_feature);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     } 
 
@@ -1929,7 +1938,7 @@ static void cd_scsi_cmd_send_event(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("send_event, lun:%" G_GUINT32_FORMAT
                     " invalid param list len:0x%x, buf_len:0x%x",
                     req->lun, param_list_len, req->buf_len);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_PARAM_LEN);
         return;
     }
     param = req->buf;
@@ -1940,7 +1949,7 @@ static void cd_scsi_cmd_send_event(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("send_event, lun:%" G_GUINT32_FORMAT 
                     " invalid notification class:0x%x",
                     req->lun, notification_class);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 
@@ -1988,14 +1997,14 @@ static void cd_scsi_cmd_report_key(CdScsiLU *dev, CdScsiRequest *req)
 {
     SPICE_DEBUG("report_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+    cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
 static void cd_scsi_cmd_send_key(CdScsiLU *dev, CdScsiRequest *req)
 {
     SPICE_DEBUG("send_key - content protection unsupported, lun:%" G_GUINT32_FORMAT, req->lun);
     req->xfer_dir = SCSI_XFER_NONE;
-    cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+    cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_OPCODE);
 }
 
 /* byte 1 */
@@ -2061,7 +2070,7 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
                 if (dev->prevent_media_removal) {
                     SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
                                 " prevent_media_removal set, eject failed", req->lun);
-                    cd_scsi_sense_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
+                    cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
                     return;
                 }
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " eject", req->lun);
@@ -2099,7 +2108,7 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
     case CD_START_STOP_POWER_COND_LU_CONTROL:
         break;
     default:
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
     cd_scsi_cmd_complete_good(dev, req);
@@ -2239,7 +2248,7 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
                     " unsupported type:0x%x"
                     " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
                     req->lun, type, data_type, max_num_descr);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         return;
     }
 }
@@ -2317,7 +2326,7 @@ static void cd_scsi_read_async_complete(GObject *src_object,
         SPICE_DEBUG("read_async_complete BAD STREAM, lun: %" G_GUINT32_FORMAT
                     " req: %" G_GUINT64_FORMAT " op: 0x%02x",
                     req->lun, req->req_len, opcode);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_TARGET_FAILURE);
         cd_scsi_dev_request_complete(st->user_data, req);
         return;
     }
@@ -2400,11 +2409,11 @@ static void cd_scsi_cmd_read(CdScsiLU *dev, CdScsiRequest *req)
 {
     if (dev->power_cond == CD_SCSI_POWER_STOPPED) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is stopped", req->lun);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
         return;
     } else if (!dev->loaded || dev->stream == NULL) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is not loaded", req->lun);
-        cd_scsi_sense_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NO_MEDIUM);
         return;
     }
 
@@ -2430,12 +2439,12 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
 
     if (st->cur_req != NULL) {
         SPICE_ERROR("request_submit, request not idle");
-        cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_TARGET_FAILURE);
         goto done;
     }
     if (req->req_state != SCSI_REQ_IDLE) {
         SPICE_ERROR("request_submit, prev request outstanding");
-        cd_scsi_sense_check_cond(dev, req, &sense_code_TARGET_FAILURE);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_TARGET_FAILURE);
         goto done;
     }
     req->req_state = SCSI_REQ_RUNNING;
@@ -2451,7 +2460,7 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
                 cd_scsi_cmd_inquiry_standard_no_lun(dev, req, PERIF_QUALIFIER_UNSUPPORTED);
             }
         } else {
-            cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
         }
         goto done;
     }
@@ -2464,25 +2473,22 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
                 cd_scsi_cmd_inquiry_standard_no_lun(dev, req, PERIF_QUALIFIER_NOT_CONNECTED);
             }
         } else {
-            cd_scsi_sense_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_LUN_NOT_SUPPORTED);
         }
         goto done;
     }
 
     if (dev->short_sense.key != NO_SENSE) {
+        gboolean pending_sense = TRUE;
         if (dev->short_sense.key == UNIT_ATTENTION) {
-            if (!cd_scsi_opcode_ua_supress(opcode)) {
-                /* return sense with UA */
-                SPICE_DEBUG("request_submit, UA");
-                cd_scsi_sense_check_cond(dev, req, &dev->short_sense);
-                goto done;
+            if (cd_scsi_opcode_ua_supress(opcode)) {
+                pending_sense = FALSE; /* UA supressed */
             }
-        } else if (opcode != REQUEST_SENSE) {
-            SPICE_DEBUG("request_submit, lun:%" G_GUINT32_FORMAT 
-                        " pending sense: 0x%02x %02x %02x", 
-                        lun, (int)dev->short_sense.key, (int)dev->short_sense.asc,
-                        (int)dev->short_sense.ascq);
-            cd_scsi_pending_sense(dev, req);
+        } else if (opcode == REQUEST_SENSE) {
+            pending_sense = FALSE; /* sense returned as data */
+        }
+        if (pending_sense) {
+            cd_scsi_cmd_complete_check_cond(dev, req, NULL); /* sense already set */
             goto done;
         }
     }
@@ -2560,12 +2566,12 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
         cd_scsi_cmd_mechanism_status(dev, req);
         break;
     default:
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_OPCODE);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_OPCODE);
         break;
     }
 
     if (req->req_len > INT32_MAX) {
-        cd_scsi_sense_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
         goto done;
     }
 
