@@ -1368,11 +1368,23 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
 
     view_popup_add_menu_item(menu, "_Settings", "preferences-system",
                              G_CALLBACK(view_popup_menu_on_settings), user_data);
-    view_popup_add_menu_item(menu, is_locked ? "_Unlock" : "_Lock", "system-lock-screen",
-                             G_CALLBACK(view_popup_menu_on_lock), user_data);
-    view_popup_add_menu_item(menu, is_loaded ? "_Eject" : "_Load", "media-eject",
-                             G_CALLBACK(view_popup_menu_on_eject), user_data);
-    view_popup_add_menu_item(menu, "_Remove", "edit-delete", G_CALLBACK(view_popup_menu_on_remove), user_data);
+    if (is_loaded) {
+        if (!is_locked) {
+            view_popup_add_menu_item(menu, "_Lock", "system-lock-screen",
+                                    G_CALLBACK(view_popup_menu_on_lock), user_data);
+            view_popup_add_menu_item(menu, "_Eject", "media-eject",
+                                     G_CALLBACK(view_popup_menu_on_eject), user_data);
+        } else {
+            view_popup_add_menu_item(menu, "_Unlock", "system-lock-screen",
+                                     G_CALLBACK(view_popup_menu_on_lock), user_data);
+        }
+    } else {
+        view_popup_add_menu_item(menu, "_Load", "media-eject",
+                                 G_CALLBACK(view_popup_menu_on_eject), user_data);
+    }
+
+    view_popup_add_menu_item(menu, "_Remove", "edit-delete",
+                             G_CALLBACK(view_popup_menu_on_remove), user_data);
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
