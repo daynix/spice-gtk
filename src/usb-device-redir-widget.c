@@ -1207,8 +1207,8 @@ static void lun_properties_dialog_get_info(lun_properties_dialog *lun_dialog,
     lun_info->vendor = gtk_entry_get_text(GTK_ENTRY(lun_dialog->vendor_entry));
     lun_info->product = gtk_entry_get_text(GTK_ENTRY(lun_dialog->product_entry));
     lun_info->revision = gtk_entry_get_text(GTK_ENTRY(lun_dialog->revision_entry));
-    lun_info->initially_loaded = gtk_switch_get_active(GTK_SWITCH(lun_dialog->loaded_switch));
-    lun_info->initially_locked = gtk_switch_get_active(GTK_SWITCH(lun_dialog->locked_switch));
+    lun_info->loaded = gtk_switch_get_active(GTK_SWITCH(lun_dialog->loaded_switch));
+    lun_info->locked = gtk_switch_get_active(GTK_SWITCH(lun_dialog->locked_switch));
 }
 
 /* Popup menu */

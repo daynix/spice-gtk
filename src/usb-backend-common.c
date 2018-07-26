@@ -467,8 +467,11 @@ static gboolean activate_device(SpiceUsbBackendDevice *d, const SpiceUsbDeviceLu
     b = !cd_usb_bulk_msd_realize(d->d.msc, unit, &dev_params);
     if (b) {
         b = open_stream(&d->units[unit], info->file_path);
-        if (b && info->initially_loaded) {
+        if (b && info->loaded) {
             b = load_lun(d, unit, TRUE);
+            if (b && info->locked) {
+                b = lock_lun(d, unit, TRUE);
+            }
         }
         if (!b) {
             close_stream(&d->units[unit]);

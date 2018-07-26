@@ -191,8 +191,6 @@ GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
 * @vendor: string containing vendor name according to SCSI standard (first 8 characters used)
 * @product: string containing product name according to SCSI standard  (first 16 characters used)
 * @revision: string containing the revision according to SCSI standard  (first 4 characters used)
-* @initially_loaded: %TRUE if the media shall be loaded upon device creating
-* @initially_locked: %TRUE if the media shall be locked from ejection upon device creating
 * @loaded: %TRUE if the media is currently loaded
 * @locked: %TRUE if the media is currently locked from ejection
 * @started: %TRUE if the device is started by guest OS
@@ -205,8 +203,6 @@ typedef struct _SpiceUsbDeviceLunInfo
     const gchar *vendor;
     const gchar *product;
     const gchar *revision;
-    gboolean initially_loaded;
-    gboolean initially_locked;
     gboolean loaded;
     gboolean locked;
     gboolean started;
