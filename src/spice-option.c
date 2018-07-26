@@ -220,7 +220,7 @@ GOptionGroup* spice_get_option_group(void)
         { "spice-usbredir-redirect-on-connect", '\0', 0, G_OPTION_ARG_STRING, &usbredir_redirect_on_connect,
           N_("Filter selecting USB devices to redirect on connect"), N_("<filter-string>") },
         { "spice-share-cd", '\0', 0, G_OPTION_ARG_STRING_ARRAY, &cd_share_files,
-          N_("ISO file name to share"), N_("<filename> (repeat allowed)") },
+          N_("Name of ISO file or CD/DVD device to share"), N_("<filename> (repeat allowed)") },
         { "spice-cache-size", '\0', 0, G_OPTION_ARG_INT, &cache_size,
           N_("Image cache size (deprecated)"), N_("<bytes>") },
         { "spice-glz-window-size", '\0', 0, G_OPTION_ARG_INT, &glz_window_size,
@@ -316,7 +316,7 @@ void spice_set_session_option(SpiceSession *session)
         if (m) {
             gchar **name = cd_share_files;
             while (name && *name) {
-                g_object_set(m, "cd-share", *name, NULL);
+                g_object_set(m, "share-cd", *name, NULL);
                 name++;
             }
         }

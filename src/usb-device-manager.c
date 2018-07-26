@@ -652,14 +652,14 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
                                     pspec);
 
     /**
-    * SpiceUsbDeviceManager:cd-share-on-connect:
+    * SpiceUsbDeviceManager:share-cd:
     *
-    * Set a string specifying a filename or wildcard of ISO files to
-    * share via CD sharing after a Spice connection has been established.
+    * Set a string specifying a filename (ISO) or physical CD/DVD device
+    * to share via USB after a Spice connection has been established.
     *
     */
-    pspec = g_param_spec_string("cd-share", "Share ISO file as CD",
-        "File nameto share", NULL,
+    pspec = g_param_spec_string("share-cd", "Share ISO file or device as CD",
+        "File or device name to share", NULL,
         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
     g_object_class_install_property(gobject_class, PROP_SHARE_CD, pspec);
 
