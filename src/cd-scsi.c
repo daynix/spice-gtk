@@ -848,13 +848,13 @@ static void cd_scsi_cmd_inquiry_vpd_no_lun(CdScsiLU *dev, CdScsiRequest *req,
 
     outbuf[0] = (perif_qual << 5) | TYPE_ROM;
     outbuf[1] = page_code ; /* this page */
-    outbuf[2] = 0;
-    outbuf[3] = 0; /* no more data */
+    outbuf[2] = 0x00; /* page length MSB */
+    outbuf[3] = 0x00; /* page length LSB - no more data */
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
     SPICE_DEBUG("inquiry_vpd, unsupported lun:%" G_GUINT32_FORMAT
-                " perif_qual:0x%x len: %" G_GUINT64_FORMAT,
+                " perif_qual:0x%x resp_len: %" G_GUINT64_FORMAT,
                 req->lun, perif_qual, req->in_len);
 
     cd_scsi_cmd_complete_good(dev, req);
@@ -864,26 +864,26 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
     uint8_t page_code = req->cdb[2];
-    int buflen = 0;
-    int start;
+    int buflen = 4;
+    int start = 4;
 
-    outbuf[buflen++] = TYPE_ROM;
-    outbuf[buflen++] = page_code ; // this page
-    outbuf[buflen++] = 0x00;
-    outbuf[buflen++] = 0x00;
-    start = buflen;
+    outbuf[0] = TYPE_ROM;
+    outbuf[1] = page_code ; /* this page */
+    outbuf[2] = 0x00; /* page length MSB */
+    outbuf[3] = 0x00; /* page length LSB, to write later */
 
     switch (page_code) {
     case 0x00: /* Supported page codes, mandatory */
     {
-        SPICE_DEBUG("Inquiry EVPD[Supported pages] "
-                    "buffer size %" G_GUINT64_FORMAT, req->req_len);
         outbuf[buflen++] = 0x00; // list of supported pages (this page)
         if (dev->serial) {
             outbuf[buflen++] = 0x80; // unit serial number
         }
         outbuf[buflen++] = 0x83; // device identification
 
+        SPICE_DEBUG("Inquiry EVPD[Supported pages] lun:%" G_GUINT32_FORMAT
+                    " req_len: %" G_GUINT64_FORMAT " resp_len: %d",
+                    req->lun, req->req_len, buflen);
         break;
     }
     case 0x80: /* Device serial number, optional */
@@ -894,11 +894,12 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
         if (serial_len > 36) {
             serial_len = 36;
         }
-
-        SPICE_DEBUG("Inquiry EVPD[Serial num] xfer size %" G_GUINT64_FORMAT,
-                    req->req_len);
         memcpy(outbuf+buflen, dev->serial, serial_len);
         buflen += serial_len;
+
+        SPICE_DEBUG("Inquiry EVPD[Serial num] lun:%" G_GUINT32_FORMAT
+                    " req_len: %" G_GUINT64_FORMAT " resp_len: %d",
+                    req->lun, req->req_len, buflen);
         break;
     }
     case 0x83: /* Device identification page, mandatory */
@@ -909,8 +910,6 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
         if (serial_len > max_len) {
             serial_len = max_len;
         }
-        SPICE_DEBUG("Inquiry EVPD[Device id] xfer size %" G_GUINT64_FORMAT,
-                    req->req_len);
 
         outbuf[buflen++] = 0x2; // ASCII
         outbuf[buflen++] = 0;   // not officially assigned
@@ -919,6 +918,10 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
 
         memcpy(outbuf+buflen, dev->serial, serial_len);
         buflen += serial_len;
+
+        SPICE_DEBUG("Inquiry EVPD[Device id] lun:%" G_GUINT32_FORMAT
+                    " req_len: %" G_GUINT64_FORMAT " resp_len: %d",
+                    req->lun, req->req_len, buflen);
         break;
     }
 
@@ -931,7 +934,7 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
 
     /* done with EVPD */
     g_assert(buflen - start <= 255);
-    outbuf[start - 1] = buflen - start;
+    outbuf[3] = buflen - start; /* page length LSB */
 
     req->in_len = buflen;
     cd_scsi_cmd_complete_good(dev, req);
@@ -972,11 +975,13 @@ static void cd_scsi_cmd_inquiry_standard_no_lun(CdScsiLU *dev, CdScsiRequest *re
     outbuf[2] = INQUIRY_VERSION_NONE;
     outbuf[3] = INQUIRY_RESP_DATA_FORMAT_SPC3;
 
+    outbuf[4] = resp_len - 4; /* additional length, after header */
+
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
-    SPICE_DEBUG("inquiry_standard, unsupported lun:%" G_GUINT32_FORMAT
-                " perif_qual:0x%x len: %" G_GUINT64_FORMAT,
-                req->lun, perif_qual, req->in_len);
+    SPICE_DEBUG("inquiry_standard, unsupported lun:%" G_GUINT32_FORMAT " perif_qual:0x%x "
+                "inquiry_len: %" G_GUINT32_FORMAT " resp_len: %" G_GUINT64_FORMAT,
+                req->lun, perif_qual, resp_len, req->in_len);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
@@ -991,7 +996,7 @@ static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, CdScsiRequest *req)
     outbuf[2] = (dev->claim_version == 0) ? INQUIRY_VERSION_NONE : INQUIRY_VERSION_SPC3;
     outbuf[3] = INQUIRY_RESP_NORM_ACA | INQUIRY_RESP_HISUP | INQUIRY_RESP_DATA_FORMAT_SPC3;
 
-    outbuf[4] = resp_len - 4;
+    outbuf[4] = resp_len - 4; /* additional length, after header */
 
     /* (outbuf[6,7] = 0) means also {BQue=0,CmdQue=0} - no queueing at all */
 
@@ -1015,9 +1020,10 @@ static void cd_scsi_cmd_inquiry_standard(CdScsiLU *dev, CdScsiRequest *req)
     }
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
-    
-    SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
-                req->lun, req->in_len);
+
+    SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT
+                " inquiry_len: %" G_GUINT32_FORMAT " resp_len: %" G_GUINT64_FORMAT,
+                req->lun, resp_len, req->in_len);
 
     cd_scsi_cmd_complete_good(dev, req);
 }
