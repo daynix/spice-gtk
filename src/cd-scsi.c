@@ -546,6 +546,7 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
 
     cd_scsi_lu_unload(dev);
     dev->power_cond = CD_SCSI_POWER_STOPPED;
+    cd_scsi_dev_sense_set(dev, &sense_code_UNIT_ATTENTION_NO_MEDIUM);
 
     SPICE_DEBUG("Unload lun:%" G_GUINT32_FORMAT, lun);
     return 0;
