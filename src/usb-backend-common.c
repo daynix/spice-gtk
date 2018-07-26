@@ -526,7 +526,8 @@ gboolean spice_usb_backend_add_cd_lun(SpiceUsbBackend *be, const SpiceUsbDeviceL
                 own_devices.active_devices |= 1 << i;
                 indicate_device_presence(be, &own_devices.devices[i], TRUE);
             }
-        } else { /* active device, add as the next lun */
+        } else if (!own_devices.devices[i].attached_to) {
+            /* active unattached device, add as the next lun */
             int j;
             for (j = 0; j < MAX_LUN_PER_DEVICE; j++) {
                 if (!own_devices.devices[i].units[j].stream) {
