@@ -1578,9 +1578,11 @@ static void spice_usb_device_widget_signals_connect(SpiceUsbDeviceWidget *self)
                      G_CALLBACK(device_removed_cb), self);
     g_signal_connect(priv->manager, "device-changed",
                      G_CALLBACK(device_changed_cb), self);
-    // TODO: connect failed
     g_signal_connect(priv->manager, "device-error",
                      G_CALLBACK(device_error_cb), self);
+    // TODO: implement auto-connect-failed signal handling
+    // g_signal_connect(priv->manager, "auto-connect-failed",
+    //                  G_CALLBACK(device_auto_redir_failed_cb), self);
 
     g_signal_connect(priv->tree_view, "button-press-event",
                      G_CALLBACK(treeview_on_right_button_pressed_cb), self);

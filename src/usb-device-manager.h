@@ -89,7 +89,7 @@ struct _SpiceUsbDeviceManagerClass
     void (*device_error) (SpiceUsbDeviceManager *manager,
                           SpiceUsbDevice *device, GError *error);
     void (*device_changed) (SpiceUsbDeviceManager *manager,
-                          SpiceUsbDevice *device);
+                            SpiceUsbDevice *device);
 
     /*< private >*/
     /*

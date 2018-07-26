@@ -369,7 +369,7 @@ static void spice_gtk_session_set_property(GObject      *gobject,
             if (!manager)
                 break;
 
-            g_object_set(manager, "auto-connect", s->auto_usbredir_enable,
+            g_object_set(manager, "auto-redirect", s->auto_usbredir_enable,
                          NULL);
 
             desktop_int = spice_desktop_integration_get(s->session);
@@ -1167,7 +1167,7 @@ void spice_gtk_session_request_auto_usbredir(SpiceGtkSession *self,
     if (!manager)
         return;
 
-    g_object_set(manager, "auto-connect", state, NULL);
+    g_object_set(manager, "auto-redirect", state, NULL);
 
     desktop_int = spice_desktop_integration_get(s->session);
     if (state)
