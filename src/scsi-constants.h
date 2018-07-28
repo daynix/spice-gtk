@@ -134,7 +134,6 @@
 #define WRITE_12              0xaa
 #define SERVICE_ACTION_IN_12  0xab
 #define ERASE_12              0xac
-#define READ_DVD_STRUCTURE    0xad
 #define WRITE_VERIFY_12       0xae
 #define VERIFY_12             0xaf
 #define SEARCH_HIGH_12        0xb0
@@ -142,17 +141,18 @@
 #define SEARCH_LOW_12         0xb2
 #define READ_ELEMENT_STATUS   0xb8
 #define SEND_VOLUME_TAG       0xb6
-#define READ_DEFECT_DATA_12   0xb7
-#define SET_CD_SPEED          0xbb
-#define MECHANISM_STATUS      0xbd
-#define READ_CD               0xbe
-#define SEND_DVD_STRUCTURE    0xbf
 
 /* MMC-specific opcode assignment */
-#define MMC_SEND_EVENT        0xa2
-#define MMC_SEND_KEY          0xa3
-#define MMC_REPORT_KEY        0xa4
-#define MMC_GET_PERFORMANCE   0xac
+#define MMC_SEND_EVENT          0xa2
+#define MMC_SEND_KEY            0xa3
+#define MMC_REPORT_KEY          0xa4
+#define MMC_GET_PERFORMANCE     0xac
+#define MMC_READ_DVD_STRUCTURE  0xad
+#define MMC_READ_DEFECT_DATA_12 0xb7
+#define MMC_SET_CD_SPEED        0xbb
+#define MMC_MECHANISM_STATUS    0xbd
+#define MMC_READ_CD             0xbe
+#define MMC_SEND_DVD_STRUCTURE  0xbf
 
 /*
  * SERVICE ACTION IN subcodes

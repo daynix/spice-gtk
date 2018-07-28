@@ -101,6 +101,9 @@ struct _CdScsiTarget
     CdScsiLU units[MAX_LUNS];
 };
 
+static gboolean cmd_names_initialized = FALSE;
+static const char* scsi_cmd_name[256];
+
 /* Predefined sense codes */
 
 const ScsiShortSense sense_code_NO_SENSE = {
@@ -357,6 +360,46 @@ static void cd_scsi_cmd_complete_good(CdScsiLU *dev, CdScsiRequest *req)
 
 /* SCSI Target */
 
+static void cd_scsi_cmd_names_init(void)
+{
+    uint32_t opcode;
+
+    if (cmd_names_initialized) {
+        return;
+    }
+
+    for (opcode = 0; opcode < 256; opcode++) {
+        scsi_cmd_name[opcode] = "UNSUPPORTED";
+    }
+
+    scsi_cmd_name[REPORT_LUNS] = "REPORT LUNS";
+    scsi_cmd_name[TEST_UNIT_READY] = "TEST UNIT READY";
+    scsi_cmd_name[INQUIRY] = "INQUIRY";
+    scsi_cmd_name[REQUEST_SENSE] = "REQUEST SENSE";
+    scsi_cmd_name[READ_6] = "READ(6)";
+    scsi_cmd_name[READ_10] = "READ(10)";
+    scsi_cmd_name[READ_12] = "READ(12)";
+    scsi_cmd_name[READ_16] = "READ(16)";
+    scsi_cmd_name[READ_CAPACITY_10] = "READ CAPACITY(10)";
+    scsi_cmd_name[READ_TOC] = "READ TOC";
+    scsi_cmd_name[GET_EVENT_STATUS_NOTIFICATION] = "GET EVENT/STATUS NOTIFICATION";
+    scsi_cmd_name[READ_DISC_INFORMATION] = "READ DISC INFO";
+    scsi_cmd_name[READ_TRACK_INFORMATION] = "READ TRACK INFO";
+    scsi_cmd_name[MODE_SENSE_10] = "MODE SENSE(10)";
+    scsi_cmd_name[MODE_SELECT] = "MODE SELECT(6)";
+    scsi_cmd_name[MODE_SELECT_10] = "MODE SELECT(10)";
+    scsi_cmd_name[GET_CONFIGURATION] = "GET CONFIGURATION";
+    scsi_cmd_name[ALLOW_MEDIUM_REMOVAL] = "PREVENT ALLOW MEDIUM REMOVAL";
+    scsi_cmd_name[MMC_SEND_EVENT] = "SEND EVENT";
+    scsi_cmd_name[MMC_REPORT_KEY] = "REPORT KEY";
+    scsi_cmd_name[MMC_SEND_KEY] = "SEND_KEY";
+    scsi_cmd_name[START_STOP] = "START STOP UNIT";
+    scsi_cmd_name[MMC_GET_PERFORMANCE] = "GET PERFORMANCE";
+    scsi_cmd_name[MMC_MECHANISM_STATUS] = "MECHANISM STATUS";
+
+    cmd_names_initialized = TRUE;
+}
+
 void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns)
 {
     CdScsiTarget *st;
@@ -373,6 +416,8 @@ void *cd_scsi_target_alloc(void *target_user_data, uint32_t max_luns)
     st->cur_req = NULL;
     st->cancellable = g_cancellable_new();
     st->max_luns = max_luns;
+
+    cd_scsi_cmd_names_init();
 
     return (void *)st;
 }
@@ -2465,9 +2510,10 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
     CdScsiTarget *st = (CdScsiTarget *)scsi_target;
     uint32_t lun = req->lun;
     uint32_t opcode = (uint32_t)req->cdb[0];
+    const char *cmd_name = scsi_cmd_name[opcode];
     CdScsiLU *dev = &st->units[lun];
 
-    SPICE_DEBUG("request_submit, lun: %" G_GUINT32_FORMAT " op: 0x%02x", lun, opcode);
+    SPICE_DEBUG("request_submit, lun: %" G_GUINT32_FORMAT " op: 0x%02x %s", lun, opcode, cmd_name);
 
     if (st->cur_req != NULL) {
         SPICE_ERROR("request_submit, request not idle");
@@ -2594,7 +2640,7 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
     case MMC_GET_PERFORMANCE:
         cd_scsi_cmd_get_performance(dev, req);
         break;
-    case MECHANISM_STATUS:
+    case MMC_MECHANISM_STATUS:
         cd_scsi_cmd_mechanism_status(dev, req);
         break;
     default:
@@ -2609,8 +2655,8 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
 
 done:
     SPICE_DEBUG("request_submit done, lun: %" G_GUINT32_FORMAT 
-                " op: 0x%02x state: %s status: %" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
-                lun, opcode, CdScsiReqState_str(req->req_state), req->status, req->in_len);
+                " op: 0x%02x %s, state: %s status: %" G_GUINT32_FORMAT " len: %" G_GUINT64_FORMAT,
+                lun, opcode, cmd_name, CdScsiReqState_str(req->req_state), req->status, req->in_len);
 
     if (req->req_state == SCSI_REQ_COMPLETE) {
         cd_scsi_dev_request_complete(st->user_data, req);
