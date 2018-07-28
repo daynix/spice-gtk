@@ -354,6 +354,7 @@ static void usb_widget_add_device(SpiceUsbDeviceWidget *self,
                 COL_LUN_ITEM, TRUE, /* LUN item */
                 COL_DEV_ITEM, FALSE, /* LUN item */
                 COL_ITEM_DATA, (gpointer)lun_item,
+                COL_CONNECTED, is_dev_connected,
                 COL_ROW_COLOR, "azure",
                 COL_ROW_COLOR_SET, TRUE,
                 -1);
@@ -628,6 +629,7 @@ static void usb_widget_connect_cb(GObject *source_object, GAsyncResult *res, gpo
     if (finished) {
         gtk_tree_store_set(priv->tree_store, dev_iter,
                            COL_CONNECT_ICON, priv->icon_connected,
+                           COL_CONNECTED, TRUE,
                            -1);
     } else {
         gtk_tree_store_set(priv->tree_store, dev_iter,
@@ -679,6 +681,7 @@ static void usb_widget_disconnect_cb(GObject *source_object, GAsyncResult *res, 
     if (finished) {
         gtk_tree_store_set(priv->tree_store, dev_iter,
                            COL_CONNECT_ICON, priv->icon_disconn,
+                           COL_CONNECTED, FALSE,
                            -1);
     } else {
         gtk_tree_store_set(priv->tree_store, dev_iter,
@@ -1347,8 +1350,11 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
     GtkTreeSelection *select = gtk_tree_view_get_selection(priv->tree_view);
     GtkTreeModel *tree_model;
     GtkTreeIter iter;
-    GtkWidget *menu;
+    UsbWidgetLunItem *lun_item;
     gboolean is_loaded, is_locked;
+    GtkTreeIter *usb_dev_iter;
+    gboolean is_dev_connected;
+    GtkWidget *menu;
 
     if (!gtk_tree_selection_get_selected(select, &tree_model, &iter)) {
         SPICE_DEBUG("No tree view row is slected");
@@ -1360,10 +1366,27 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
     }
 
     gtk_tree_model_get(tree_model, &iter,
-                        COL_LOADED, &is_loaded,
-                        COL_LOCKED, &is_locked,
-                        -1);
+                       COL_ITEM_DATA, (gpointer *)&lun_item,
+                       COL_LOADED, &is_loaded,
+                       COL_LOCKED, &is_locked,
+                       -1);
 
+    usb_dev_iter = usb_widget_tree_store_find_usb_device(priv->tree_store, lun_item->device);
+    if (usb_dev_iter != NULL) {
+        gtk_tree_model_get(tree_model, usb_dev_iter,
+                           COL_CONNECTED, &is_dev_connected,
+                           -1);
+        g_free(usb_dev_iter);
+    } else {
+        is_dev_connected = FALSE;
+        SPICE_DEBUG("Failed to find USB device for LUN: %s|%s",
+                    lun_item->info.vendor, lun_item->info.product);
+    }
+    SPICE_DEBUG("Right-click on LUN: %s|%s, dev connected:%d, lun loaded:%d locked:%d",
+                lun_item->info.vendor, lun_item->info.product,
+                is_dev_connected, is_loaded, is_locked);
+
+    /* Set up the menu */
     menu = gtk_menu_new();
 
     view_popup_add_menu_item(menu, "_Settings", "preferences-system",
@@ -1383,8 +1406,10 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
                                  G_CALLBACK(view_popup_menu_on_eject), user_data);
     }
 
-    view_popup_add_menu_item(menu, "_Remove", "edit-delete",
-                             G_CALLBACK(view_popup_menu_on_remove), user_data);
+    if (!is_dev_connected) {
+        view_popup_add_menu_item(menu, "_Remove", "edit-delete",
+                                 G_CALLBACK(view_popup_menu_on_remove), user_data);
+    }
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
