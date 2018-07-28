@@ -790,14 +790,14 @@ static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, CdScsiRequest *req)
     req->xfer_dir = SCSI_XFER_NONE;
     req->in_len = 0;
 
-    if (dev->power_cond != CD_SCSI_POWER_STOPPED) {
-        if (dev->loaded) {
+    if (dev->loaded) {
+        if (dev->power_cond != CD_SCSI_POWER_STOPPED) {
             cd_scsi_cmd_complete_good(dev, req);
         } else {
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NOT_READY_NO_MEDIUM);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
         }
     } else {
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NOT_READY_NO_MEDIUM);
     }
 }
 
