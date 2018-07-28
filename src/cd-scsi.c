@@ -44,6 +44,14 @@ typedef enum _CdScsiPowerCondition {
     CD_SCSI_POWER_STANDBY
 } CdScsiPowerCondition;
 
+typedef struct _ScsiShortSense
+{
+    uint8_t key;
+    uint8_t asc;
+    uint8_t ascq;
+    const char *descr;
+} ScsiShortSense;
+
 typedef struct _CdScsiLU
 {
     CdScsiTarget *tgt;
@@ -95,144 +103,134 @@ struct _CdScsiTarget
 
 /* Predefined sense codes */
 
-/* No sense data available */
 const ScsiShortSense sense_code_NO_SENSE = {
-    .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00
+    .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00,
+    .descr = ""
 };
 
-/* LUN not ready, Caused not reportable */
-const ScsiShortSense sense_code_LUN_NOT_READY = {
-    .key = NOT_READY, .asc = 0x04, .ascq = 0x00
+const ScsiShortSense sense_code_NOT_READY_CAUSE_NOT_REPORTABLE = {
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x00,
+    .descr = "CAUSE NOT REPORTABLE"
 };
 
-/* LUN not ready, in process of becoming ready */
 const ScsiShortSense sense_code_BECOMING_READY = {
-    .key = NOT_READY, .asc = 0x04, .ascq = 0x01
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x01,
+    .descr = "IN PROCESS OF BECOMING READY"
 };
 
-/* LUN not ready, Caused not reportable */
 const ScsiShortSense sense_code_INIT_CMD_REQUIRED = {
-    .key = NOT_READY, .asc = 0x04, .ascq = 0x02
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x02,
+    .descr = "INITIALIZING COMMAND REQUIRED"
 };
 
-/* LUN not ready, Manual intervention required */
 const ScsiShortSense sense_code_INTERVENTION_REQUIRED = {
-    .key = NOT_READY, .asc = 0x04, .ascq = 0x03
+    .key = NOT_READY, .asc = 0x04, .ascq = 0x03,
+    .descr = "MANUAL INTERVENTION REQUIRED"
 };
 
-/* LUN not ready, Medium not present */
-const ScsiShortSense sense_code_NO_MEDIUM = {
-    .key = NOT_READY, .asc = 0x3a, .ascq = 0x00
+const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x00,
+    .descr = "MEDIUM NOT PRESENT"
 };
 
-/* LUN not ready, Medium not present - Tray Closed */
-const ScsiShortSense sense_code_NO_MEDIUM_TRAY_CLOSED = {
-    .key = NOT_READY, .asc = 0x3a, .ascq = 0x01
+const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM_TRAY_CLOSED = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x01,
+    .descr = "MEDIUM NOT PRESENT - TRAY CLOSED"
 };
 
-/* LUN not ready, Medium not present - Tray Open */
-const ScsiShortSense sense_code_NO_MEDIUM_TRAY_OPEN = {
-    .key = NOT_READY, .asc = 0x3a, .ascq = 0x02
+const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM_TRAY_OPEN = {
+    .key = NOT_READY, .asc = 0x3a, .ascq = 0x02,
+    .descr = "MEDIUM NOT PRESENT - TRAY OPEN"
 };
 
-/* LUN not ready, medium removal prevented */
-const ScsiShortSense sense_code_NOT_READY_REMOVAL_PREVENTED = {
-    .key = NOT_READY, .asc = 0x53, .ascq = 0x02
-};
-
-/* Hardware error, internal target failure */
 const ScsiShortSense sense_code_TARGET_FAILURE = {
-    .key = HARDWARE_ERROR, .asc = 0x44, .ascq = 0x00
+    .key = HARDWARE_ERROR, .asc = 0x44, .ascq = 0x00,
+    .descr = "INTERNAL TARGET FAILURE"
 };
 
-/* Illegal request, invalid command operation code */
 const ScsiShortSense sense_code_INVALID_OPCODE = {
-    .key = ILLEGAL_REQUEST, .asc = 0x20, .ascq = 0x00
+    .key = ILLEGAL_REQUEST, .asc = 0x20, .ascq = 0x00,
+    .descr = "INVALID COMMAND OPERATION CODE"
 };
 
-/* Illegal request, LBA out of range */
 const ScsiShortSense sense_code_LBA_OUT_OF_RANGE = {
-    .key = ILLEGAL_REQUEST, .asc = 0x21, .ascq = 0x00
+    .key = ILLEGAL_REQUEST, .asc = 0x21, .ascq = 0x00,
+    .descr = "LOGICAL BLOCK ADDRESS OUT OF RANGE"
 };
 
-/* Illegal request, Invalid field in CDB */
-const ScsiShortSense sense_code_INVALID_FIELD = {
-    .key = ILLEGAL_REQUEST, .asc = 0x24, .ascq = 0x00
+const ScsiShortSense sense_code_INVALID_CDB_FIELD = {
+    .key = ILLEGAL_REQUEST, .asc = 0x24, .ascq = 0x00,
+    .descr = "INVALID FIELD IN CDB"
 };
 
-/* Illegal request, Invalid field in parameter list */
-const ScsiShortSense sense_code_INVALID_PARAM = {
-    .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x00
+const ScsiShortSense sense_code_INVALID_PARAM_FIELD = {
+    .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x00,
+    .descr = "INVALID FIELD IN PARAMETER LIST"
 };
 
-/* Illegal request, Parameter list length error */
 const ScsiShortSense sense_code_INVALID_PARAM_LEN = {
-    .key = ILLEGAL_REQUEST, .asc = 0x1a, .ascq = 0x00
+    .key = ILLEGAL_REQUEST, .asc = 0x1a, .ascq = 0x00,
+    .descr = "PARAMETER LIST LENGTH ERROR"
 };
 
-/* Illegal request, LUN not supported */
 const ScsiShortSense sense_code_LUN_NOT_SUPPORTED = {
-    .key = ILLEGAL_REQUEST, .asc = 0x25, .ascq = 0x00
+    .key = ILLEGAL_REQUEST, .asc = 0x25, .ascq = 0x00,
+    .descr = "LOGICAL UNIT NOT SUPPORTED"
 };
 
-/* Illegal request, Saving parameters not supported */
 const ScsiShortSense sense_code_SAVING_PARAMS_NOT_SUPPORTED = {
-    .key = ILLEGAL_REQUEST, .asc = 0x39, .ascq = 0x00
+    .key = ILLEGAL_REQUEST, .asc = 0x39, .ascq = 0x00,
+    .descr = "SAVING PARAMETERS NOT SUPPORTED"
 };
 
-/* Illegal request, Incompatible medium installed */
-const ScsiShortSense sense_code_INCOMPATIBLE_FORMAT = {
-    .key = ILLEGAL_REQUEST, .asc = 0x30, .ascq = 0x00
+const ScsiShortSense sense_code_INCOMPATIBLE_MEDIUM = {
+    .key = ILLEGAL_REQUEST, .asc = 0x30, .ascq = 0x00,
+    .descr = "INCOMPATIBLE MEDIUM INSTALLED"
 };
 
-/* Illegal request, medium removal prevented */
-const ScsiShortSense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
-    .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02
+const ScsiShortSense sense_code_MEDIUM_REMOVAL_PREVENTED = {
+    .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02,
+    .descr = "MEDIUM REMOVAL PREVENTED"
 };
 
-/* Unit attention, Mode Parameters has changed */
-const ScsiShortSense sense_code_MODE_PARAMS_CHANGED = {
-    .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x01
+const ScsiShortSense sense_code_PARAMETERS_CHANGED = {
+    .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x00,
+    .descr = "PARAMETERS CHANGED"
 };
 
-/* Unit attention, Capacity data has changed */
-const ScsiShortSense sense_code_CAPACITY_CHANGED = {
-    .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x09
+const ScsiShortSense sense_code_POWER_ON_RESET = {
+    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x00,
+    .descr = "POWER ON, RESET, OR BUS DEVICE RESET"
 };
 
-/* Unit attention, Power on, reset or bus device reset occurred */
-const ScsiShortSense sense_code_RESET = {
-    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x00
-};
-
-/* Unit attention, SCSI bus reset */
 const ScsiShortSense sense_code_SCSI_BUS_RESET = {
-    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x02
+    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x02,
+    .descr = "SCSI BUS RESET"
 };
 
-/* Unit attention, No medium */
-const ScsiShortSense sense_code_UNIT_ATTENTION_NO_MEDIUM = {
-    .key = UNIT_ATTENTION, .asc = 0x3a, .ascq = 0x00
+const ScsiShortSense sense_code_UA_NO_MEDIUM = {
+    .key = UNIT_ATTENTION, .asc = 0x3a, .ascq = 0x00,
+    .descr = "MEDIUM NOT PRESENT"
 };
 
-/* Unit attention, Medium may have changed */
 const ScsiShortSense sense_code_MEDIUM_CHANGED = {
-    .key = UNIT_ATTENTION, .asc = 0x28, .ascq = 0x00
+    .key = UNIT_ATTENTION, .asc = 0x28, .ascq = 0x00,
+    .descr = "MEDIUM CHANGED"
 };
 
-/* Unit attention, Reported LUNs data has changed */
 const ScsiShortSense sense_code_REPORTED_LUNS_CHANGED = {
-    .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x0e
+    .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x0e,
+    .descr = "REPORTED LUNS CHANGED"
 };
 
-/* Unit attention, Device internal reset */
 const ScsiShortSense sense_code_DEVICE_INTERNAL_RESET = {
-    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04
+    .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04,
+    .descr = "DEVICE INTERNAL RESET"
 };
 
-/* Unit attention, Operator Medium removal request */
 const ScsiShortSense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
-    .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01
+    .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01,
+    .descr = "OPERATOR MEDIUM REMOVAL REQUEST"
 };
 
 static inline gboolean cd_scsi_opcode_ua_supress(uint32_t opcode)
@@ -265,6 +263,31 @@ static inline const char *CdScsiReqState_str(CdScsiReqState state)
     }
 }
 
+static const char *cd_scsi_sense_key_descr(uint8_t sense_key)
+{
+    switch(sense_key) {
+    case NO_SENSE:
+        return "NO SENSE";
+    case RECOVERED_ERROR:
+        return "RECOVERED ERROR";
+    case NOT_READY:
+        return "LUN NOT READY";
+    case MEDIUM_ERROR:
+        return "MEDIUM ERROR";
+    case HARDWARE_ERROR:
+        return "HARDWARE ERROR";
+    case ILLEGAL_REQUEST:
+        return "ILLEGAL REQUEST";
+    case UNIT_ATTENTION:
+        return "UNIT ATTENTION";
+    case BLANK_CHECK:
+        return "BLANK CHECK";
+    case ABORTED_COMMAND:
+        return "ABORTED COMMAND";
+    default:
+        return "???";
+    }
+}
 static uint32_t cd_scsi_build_fixed_sense(uint8_t *buf, const ScsiShortSense *short_sense)
 {
     memset(buf, 0, FIXED_SENSE_LEN);
@@ -304,7 +327,7 @@ static inline void cd_scsi_dev_sense_set(CdScsiLU *dev, const ScsiShortSense *sh
 
 static inline void cd_scsi_dev_sense_set_power_on(CdScsiLU *dev)
 {
-    cd_scsi_dev_sense_set(dev, &sense_code_RESET);
+    cd_scsi_dev_sense_set(dev, &sense_code_POWER_ON_RESET);
 }
 
 static void cd_scsi_cmd_complete_check_cond(CdScsiLU *dev, CdScsiRequest *req,
@@ -317,12 +340,13 @@ static void cd_scsi_cmd_complete_check_cond(CdScsiLU *dev, CdScsiRequest *req,
     cd_scsi_dev_sense_set(dev, short_sense);
 
     SPICE_DEBUG("CHECK_COND, request lun:%" G_GUINT32_FORMAT
-                " op: 0x%02x, pending sense: %s0x%02x %02x %02x",
+                " op: 0x%02x, pending sense: 0x%02x %02x %02x - %s, %s",
                 dev->lun, (uint32_t)req->cdb[0],
-                (dev->short_sense.key == UNIT_ATTENTION) ? "UNIT_ATT " : "",
                 (uint32_t)dev->short_sense.key,
                 (uint32_t)dev->short_sense.asc,
-                (uint32_t)dev->short_sense.ascq);
+                (uint32_t)dev->short_sense.ascq,
+                cd_scsi_sense_key_descr(dev->short_sense.key),
+                dev->short_sense.descr);
 }
 
 static void cd_scsi_cmd_complete_good(CdScsiLU *dev, CdScsiRequest *req)
@@ -546,7 +570,7 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
 
     cd_scsi_lu_unload(dev);
     dev->power_cond = CD_SCSI_POWER_STOPPED;
-    cd_scsi_dev_sense_set(dev, &sense_code_UNIT_ATTENTION_NO_MEDIUM);
+    cd_scsi_dev_sense_set(dev, &sense_code_UA_NO_MEDIUM);
 
     SPICE_DEBUG("Unload lun:%" G_GUINT32_FORMAT, lun);
     return 0;
@@ -770,7 +794,7 @@ static void cd_scsi_cmd_test_unit_ready(CdScsiLU *dev, CdScsiRequest *req)
         if (dev->loaded) {
             cd_scsi_cmd_complete_good(dev, req);
         } else {
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NO_MEDIUM);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NOT_READY_NO_MEDIUM);
         }
     } else {
         cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INIT_CMD_REQUIRED);
@@ -786,10 +810,11 @@ static void cd_scsi_cmd_request_sense(CdScsiLU *dev, CdScsiRequest *req)
                    req->req_len : sizeof(dev->fixed_sense);
 
     if (dev->short_sense.key != NO_SENSE) {
-        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT " reported sense: %s0x%02x %02x %02x",
+        SPICE_DEBUG("%s, lun:%" G_GUINT32_FORMAT " reported sense: 0x%02x %02x %02x - %s, %s",
                     __FUNCTION__, req->lun,
-                    (dev->short_sense.key == UNIT_ATTENTION) ? "UNIT_ATT " : "",
-                    dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq);
+                    dev->short_sense.key, dev->short_sense.asc, dev->short_sense.ascq,
+                    cd_scsi_sense_key_descr(dev->short_sense.key),
+                    dev->short_sense.descr);
     }
     memcpy(req->buf, dev->fixed_sense, sizeof(dev->fixed_sense));
     cd_scsi_dev_sense_reset(dev); /* clear reported sense */
@@ -926,7 +951,7 @@ static void cd_scsi_cmd_inquiry_vpd(CdScsiLU *dev, CdScsiRequest *req)
     }
 
     default:
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " invalid page_code: %02x", 
                     req->lun, (int)page_code);
         return;
@@ -1044,7 +1069,7 @@ static void cd_scsi_cmd_inquiry(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("inquiry, lun:%" G_GUINT32_FORMAT " CmdDT bit set - unsupported, "
                     "cdb[1]:0x%02x cdb[1]:0x%02x",
                     req->lun, (int)req->cdb[1], (int)req->cdb[2]);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 
@@ -1057,7 +1082,7 @@ static void cd_scsi_cmd_inquiry(CdScsiLU *dev, CdScsiRequest *req)
         if (req->cdb[2] != 0) {
             SPICE_DEBUG("inquiry_standard, lun:%" G_GUINT32_FORMAT " non-zero page code: %02x",
                         req->lun, (int)req->cdb[2]);
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
             return;
         }
         cd_scsi_cmd_inquiry_standard(dev, req);
@@ -1124,7 +1149,7 @@ static void cd_scsi_cmd_get_read_disc_information(CdScsiLU *dev, CdScsiRequest *
         SPICE_DEBUG("read_disc_information, lun:%" G_GUINT32_FORMAT
                     " unsupported data type: %02x",
                     req->lun, data_type);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 
@@ -1186,7 +1211,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type LBA: %" G_GUINT32_FORMAT
                         " invalid LBA: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
             return;
         }
         break;
@@ -1196,7 +1221,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type track: %" G_GUINT32_FORMAT
                         " invalid track: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
             return;
         }
         break;
@@ -1206,7 +1231,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                         " addr_type session: %" G_GUINT32_FORMAT
                         " invalid session: %" G_GUINT32_FORMAT,
                         req->lun, addr_type, addr_num);
-            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+            cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
             return;
         }
         break;
@@ -1215,7 +1240,7 @@ static void cd_scsi_cmd_get_read_track_information(CdScsiLU *dev, CdScsiRequest 
                     "invalid addr_type: %" G_GUINT32_FORMAT
                     " addr_num: %" G_GUINT32_FORMAT,
                     req->lun, addr_type, addr_num);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 
@@ -1412,7 +1437,7 @@ static void cd_scsi_cmd_mode_sense_10(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("mode_sense_10, lun:%" G_GUINT32_FORMAT
                     " page 0x%x not implemented",
                     req->lun, (unsigned)page);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 
@@ -1826,7 +1851,7 @@ static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("get_configuration, lun:%" G_GUINT32_FORMAT 
                     " invalid rt:%" G_GUINT32_FORMAT " start_f:%" G_GUINT32_FORMAT,
                     req->lun, req_type, start_feature);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     } 
 
@@ -1956,7 +1981,7 @@ static void cd_scsi_cmd_send_event(CdScsiLU *dev, CdScsiRequest *req)
         SPICE_DEBUG("send_event, lun:%" G_GUINT32_FORMAT 
                     " invalid notification class:0x%x",
                     req->lun, notification_class);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 
@@ -2077,7 +2102,7 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
                 if (dev->prevent_media_removal) {
                     SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT
                                 " prevent_media_removal set, eject failed", req->lun);
-                    cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED);
+                    cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_MEDIUM_REMOVAL_PREVENTED);
                     return;
                 }
                 SPICE_DEBUG("start_stop_unit, lun:0x%" G_GUINT32_FORMAT " eject", req->lun);
@@ -2115,7 +2140,7 @@ static void cd_scsi_cmd_start_stop_unit(CdScsiLU *dev, CdScsiRequest *req)
     case CD_START_STOP_POWER_COND_LU_CONTROL:
         break;
     default:
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
     cd_scsi_cmd_complete_good(dev, req);
@@ -2255,7 +2280,7 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
                     " unsupported type:0x%x"
                     " data_type:0x%x max_num:%" G_GUINT32_FORMAT,
                     req->lun, type, data_type, max_num_descr);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         return;
     }
 }
@@ -2420,7 +2445,7 @@ static void cd_scsi_cmd_read(CdScsiLU *dev, CdScsiRequest *req)
         return;
     } else if (!dev->loaded || dev->stream == NULL) {
         SPICE_DEBUG("read, lun: %" G_GUINT32_FORMAT " is not loaded", req->lun);
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NO_MEDIUM);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_NOT_READY_NO_MEDIUM);
         return;
     }
 
@@ -2578,7 +2603,7 @@ void cd_scsi_dev_request_submit(void *scsi_target, CdScsiRequest *req)
     }
 
     if (req->req_len > INT32_MAX) {
-        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_FIELD);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
         goto done;
     }
 

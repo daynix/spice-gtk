@@ -40,13 +40,6 @@
 #define htobe32(x)          htonl(x)
 #endif
 
-typedef struct _ScsiShortSense
-{
-    uint8_t key;
-    uint8_t asc;
-    uint8_t ascq;
-} ScsiShortSense;
-
 typedef enum _ScsiXferDir
 {
     SCSI_XFER_NONE = 0,  /* TEST_UNIT_READY, ...           */
