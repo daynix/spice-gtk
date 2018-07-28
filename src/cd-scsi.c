@@ -52,6 +52,18 @@ typedef struct _ScsiShortSense
     const char *descr;
 } ScsiShortSense;
 
+#define CD_MEDIA_EVENT_NO_CHANGE            0x0
+#define CD_MEDIA_EVENT_EJECT_REQ            0x1 /* user request (mechanical switch) to eject the media */
+#define CD_MEDIA_EVENT_NEW_MEDIA            0x2 /* new media received */
+#define CD_MEDIA_EVENT_MEDIA_REMOVAL        0x3 /* media removed */
+#define CD_MEDIA_EVENT_MEDIA_CHANGED        0x4 /* user request to load new media */
+#define CD_MEDIA_EVENT_BG_FORMAT_COMPLETE   0x5
+#define CD_MEDIA_EVENT_BG_FORMAT_RESTART    0x6
+
+#define CD_POWER_EVENT_NO_CHANGE            0x0
+#define CD_POWER_EVENT_CHANGE_SUCCESS       0x1
+#define CD_POWER_EVENT_CHANGE_FALED         0x2
+
 typedef struct _CdScsiLU
 {
     CdScsiTarget *tgt;
@@ -64,6 +76,8 @@ typedef struct _CdScsiLU
     gboolean cd_rom;
 
     CdScsiPowerCondition power_cond;
+    uint32_t power_event;
+    uint32_t media_event;
 
     uint32_t claim_version;
 
@@ -467,6 +481,8 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
     dev->cd_rom = FALSE;
 
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
+    dev->power_event = CD_POWER_EVENT_NO_CHANGE;
+    dev->media_event = CD_MEDIA_EVENT_NO_CHANGE;
 
     dev->claim_version = 3; /* 0 : none; 2,3,5 : SPC/MMC-x */
 
@@ -488,6 +504,7 @@ int cd_scsi_dev_realize(void *scsi_target, uint32_t lun,
 
 static void cd_scsi_lu_media_reset(CdScsiLU *dev)
 {
+    /* media_event is not set here, as it depends on the context */
     dev->stream = NULL;
     dev->size = 0;
     dev->block_size = 0;
@@ -517,11 +534,13 @@ static void cd_scsi_lu_load(CdScsiLU *dev,
                             const CdScsiMediaParameters *media_params)
 {
     if (media_params != NULL) {
+        dev->media_event = CD_MEDIA_EVENT_NEW_MEDIA;
         dev->stream = media_params->stream;
         dev->size = media_params->size;
         dev->block_size = media_params->block_size;
         dev->num_blocks = media_params->size / media_params->block_size;
     } else {
+        dev->media_event = CD_MEDIA_EVENT_MEDIA_REMOVAL;
         cd_scsi_lu_media_reset(dev);
     }
     dev->loaded = TRUE;
@@ -529,6 +548,7 @@ static void cd_scsi_lu_load(CdScsiLU *dev,
 
 static void cd_scsi_lu_unload(CdScsiLU *dev)
 {
+    dev->media_event = CD_MEDIA_EVENT_MEDIA_REMOVAL;
     cd_scsi_lu_media_reset(dev);
     dev->loaded = FALSE;
 }
@@ -548,14 +568,12 @@ int cd_scsi_dev_load(void *scsi_target, uint32_t lun,
         return -1;
     }
     dev = &st->units[lun];
-    if (dev->loaded && dev->stream) {
-        // ToDo: implement re-loading with media change notification
-        SPICE_ERROR("Load, lun:%" G_GUINT32_FORMAT " already loaded", lun);
-        return -1;
-    }
 
     cd_scsi_lu_load(dev, media_params);
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
+    dev->power_event = CD_POWER_EVENT_CHANGE_SUCCESS;
+
+    cd_scsi_dev_sense_set(dev, &sense_code_MEDIUM_CHANGED);
 
     SPICE_DEBUG("Load lun:%" G_GUINT32_FORMAT " size:%" G_GUINT64_FORMAT
                 " blk_sz:%" G_GUINT32_FORMAT " num_blocks:%" G_GUINT32_FORMAT,
@@ -615,6 +633,8 @@ int cd_scsi_dev_unload(void *scsi_target, uint32_t lun)
 
     cd_scsi_lu_unload(dev);
     dev->power_cond = CD_SCSI_POWER_STOPPED;
+    dev->power_event = CD_POWER_EVENT_CHANGE_SUCCESS;
+
     cd_scsi_dev_sense_set(dev, &sense_code_UA_NO_MEDIUM);
 
     SPICE_DEBUG("Unload lun:%" G_GUINT32_FORMAT, lun);
@@ -680,6 +700,7 @@ int cd_scsi_dev_reset(void *scsi_target, uint32_t lun)
 
     dev->prevent_media_removal = FALSE;
     dev->power_cond = CD_SCSI_POWER_ACTIVE;
+    dev->power_event = CD_POWER_EVENT_CHANGE_SUCCESS;
     cd_scsi_dev_sense_set_power_on(dev);
 
     SPICE_DEBUG("Device reset lun:%" G_GUINT32_FORMAT, lun);
@@ -1920,10 +1941,12 @@ static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, CdScsiRequest *req)
     cd_scsi_cmd_complete_good(dev, req);
 }
 
-#define CD_GET_EVENT_STATUS_IMMED   0x01
-#define CD_GET_EVENT_HEADER_NEA     (0x01 << 7)
-#define CD_GET_EVENT_HEADER_LEN     4
+#define CD_GET_EVENT_STATUS_IMMED            0x01
 
+#define CD_GET_EVENT_HEADER_NO_EVENT_AVAIL  (0x01 << 7)
+#define CD_GET_EVENT_HEADER_LEN             4
+
+#define CD_GET_EVENT_CLASS_NONE             (0x00)
 #define CD_GET_EVENT_CLASS_OPER_CHANGE      (0x01)
 #define CD_GET_EVENT_CLASS_POWER_MGMT       (0x02)
 #define CD_GET_EVENT_CLASS_EXTERNAL_REQ     (0x03)
@@ -1933,52 +1956,94 @@ static void cd_scsi_cmd_get_configuration(CdScsiLU *dev, CdScsiRequest *req)
 
 #define CD_GET_EVENT_LEN_MEDIA              4
 
-#define CD_MEDIA_EVENT_NO_CHANGE            0x0
-#define CD_MEDIA_EVENT_EJECT_REQ            0x1
-#define CD_MEDIA_EVENT_NEW_MEDIA            0x2
-#define CD_MEDIA_EVENT_MEDIA_REMOVAL        0x3
-#define CD_MEDIA_EVENT_MEDIA_CHANGED        0x4
-#define CD_MEDIA_EVENT_BG_FORMAT_COMPLETE   0x5
-#define CD_MEDIA_EVENT_BG_FORMAT_RESTART    0x6
-
 #define CD_MEDIA_STATUS_MEDIA_PRESENT       0x1
 #define CD_MEDIA_STATUS_TRAY_OPEN           0x2
 
 static uint32_t cd_scsi_cmd_get_event_resp_add_media(CdScsiLU *dev, uint8_t *outbuf)
 {
-    outbuf[0] = CD_MEDIA_EVENT_NO_CHANGE & 0x0f;
-    outbuf[1] = CD_MEDIA_STATUS_MEDIA_PRESENT;
+    outbuf[0] = (uint8_t)dev->media_event & 0x0f;
+    outbuf[1] = (uint8_t)((dev->loaded ? 0 : CD_MEDIA_STATUS_TRAY_OPEN) |
+                          (dev->stream != NULL ? CD_MEDIA_STATUS_MEDIA_PRESENT : 0));
 
+    dev->media_event = CD_MEDIA_EVENT_NO_CHANGE; /* reset the event */
     return CD_GET_EVENT_LEN_MEDIA;
+}
+
+#define CD_GET_EVENT_LEN_POWER              4
+
+#define CD_POWER_STATUS_ACTIVE              0x1
+#define CD_POWER_STATUS_IDLE                0x2
+
+static uint32_t cd_scsi_cmd_get_event_resp_add_power(CdScsiLU *dev, uint8_t *outbuf)
+{
+    outbuf[0] = (uint8_t)dev->power_event & 0x0f;
+    outbuf[1] = (uint8_t)((dev->power_cond == CD_SCSI_POWER_ACTIVE) ?
+                           CD_POWER_STATUS_ACTIVE : CD_POWER_STATUS_IDLE);
+
+    dev->power_event = CD_POWER_EVENT_NO_CHANGE; /* reset the event */
+    return CD_GET_EVENT_LEN_POWER;
 }
 
 static void cd_scsi_cmd_get_event_status_notification(CdScsiLU *dev, CdScsiRequest *req)
 {
     uint8_t *outbuf = req->buf;
-    uint32_t immed, class_req;
     uint32_t resp_len = CD_GET_EVENT_HEADER_LEN;
+    const uint32_t power_class_mask = (0x01 << CD_GET_EVENT_CLASS_POWER_MGMT);
+    const uint32_t media_class_mask = (0x01 << CD_GET_EVENT_CLASS_MEDIA);
+    uint32_t classes_supported =  power_class_mask | media_class_mask;
+    uint32_t immed, classes_requested;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
     immed = req->cdb[1] & CD_GET_EVENT_STATUS_IMMED;
-    class_req = req->cdb[4];
+    classes_requested = req->cdb[4];
     req->req_len = (req->cdb[7] << 8) | req->cdb[8];
 
-    memset(outbuf, 0, req->req_len);
-    if (class_req & CD_GET_EVENT_CLASS_MEDIA) {
-        outbuf[2] = CD_GET_EVENT_CLASS_MEDIA;
-        outbuf[3] = (0x01 << CD_GET_EVENT_CLASS_MEDIA);
-        resp_len += cd_scsi_cmd_get_event_resp_add_media(dev, outbuf + resp_len);
-    } else {
-        outbuf[2] = CD_GET_EVENT_HEADER_NEA;
+    if (!immed) {
+        SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT
+                " imm:0 class_req:%02x, Non-immediate (async) mode unsupported",
+                req->lun, classes_requested);
+        cd_scsi_cmd_complete_check_cond(dev, req, &sense_code_INVALID_CDB_FIELD);
+        return;
     }
 
+    memset(outbuf, 0, req->req_len);
+    if ((classes_supported & classes_requested) != 0) {
+        if (classes_requested & power_class_mask) {
+            outbuf[2] = CD_GET_EVENT_CLASS_POWER_MGMT;
+            outbuf[3] = (uint8_t)power_class_mask;
+
+            SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT
+                        " imm:%" G_GUINT32_FORMAT " class_req:0x%02x class_sup:0x%02x"
+                        " power_event:0x%02x power_cond:0x%02x",
+                        req->lun, immed, classes_requested, classes_supported,
+                        dev->power_event, dev->power_cond);
+
+            resp_len += cd_scsi_cmd_get_event_resp_add_power(dev, outbuf + resp_len);
+        } else if (classes_requested & media_class_mask) {
+            outbuf[2] = CD_GET_EVENT_CLASS_MEDIA;
+            outbuf[3] = (uint8_t)media_class_mask;
+
+            SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT
+                        " imm:%" G_GUINT32_FORMAT " class_req:0x%02x class_sup:0x%02x"
+                        " media_event:0x%02x loaded: %d",
+                        req->lun, immed, classes_requested, classes_supported,
+                        dev->media_event, dev->loaded);
+
+            resp_len += cd_scsi_cmd_get_event_resp_add_media(dev, outbuf + resp_len);
+        }
+    } else {
+        outbuf[2] = CD_GET_EVENT_HEADER_NO_EVENT_AVAIL | CD_GET_EVENT_CLASS_NONE;
+
+        SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT
+                        " imm:%" G_GUINT32_FORMAT " class_req:0x%02x class_sup:0x%02x"
+                        " none of requested events supported",
+                        req->lun, immed, classes_requested, classes_supported);
+    }
+    outbuf[1] = (uint8_t)(resp_len - 2); /* Event Data Length LSB, length excluding the field itself */
+    outbuf[3] = (uint8_t)classes_supported;
+
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
-
-    SPICE_DEBUG("get_event_status_notification, lun:%" G_GUINT32_FORMAT 
-                " imm:%" G_GUINT32_FORMAT " class_req:%02x",
-                req->lun, immed, class_req);
-
     cd_scsi_cmd_complete_good(dev, req);
 }
 
