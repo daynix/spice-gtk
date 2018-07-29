@@ -2397,12 +2397,16 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
 
 #define CD_MECHANISM_STATUS_HDR_LEN     8
 
+/* byte 0 */
 #define CD_CHANGER_FAULT_FLAG           0x80
 
 #define CD_CHANGER_READY                0x00
 #define CD_CHANGER_LOADING              0x01
 #define CD_CHANGER_UNLOADING            0x02
 #define CD_CHANGER_INITIALIZING         0x03
+
+/* byte 1 */
+#define CD_CHANGER_DOOR_OPEN_FLAG       0x10
 
 #define CD_MECHANISM_STATE_IDLE         0x00
 #define CD_MECHANISM_STATE_PLAYING      0x01
@@ -2412,6 +2416,7 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
 #define CD_MECHANISM_STATE_ACTIVE       0x03
 #define CD_MECHANISM_STATE_NO_INFO      0x07
 
+/* slots */
 #define CD_MECHANISM_STATUS_SLOT_LEN    4
 
 #define CD_MECHANISM_SLOT_DISK_CHANGED  0x01
@@ -2421,24 +2426,23 @@ static void cd_scsi_cmd_get_performance(CdScsiLU *dev, CdScsiRequest *req)
 
 static void cd_scsi_cmd_mechanism_status(CdScsiLU *dev, CdScsiRequest *req)
 {
-    uint8_t *outbuf = req->buf, *slot;
+    uint8_t *outbuf = req->buf;
     uint32_t resp_len = CD_MECHANISM_STATUS_HDR_LEN;
 
     req->xfer_dir = SCSI_XFER_FROM_DEV;
 
-    req->req_len = (req->cdb[8] << 8) | req->cdb[9];   
+    req->req_len = (req->cdb[8] << 8) | req->cdb[9];
     memset(outbuf, 0, req->req_len);
 
-    outbuf[0] = 0x01; /* current slot */
-    outbuf[0] |= (CD_CHANGER_READY << 4);
-    outbuf[1] |= (CD_MECHANISM_STATE_IDLE << 4);
+    /* For non-changer devices the curent slot number field is reserved, set only status */
+    outbuf[0] |= (CD_CHANGER_READY << 5);
 
-    /* Slot table response descriptor */
-    slot = outbuf + CD_MECHANISM_STATUS_HDR_LEN;
-    if (dev->loaded) {
-        slot[0] |= 0x80;
-    }
-    resp_len += CD_MECHANISM_STATUS_SLOT_LEN;
+    outbuf[1] |= (!dev->loaded) ? CD_CHANGER_DOOR_OPEN_FLAG : 0;
+    outbuf[1] |= (dev->power_cond == CD_POWER_STATUS_ACTIVE) ?
+                 (CD_MECHANISM_STATE_ACTIVE << 5) : (CD_MECHANISM_STATE_IDLE << 5);
+
+    /* For non-changer devices the number of slot tables returned shall be zero, so we leave
+       both 'Number of Slots Available' and 'Length of Slot Table' fields as zeros */
 
     req->in_len = (req->req_len < resp_len) ? req->req_len : resp_len;
 
