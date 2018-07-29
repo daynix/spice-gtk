@@ -72,7 +72,7 @@
  * @include: spice-client.h
  *
  * #SpiceUsbDeviceManager monitors USB redirection channels and USB
- * devices plugging/unplugging. If #SpiceUsbDeviceManager:auto-redirect
+ * devices plugging/unplugging. If #SpiceUsbDeviceManager:auto-connect
  * is set to %TRUE, it will automatically connect newly plugged USB
  * devices to available channels.
  *
@@ -91,8 +91,8 @@
 enum {
     PROP_0,
     PROP_SESSION,
-    PROP_AUTO_REDIRECT,
-    PROP_AUTO_REDIRECT_FILTER,
+    PROP_AUTO_CONNECT,
+    PROP_AUTO_CONNECT_FILTER,
     PROP_REDIRECT_ON_CONNECT,
     PROP_FREE_CHANNELS,
     PROP_SHARE_CD
@@ -110,8 +110,8 @@ enum
 
 struct _SpiceUsbDeviceManagerPrivate {
     SpiceSession *session;
-    gboolean auto_redirect;
-    gchar *auto_redirect_filter;
+    gboolean auto_connect;
+    gchar *auto_connect_filter;
     gchar *redirect_on_connect;
 #ifdef USE_USBREDIR
     SpiceUsbBackend *context;
@@ -419,7 +419,7 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
 #endif
 #endif
 
-    g_free(priv->auto_redirect_filter);
+    g_free(priv->auto_connect_filter);
     g_free(priv->redirect_on_connect);
 
     /* Chain up to the parent class */
@@ -444,11 +444,11 @@ static void spice_usb_device_manager_get_property(GObject     *gobject,
     case PROP_SESSION:
         g_value_set_object(value, priv->session);
         break;
-    case PROP_AUTO_REDIRECT:
-        g_value_set_boolean(value, priv->auto_redirect);
+    case PROP_AUTO_CONNECT:
+        g_value_set_boolean(value, priv->auto_connect);
         break;
-    case PROP_AUTO_REDIRECT_FILTER:
-        g_value_set_string(value, priv->auto_redirect_filter);
+    case PROP_AUTO_CONNECT_FILTER:
+        g_value_set_string(value, priv->auto_connect_filter);
         break;
     case PROP_REDIRECT_ON_CONNECT:
         g_value_set_string(value, priv->redirect_on_connect);
@@ -489,13 +489,13 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
     case PROP_SESSION:
         priv->session = g_value_get_object(value);
         break;
-    case PROP_AUTO_REDIRECT:
-        priv->auto_redirect = g_value_get_boolean(value);
+    case PROP_AUTO_CONNECT:
+        priv->auto_connect = g_value_get_boolean(value);
 #if defined(G_OS_WIN32) && defined(USE_USBREDIR)
         _usbdk_hider_update(self);
 #endif
         break;
-    case PROP_AUTO_REDIRECT_FILTER: {
+    case PROP_AUTO_CONNECT_FILTER: {
         const gchar *filter = g_value_get_string(value);
 #ifdef USE_USBREDIR
         struct usbredirfilter_rule *rules;
@@ -504,18 +504,18 @@ static void spice_usb_device_manager_set_property(GObject       *gobject,
         r = usbredirfilter_string_to_rules(filter, ",", "|", &rules, &count);
         if (r) {
             if (r == -ENOMEM)
-                g_error("Failed to allocate memory for auto-redirect-filter");
-            g_warning("Error parsing auto-redirect-filter string, keeping old filter");
+                g_error("Failed to allocate memory for auto-connect-filter");
+            g_warning("Error parsing auto-connect-filter string, keeping old filter");
             break;
         }
 
-        SPICE_DEBUG("auto-redirect filter set to %s", filter);
+        SPICE_DEBUG("auto-connect filter set to %s", filter);
         free(priv->auto_conn_filter_rules);
         priv->auto_conn_filter_rules = rules;
         priv->auto_conn_filter_rules_count = count;
 #endif
-        g_free(priv->auto_redirect_filter);
-        priv->auto_redirect_filter = g_strdup(filter);
+        g_free(priv->auto_connect_filter);
+        priv->auto_connect_filter = g_strdup(filter);
 
 #if defined(G_OS_WIN32) && defined(USE_USBREDIR)
         _usbdk_hider_update(self);
@@ -593,24 +593,24 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
                              G_PARAM_STATIC_STRINGS));
 
     /**
-     * SpiceUsbDeviceManager:auto-redirect:
+     * SpiceUsbDeviceManager:auto-connect:
      *
      * Set this to TRUE to automatically redirect newly plugged in device.
      *
      * Note when #SpiceGtkSession's auto-usbredir property is TRUE, this
      * property is controlled by #SpiceGtkSession.
      */
-    pspec = g_param_spec_boolean("auto-redirect", "Auto Redirect",
-                                 "Auto redirect plugged in USB devices",
+    pspec = g_param_spec_boolean("auto-connect", "Auto Connect",
+                                 "Auto connect plugged in USB devices",
                                  FALSE,
                                  G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-    g_object_class_install_property(gobject_class, PROP_AUTO_REDIRECT, pspec);
+    g_object_class_install_property(gobject_class, PROP_AUTO_CONNECT, pspec);
 
     /**
-     * SpiceUsbDeviceManager:auto-redirect-filter:
+     * SpiceUsbDeviceManager:auto-connect-filter:
      *
      * Set a string specifying a filter to use to determine which USB devices
-     * to auto-redirect when plugged in, a filter consists of one or more rules.
+     * to autoconnect when plugged in, a filter consists of one or more rules.
      * Where each rule has the form of:
      *
      * @class,@vendor,@product,@version,@allow
@@ -621,19 +621,19 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
      *
      * @rule1|@rule2|@rule3
      *
-     * The default setting filters out HID (class 0x03) USB devices from auto-redirect
-     * and connects anything else automatically.
-     * Note the explicit allow rule at the end, this is necessary since by default
-     * all devices without a matching filter rule will not auto-redirect.
+     * The default setting filters out HID (class 0x03) USB devices from auto
+     * connect and auto connects anything else. Note the explicit allow rule at
+     * the end, this is necessary since by default all devices without a
+     * matching filter rule will not auto-connect.
      *
      * Filter strings in this format can be easily created with the RHEV-M
      * USB filter editor tool.
      */
-    pspec = g_param_spec_string("auto-redirect-filter", "Auto-redirect filter",
-               "Filter determining which USB devices to auto-redirect",
+    pspec = g_param_spec_string("auto-connect-filter", "Auto Connect Filter ",
+               "Filter determining which USB devices to auto connect",
                "0x03,-1,-1,-1,0|-1,-1,-1,-1,1",
                G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
-    g_object_class_install_property(gobject_class, PROP_AUTO_REDIRECT_FILTER,
+    g_object_class_install_property(gobject_class, PROP_AUTO_CONNECT_FILTER,
                                     pspec);
 
     /**
@@ -642,7 +642,7 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
      * Set a string specifying a filter selecting USB devices to automatically
      * redirect after a Spice connection has been established.
      *
-     * See #SpiceUsbDeviceManager:auto-redirect-filter for the filter string
+     * See #SpiceUsbDeviceManager:auto-connect-filter for the filter string
      * format.
      */
     pspec = g_param_spec_string("redirect-on-connect", "Redirect on connect",
@@ -720,12 +720,12 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
     /**
      * SpiceUsbDeviceManager::auto-connect-failed:
      * @manager: the #SpiceUsbDeviceManager that emitted the signal
-     * @device: #SpiceUsbDevice boxed object corresponding to the device which failed to auto-redirect
-     * @error: #GError describing the reason why the auto-redirect failed
+     * @device: #SpiceUsbDevice boxed object corresponding to the device which failed to auto connect
+     * @error: #GError describing the reason why the autoconnect failed
      *
      * The #SpiceUsbDeviceManager::auto-connect-failed signal is emitted
-     * whenever the auto-redirect property is true, and a newly plugged in
-     * device could not be auto-redirected.
+     * whenever the auto-connect property is true, and a newly plugged in
+     * device could not be auto-connected.
      **/
     signals[AUTO_CONNECT_FAILED] =
         g_signal_new("auto-connect-failed",
@@ -874,9 +874,9 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
     g_ptr_array_remove(self->priv->channels, channel);
 }
 
-static void spice_usb_device_manager_auto_redirect_cb(GObject      *gobject,
-                                                      GAsyncResult *res,
-                                                      gpointer      user_data)
+static void spice_usb_device_manager_auto_connect_cb(GObject      *gobject,
+                                                     GAsyncResult *res,
+                                                     gpointer      user_data)
 {
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(gobject);
     SpiceUsbDevice *device = user_data;
@@ -949,7 +949,7 @@ static void spice_usb_device_manager_add_dev(
 
     g_ptr_array_add(priv->devices, device);
 
-    if (priv->auto_redirect) {
+    if (priv->auto_connect) {
         gboolean can_redirect, auto_ok;
 
         can_redirect = spice_usb_device_manager_can_redirect_device(
@@ -963,7 +963,7 @@ static void spice_usb_device_manager_add_dev(
         if (can_redirect && auto_ok)
             spice_usb_device_manager_connect_device_async(self,
                                    device, NULL,
-                                   spice_usb_device_manager_auto_redirect_cb,
+                                   spice_usb_device_manager_auto_connect_cb,
                                    spice_usb_device_ref(device));
     }
 
@@ -1219,7 +1219,7 @@ void spice_usb_device_manager_check_redir_on_connect(
                completion handling code! */
             task = g_task_new(self,
                               NULL,
-                              spice_usb_device_manager_auto_redirect_cb,
+                              spice_usb_device_manager_auto_connect_cb,
                               spice_usb_device_ref(device));
 
             spice_usbredir_channel_connect_device_async(
@@ -1273,7 +1273,7 @@ static SpiceUsbredirChannel *spice_usb_device_manager_get_channel_for_dev(
  * spice_usb_device_manager_get_devices_with_filter:
  * @manager: the #SpiceUsbDeviceManager manager
  * @filter: (allow-none): filter string for selecting which devices to return,
- *      see #SpiceUsbDeviceManager:auto-redirect-filter for the filter
+ *      see #SpiceUsbDeviceManager:auto-connect-filter for the filter
  *      string format
  *
  * Finds devices associated with the @manager complying with the @filter
@@ -1948,7 +1948,7 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
 
     g_return_if_fail(priv->usbdk_api != NULL);
 
-    if (priv->auto_redirect_filter == NULL) {
+    if (priv->auto_connect_filter == NULL) {
         SPICE_DEBUG("No autoredirect rules, no hider setup needed");
         _usbdk_hider_clear(manager);
         return;
@@ -1960,8 +1960,8 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
         return;
     }
 
-    if (!priv->auto_redirect) {
-        SPICE_DEBUG("auto-redirect disabled, no hider setup needed");
+    if (!priv->auto_connect) {
+        SPICE_DEBUG("Auto-connect disabled, no hider setup needed");
         _usbdk_hider_clear(manager);
         return;
     }
@@ -1969,7 +1969,7 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
     if(_usbdk_hider_prepare(manager)) {
         usbdk_api_set_hide_rules(priv->usbdk_api,
                                  priv->usbdk_hider_handle,
-                                 priv->auto_redirect_filter);
+                                 priv->auto_connect_filter);
     }
 }
 

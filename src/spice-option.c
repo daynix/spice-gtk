@@ -302,7 +302,7 @@ void spice_set_session_option(SpiceSession *session)
     if (usbredir_auto_redirect_filter) {
         SpiceUsbDeviceManager *m = spice_usb_device_manager_get(session, NULL);
         if (m)
-            g_object_set(m, "auto-redirect-filter",
+            g_object_set(m, "auto-connect-filter",
                          usbredir_auto_redirect_filter, NULL);
     }
     if (usbredir_redirect_on_connect) {
