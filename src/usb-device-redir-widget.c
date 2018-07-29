@@ -1343,6 +1343,19 @@ static GtkWidget *view_popup_add_menu_item(GtkWidget *menu,
     return menu_item;
 }
 
+static gboolean has_single_lun(SpiceUsbDeviceWidgetPrivate *priv, SpiceUsbDevice *device)
+{
+    gboolean result;
+    SpiceUsbDeviceManager *usb_dev_mgr = priv->manager;
+    GArray *lun_array;
+    lun_array = spice_usb_device_manager_get_device_luns(usb_dev_mgr, device);
+    result = lun_array && lun_array->len <= 1;
+    if (lun_array) {
+        g_array_unref(lun_array);
+    }
+    return result;
+}
+
 static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
@@ -1406,7 +1419,7 @@ static void view_popup_menu(GtkTreeView *tree_view, GdkEventButton *event, gpoin
                                  G_CALLBACK(view_popup_menu_on_eject), user_data);
     }
 
-    if (!is_dev_connected) {
+    if (!is_dev_connected || has_single_lun(priv, lun_item->device)) {
         view_popup_add_menu_item(menu, "_Remove", "edit-delete",
                                  G_CALLBACK(view_popup_menu_on_remove), user_data);
     }
