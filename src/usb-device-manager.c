@@ -892,6 +892,9 @@ static void spice_usb_device_manager_auto_connect_cb(GObject      *gobject,
         g_signal_emit(self, signals[AUTO_CONNECT_FAILED], 0, device, err);
         g_error_free(err);
     }
+    /* let widget update itself */
+    g_signal_emit(self, signals[DEVICE_CHANGED], 0, device);
+
     spice_usb_device_unref(device);
 }
 
