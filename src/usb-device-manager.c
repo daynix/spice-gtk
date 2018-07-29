@@ -961,7 +961,7 @@ static void spice_usb_device_manager_add_dev(
         auto_ok = spice_usb_backend_device_check_filter(
             bdev,
             priv->auto_conn_filter_rules,
-            priv->auto_conn_filter_rules_count);
+            priv->auto_conn_filter_rules_count) == 0;
 
         if (can_redirect && auto_ok)
             spice_usb_device_manager_connect_device_async(self,
