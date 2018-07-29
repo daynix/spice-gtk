@@ -217,7 +217,19 @@ static void update_keyboard_focus(SpiceDisplay *display, gboolean state)
     if (d->keyboard_grab_inhibit)
         return;
 
+#if defined(G_OS_WIN32)
+    /*
+    This is workaround for Windows where policykit will not
+    raise any dialog. The problem is that when the USB device widget
+    is active, the automatic redirection on device plug-in is disabled.
+    The widget is always active when we add CD device via GUI,
+    so it will never be redirected automatically.
+    TODO: find better solution for the problem
+    */
+    spice_gtk_session_request_auto_usbredir(d->gtk_session, TRUE);
+#else
     spice_gtk_session_request_auto_usbredir(d->gtk_session, state);
+#endif
 }
 
 static gint get_display_id(SpiceDisplay *display)
