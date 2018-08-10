@@ -51,6 +51,7 @@
 #include "usb-device-manager.h"
 #include "spice-audio.h"
 #include "spice-file-transfer-task.h"
+#include "qmp-port.h"
 
 G_BEGIN_DECLS
 

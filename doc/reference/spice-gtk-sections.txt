@@ -495,6 +495,33 @@ SpicePortChannelPrivate
 </SECTION>
 
 <SECTION>
+<FILE>qmp-port</FILE>
+<TITLE>SpiceQmpPort</TITLE>
+
+<SUBSECTION>
+SpiceQmpPort
+SpiceQmpPortVmAction
+SpiceQmpStatus
+<SUBSECTION>
+spice_qmp_port_get
+spice_qmp_port_vm_action_async
+spice_qmp_port_vm_action_finish
+spice_qmp_port_query_status_async
+spice_qmp_port_query_status_finish
+spice_qmp_status_ref
+spice_qmp_status_unref
+<SUBSECTION Standard>
+SPICE_IS_QMP_PORT
+SPICE_IS_QMP_PORT_CLASS
+SPICE_QMP_PORT
+SPICE_QMP_PORT_CLASS
+SPICE_QMP_PORT_GET_CLASS
+SPICE_TYPE_QMP_PORT
+spice_qmp_port_get_type
+spice_qmp_status_get_type
+</SECTION>
+
+<SECTION>
 <FILE>spice-uri</FILE>
 spice_uri_get_scheme
 spice_uri_set_scheme

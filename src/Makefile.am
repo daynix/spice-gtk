@@ -78,6 +78,7 @@ SPICE_COMMON_CPPFLAGS =						\
 	$(GLIB2_CFLAGS)						\
 	$(GIO_CFLAGS)						\
 	$(GOBJECT2_CFLAGS)					\
+	$(JSON_CFLAGS)						\
 	$(SSL_CFLAGS)						\
 	$(SASL_CFLAGS)						\
 	$(GSTAUDIO_CFLAGS)					\
@@ -182,6 +183,7 @@ libspice_client_glib_2_0_la_LIBADD =					\
 	$(GIO_LIBS)							\
 	$(GOBJECT2_LIBS)						\
 	$(JPEG_LIBS)							\
+	$(JSON_LIBS)							\
 	$(Z_LIBS)							\
 	$(LZ4_LIBS)							\
 	$(PIXMAN_LIBS)							\
@@ -243,6 +245,8 @@ libspice_client_glib_2_0_la_SOURCES =			\
 	channel-smartcard.c				\
 	channel-usbredir.c				\
 	channel-usbredir-priv.h				\
+	qmp-port.c					\
+	qmp-port.h					\
 	smartcard-manager.c				\
 	smartcard-manager-priv.h			\
 	spice-uri.c					\
@@ -293,6 +297,7 @@ libspice_client_glibinclude_HEADERS =	\
 	channel-smartcard.h		\
 	channel-usbredir.h		\
 	channel-webdav.h		\
+	qmp-port.h			\
 	usb-device-manager.h		\
 	smartcard-manager.h		\
 	spice-file-transfer-task.h	\
@@ -526,6 +531,7 @@ glib_introspection_files =				\
 	channel-record.c				\
 	channel-smartcard.c				\
 	channel-usbredir.c				\
+	qmp-port.c					\
 	smartcard-manager.c				\
 	usb-device-manager.c				\
 	$(NULL)
