@@ -66,7 +66,7 @@ static unsigned int ref_count_for_untranslated_keys = 0;
 
 #if defined(GDK_WINDOWING_X11) || defined(GDK_WINDOWING_WAYLAND)
 /* Xorg Linux + evdev (offset evdev keycodes) */
-#include "vncdisplaykeymap_xorgevdev2xtkbd.c"
+#include "vncdisplaykeymap_xorgevdev2xtkbd.h"
 #endif
 
 #ifdef GDK_WINDOWING_X11
@@ -76,11 +76,11 @@ static unsigned int ref_count_for_untranslated_keys = 0;
 #include <string.h>
 
 /* Xorg Linux + kbd (offset + mangled XT keycodes) */
-#include "vncdisplaykeymap_xorgkbd2xtkbd.c"
+#include "vncdisplaykeymap_xorgkbd2xtkbd.h"
 /* Xorg OS-X aka XQuartz (offset OS-X keycodes) */
-#include "vncdisplaykeymap_xorgxquartz2xtkbd.c"
+#include "vncdisplaykeymap_xorgxquartz2xtkbd.h"
 /* Xorg Cygwin aka XWin (offset + mangled XT keycodes) */
-#include "vncdisplaykeymap_xorgxwin2xtkbd.c"
+#include "vncdisplaykeymap_xorgxwin2xtkbd.h"
 
 #endif
 
@@ -88,19 +88,19 @@ static unsigned int ref_count_for_untranslated_keys = 0;
 #include <gdk/gdkwin32.h>
 
 /* Win32 native virtual keycodes */
-#include "vncdisplaykeymap_win322xtkbd.c"
+#include "vncdisplaykeymap_win322xtkbd.h"
 #endif
 
 #ifdef GDK_WINDOWING_QUARTZ
 #include <gdk/gdkquartz.h>
 
 /* OS-X native keycodes */
-#include "vncdisplaykeymap_osx2xtkbd.c"
+#include "vncdisplaykeymap_osx2xtkbd.h"
 #endif
 
 #ifdef GDK_WINDOWING_BROADWAY
 /* X11 keysyms */
-#include "vncdisplaykeymap_x112xtkbd.c"
+#include "vncdisplaykeymap_x112xtkbd.h"
 #endif
 
 #ifdef GDK_WINDOWING_X11

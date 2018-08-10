@@ -2,13 +2,13 @@ NULL =
 SUBDIRS =
 
 KEYMAPS =					\
-	vncdisplaykeymap_xorgevdev2xtkbd.c	\
-	vncdisplaykeymap_xorgkbd2xtkbd.c	\
-	vncdisplaykeymap_xorgxquartz2xtkbd.c	\
-	vncdisplaykeymap_xorgxwin2xtkbd.c	\
-	vncdisplaykeymap_osx2xtkbd.c		\
-	vncdisplaykeymap_win322xtkbd.c		\
-	vncdisplaykeymap_x112xtkbd.c		\
+	vncdisplaykeymap_xorgevdev2xtkbd.h	\
+	vncdisplaykeymap_xorgkbd2xtkbd.h	\
+	vncdisplaykeymap_xorgxquartz2xtkbd.h	\
+	vncdisplaykeymap_xorgxwin2xtkbd.h	\
+	vncdisplaykeymap_osx2xtkbd.h		\
+	vncdisplaykeymap_win322xtkbd.h		\
+	vncdisplaykeymap_x112xtkbd.h		\
 	$(NULL)
 
 # End users build dependencies can be cleaned
@@ -471,25 +471,25 @@ spice-widget-enums.h: spice-widget.h
 vncdisplaykeymap.c: $(KEYMAPS)
 $(KEYMAPS): $(srcdir)/$(KEYMAP_GEN) $(srcdir)/$(KEYMAP_CSV)
 
-vncdisplaykeymap_xorgevdev2xtkbd.c:
+vncdisplaykeymap_xorgevdev2xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgevdev2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgevdev xtkbd > $@ || rm $@
 
-vncdisplaykeymap_xorgkbd2xtkbd.c:
+vncdisplaykeymap_xorgkbd2xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgkbd2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgkbd xtkbd > $@ || rm $@
 
-vncdisplaykeymap_xorgxquartz2xtkbd.c:
+vncdisplaykeymap_xorgxquartz2xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxquartz2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgxquartz xtkbd > $@ || rm $@
 
-vncdisplaykeymap_xorgxwin2xtkbd.c:
+vncdisplaykeymap_xorgxwin2xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxwin2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgxwin xtkbd > $@ || rm $@
 
-vncdisplaykeymap_osx2xtkbd.c:
+vncdisplaykeymap_osx2xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_osx2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) osx xtkbd > $@ || rm $@
 
-vncdisplaykeymap_win322xtkbd.c:
+vncdisplaykeymap_win322xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_win322xtkbd code-map $(srcdir)/$(KEYMAP_CSV) win32 xtkbd > $@ || rm $@
 
-vncdisplaykeymap_x112xtkbd.c:
+vncdisplaykeymap_x112xtkbd.h:
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_x112xtkbd code-map $(srcdir)/$(KEYMAP_CSV) x11 xtkbd > $@ || rm $@
 
 -include $(INTROSPECTION_MAKEFILE)
