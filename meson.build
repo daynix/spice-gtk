@@ -390,9 +390,8 @@ if spice_gtk_has_gtk
                               '-DGDK_VERSION_MAX_ALLOWED=@0@'.format(gtk_encoded_version)]
 endif
 
-foreach arg : compiler.get_supported_arguments(spice_gtk_global_cflags)
-  add_project_arguments(arg, language : 'c')
-endforeach
+add_project_arguments(compiler.get_supported_arguments(spice_gtk_global_cflags),
+                      language : 'c')
 
 #
 # Subdirectories
