@@ -37,7 +37,6 @@ ignore_headers = [
 ]
 
 spice_gtk_doc_dep = declare_dependency(include_directories: spice_gtk_include,
-                                       link_args : spice_gtk_link_args,
                                        link_with : [spice_client_gtk_lib, spice_client_glib_lib])
 
 gnome.gtkdoc('spice-gtk',

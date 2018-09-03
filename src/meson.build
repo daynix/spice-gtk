@@ -167,8 +167,6 @@ endif
 # libspice-client-glib-2.0.so
 #
 
-# custom link_args
-
 # version-script
 spice_client_glib_syms = files('map-file')
 spice_client_glib_syms_path = join_paths(meson.current_source_dir(), 'map-file')
@@ -195,7 +193,7 @@ spice_client_glib_lib = library('spice-client-glib-2.0', spice_client_glib_sourc
                                 version : spice_client_glib_so_version,
                                 install : true,
                                 include_directories : spice_gtk_include,
-                                link_args : spice_gtk_link_args + [spice_gtk_version_script],
+                                link_args : [spice_gtk_version_script],
                                 link_depends : spice_client_glib_syms,
                                 link_with : spice_gtk_libs,
                                 dependencies : spice_gtk_deps)
@@ -203,14 +201,12 @@ spice_client_glib_lib = library('spice-client-glib-2.0', spice_client_glib_sourc
 spice_client_glib_dep = declare_dependency(sources : [spice_marshals[1], spice_client_glib_enums[1]],
                                            link_with : spice_client_glib_lib,
                                            include_directories : spice_gtk_include,
-                                           link_args : spice_gtk_link_args,
                                            dependencies : spice_gtk_deps)
 
 #
 # SpiceClientGLib-2.0.gir
 #
 spice_client_glib_introspection_dep = declare_dependency(include_directories: spice_gtk_include,
-                                                         link_args : spice_gtk_link_args,
                                                          link_with : spice_client_glib_lib)
 
 spice_client_glib_gir = gnome.generate_gir(spice_client_glib_lib,
@@ -232,7 +228,7 @@ spice_client_glib_gir = gnome.generate_gir(spice_client_glib_lib,
 #
 if spice_gtk_has_polkit
   usb_acl_helper_c_args = []
-  usb_acl_helper_link_args = spice_gtk_link_args
+  usb_acl_helper_link_args = []
 
   if spice_gtk_has_pie
     usb_acl_helper_c_args += compiler.get_supported_arguments(['-fPIE'])
@@ -348,7 +344,7 @@ if spice_gtk_has_gtk
   spice_client_gtk_lib = library('spice-client-gtk-3.0', spice_client_gtk_sources,
                                  version : spice_client_gtk_so_version,
                                  install : true,
-                                 link_args : spice_gtk_link_args + [spice_gtk_version_script],
+                                 link_args : [spice_gtk_version_script],
                                  link_depends : spice_client_gtk_syms,
                                  dependencies : spice_client_glib_dep)
 
@@ -360,7 +356,6 @@ if spice_gtk_has_gtk
   # SpiceClientGtk-3.0.gir
   #
   spice_client_gtk_introspection_dep = declare_dependency(include_directories : spice_gtk_include,
-                                                          link_args : spice_gtk_link_args,
                                                           link_with : [spice_client_gtk_lib, spice_client_glib_lib])
 
   spice_client_gtk_gir = gnome.generate_gir(spice_client_gtk_lib,

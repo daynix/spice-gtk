@@ -42,7 +42,6 @@ spice_protocol_min_version='0.12.13'
 spice_gtk_include = [include_directories('.')]
 spice_gtk_libs = []
 spice_gtk_deps = []
-spice_gtk_link_args = []
 spice_gtk_host_system = host_machine.system()
 
 #
