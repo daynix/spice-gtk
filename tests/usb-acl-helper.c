@@ -15,6 +15,7 @@
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdio.h>
 #include <glib.h>
 #include "usb-acl-helper.h"
 
@@ -198,6 +199,13 @@ static void test_acl_helper_no_response(Fixture *fixture, gconstpointer user_dat
 
 int main(int argc, char* argv[])
 {
+    /* Meson waits for stderr to be not readable so make sure the
+     * helper does not keep the pipe open (this happens with current
+     * mock helper) */
+    if (freopen("usb-acl-helper-error.log", "w", stderr) == NULL) {
+        return 1;
+    }
+
     g_test_init(&argc, &argv, NULL);
 
     g_test_add("/usb-acl-helper/success", Fixture, NULL,
