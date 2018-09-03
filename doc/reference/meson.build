@@ -36,8 +36,7 @@ ignore_headers = [
   'win-usb-dev.h',
 ]
 
-spice_gtk_doc_dep = declare_dependency(include_directories: spice_gtk_include,
-                                       link_with : [spice_client_gtk_lib, spice_client_glib_lib])
+spice_gtk_doc_dep = declare_dependency(link_with : [spice_client_gtk_lib, spice_client_glib_lib])
 
 gnome.gtkdoc('spice-gtk',
              content_files : ['spice-gtk-overrides.txt', 'spice-gtk-overrides.txt'],
@@ -45,6 +44,7 @@ gnome.gtkdoc('spice-gtk',
              main_xml : 'spice-gtk-docs.xml',
              gobject_typesfile : files('spice-gtk.types'),
              ignore_headers : ignore_headers,
+             include_directories: spice_gtk_include,
              install : true,
              scan_args : ['--deprecated-guards="SPICE_DISABLE_DEPRECATED"', '--ignore-decorators="G_GNUC_INTERNAL"'],
              src_dir : join_paths(meson.source_root(), 'src'))

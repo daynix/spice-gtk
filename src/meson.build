@@ -206,17 +206,15 @@ spice_client_glib_dep = declare_dependency(sources : [spice_marshals[1], spice_c
 #
 # SpiceClientGLib-2.0.gir
 #
-spice_client_glib_introspection_dep = declare_dependency(include_directories: spice_gtk_include,
-                                                         link_with : spice_client_glib_lib)
-
 spice_client_glib_gir = gnome.generate_gir(spice_client_glib_lib,
                                            build_by_default : spice_gtk_has_introspection,
-                                           dependencies : spice_client_glib_introspection_dep,
                                            export_packages : 'spice-client-glib-2.0',
                                            extra_args : ['--accept-unprefixed'],
                                            header : 'spice-client.h',
                                            includes : ['GObject-2.0', 'Gio-2.0'],
                                            identifier_prefix : 'Spice',
+                                           include_directories: spice_gtk_include,
+                                           link_with : spice_client_glib_lib,
                                            symbol_prefix : 'spice',
                                            install : spice_gtk_has_introspection,
                                            namespace : 'SpiceClientGLib',
@@ -355,16 +353,14 @@ if spice_gtk_has_gtk
   #
   # SpiceClientGtk-3.0.gir
   #
-  spice_client_gtk_introspection_dep = declare_dependency(include_directories : spice_gtk_include,
-                                                          link_with : [spice_client_gtk_lib, spice_client_glib_lib])
-
   spice_client_gtk_gir = gnome.generate_gir(spice_client_gtk_lib,
                                             build_by_default : spice_gtk_has_introspection,
-                                            dependencies : spice_client_gtk_introspection_dep,
                                             export_packages : 'spice-client-gtk-3.0',
                                             extra_args : ['--accept-unprefixed'],
                                             header : 'spice-widget.h',
                                             includes : ['GObject-2.0', 'Gtk-3.0', spice_client_glib_gir[0]],
+                                            include_directories: spice_gtk_include,
+                                            link_with : spice_client_glib_lib,
                                             identifier_prefix : 'Spice',
                                             symbol_prefix : 'spice',
                                             install : spice_gtk_has_introspection,
