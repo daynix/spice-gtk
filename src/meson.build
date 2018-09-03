@@ -369,7 +369,7 @@ if spice_gtk_has_gtk
                                             export_packages : 'spice-client-gtk-3.0',
                                             extra_args : ['--accept-unprefixed'],
                                             header : 'spice-widget.h',
-                                            includes : ['GObject-2.0', 'Gtk-3.0', 'SpiceClientGLib-2.0'],
+                                            includes : ['GObject-2.0', 'Gtk-3.0', spice_client_glib_gir[0]],
                                             identifier_prefix : 'Spice',
                                             symbol_prefix : 'spice',
                                             install : spice_gtk_has_introspection,
