@@ -122,7 +122,7 @@ static void spice_usbredir_channel_init(SpiceUsbredirChannel *channel)
 
 #ifdef USE_USBREDIR
 
-static void _channel_reset_finish(SpiceUsbredirChannel *channel)
+static void _channel_reset_finish(SpiceUsbredirChannel *channel, gboolean migrating)
 {
     SpiceUsbredirChannelPrivate *priv = channel->priv;
 
@@ -135,6 +135,8 @@ static void _channel_reset_finish(SpiceUsbredirChannel *channel)
     spice_usbredir_channel_set_context(channel, priv->context);
 
     spice_usbredir_channel_unlock(channel);
+
+    SPICE_CHANNEL_CLASS(spice_usbredir_channel_parent_class)->channel_reset(SPICE_CHANNEL(channel), migrating);
 }
 
 static void _channel_reset_cb(GObject *gobject,
@@ -146,9 +148,7 @@ static void _channel_reset_cb(GObject *gobject,
     gboolean migrating = GPOINTER_TO_UINT(user_data);
     GError *err = NULL;
 
-    _channel_reset_finish(channel);
-
-    SPICE_CHANNEL_CLASS(spice_usbredir_channel_parent_class)->channel_reset(spice_channel, migrating);
+    _channel_reset_finish(channel, migrating);
 
     spice_usbredir_channel_disconnect_device_finish(channel, result, &err);
 }
@@ -177,8 +177,7 @@ static void spice_usbredir_channel_reset(SpiceChannel *c, gboolean migrating)
         return;
     }
 
-    /* FIXME: This does not chain-up with parent's channel-reset, which is a must */
-    _channel_reset_finish(channel);
+    _channel_reset_finish(channel, migrating);
 }
 #endif
 
