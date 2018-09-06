@@ -2675,11 +2675,15 @@ cleanup:
     if (c->state == SPICE_CHANNEL_STATE_RECONNECTING ||
         c->state == SPICE_CHANNEL_STATE_SWITCHING) {
         g_warn_if_fail(c->event == SPICE_CHANNEL_NONE);
-        channel_connect(channel, c->tls);
-        g_object_unref(channel);
-    } else
-        g_idle_add(spice_channel_delayed_unref, data);
+        if (channel_connect(channel, c->tls)) {
+            g_object_unref(channel);
+            return NULL;
+        }
 
+        c->event = SPICE_CHANNEL_ERROR_CONNECT;
+    }
+
+    g_idle_add(spice_channel_delayed_unref, channel);
     /* Co-routine exits now - the SpiceChannel object may no longer exist,
        so don't do anything else now unless you like SEGVs */
     return NULL;
