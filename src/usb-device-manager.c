@@ -158,6 +158,8 @@ static void channel_new(SpiceSession *session, SpiceChannel *channel,
                         gpointer user_data);
 static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
                             gpointer user_data);
+static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
+                          gpointer user_data);
 #ifdef USE_GUDEV
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
                                                const gchar     *action,
@@ -849,6 +851,8 @@ static void channel_new(SpiceSession *session, SpiceChannel *channel,
     spice_channel_connect(channel);
     g_ptr_array_add(self->priv->channels, channel);
 
+    g_signal_connect(channel, "channel-event", G_CALLBACK(channel_event), self);
+
     spice_usb_device_manager_check_redir_on_connect(self, channel);
 
     /*
@@ -869,6 +873,34 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
         return;
 
     g_ptr_array_remove(self->priv->channels, channel);
+}
+
+static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
+                          gpointer user_data)
+
+{
+    SpiceUsbDeviceManager *self = user_data;
+
+    switch (event) {
+    case SPICE_CHANNEL_NONE:
+    case SPICE_CHANNEL_OPENED:
+        return;
+
+    case SPICE_CHANNEL_SWITCHING:
+    case SPICE_CHANNEL_CLOSED:
+    case SPICE_CHANNEL_ERROR_CONNECT:
+    case SPICE_CHANNEL_ERROR_TLS:
+    case SPICE_CHANNEL_ERROR_LINK:
+    case SPICE_CHANNEL_ERROR_AUTH:
+    case SPICE_CHANNEL_ERROR_IO:
+        g_signal_handlers_disconnect_by_func(channel, channel_event, user_data);
+        g_ptr_array_remove(self->priv->channels, channel);
+        return;
+    default:
+        g_warning("Unhandled SpiceChannelEvent %d, disconnecting usbredir %p", event, channel);
+        g_signal_handlers_disconnect_by_func(channel, channel_event, user_data);
+        g_ptr_array_remove(self->priv->channels, channel);
+    }
 }
 
 static void spice_usb_device_manager_auto_connect_cb(GObject      *gobject,
