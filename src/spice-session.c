@@ -34,11 +34,6 @@
 #include "channel-playback-priv.h"
 #include "spice-audio-priv.h"
 
-struct channel {
-    SpiceChannel      *channel;
-    RingItem          link;
-};
-
 #define IMAGES_CACHE_SIZE_DEFAULT (1024 * 1024 * 80)
 #define MIN_GLZ_WINDOW_SIZE_DEFAULT (1024 * 1024 * 12)
 #define MAX_GLZ_WINDOW_SIZE_DEFAULT MIN((LZ_MAX_WINDOW_SIZE * 4), 1024 * 1024 * 64)
@@ -93,7 +88,7 @@ struct _SpiceSessionPrivate {
     int               connection_id;
     int               protocol;
     SpiceChannel      *cmain; /* weak reference */
-    Ring              channels;
+    GList             *channels;
     guint             channels_destroying;
     gboolean          client_provided_sockets;
     guint64           mm_time_offset;
@@ -283,7 +278,6 @@ static void spice_session_init(SpiceSession *session)
     SPICE_DEBUG("Supported channels: %s", channels);
     g_free(channels);
 
-    ring_init(&s->channels);
     s->images = cache_image_new((GDestroyNotify)pixman_image_unref);
     s->glz_window = glz_decoder_window_new();
     update_proxy(session, NULL);
@@ -293,19 +287,17 @@ static void
 session_disconnect(SpiceSession *self, gboolean keep_main)
 {
     SpiceSessionPrivate *s;
-    struct channel *item;
-    RingItem *ring, *next;
 
     s = self->priv;
 
-    for (ring = ring_get_head(&s->channels); ring != NULL; ring = next) {
-        next = ring_next(&s->channels, ring);
-        item = SPICE_CONTAINEROF(ring, struct channel, link);
+    for (GList *l = s->channels; l != NULL; ) {
+        SpiceChannel *channel = l->data;
+        l = l->next;
 
-        if (keep_main && item->channel == s->cmain) {
-            spice_channel_disconnect(item->channel, SPICE_CHANNEL_NONE);
+        if (keep_main && channel == s->cmain) {
+            spice_channel_disconnect(channel, SPICE_CHANNEL_NONE);
         } else {
-            spice_session_channel_destroy(self, item->channel);
+            spice_session_channel_destroy(self, channel);
         }
     }
 
@@ -332,7 +324,7 @@ spice_session_dispose(GObject *gobject)
     g_warn_if_fail(s->after_main_init == 0);
     g_warn_if_fail(s->disconnecting == 0);
     g_warn_if_fail(s->channels_destroying == 0);
-    g_warn_if_fail(ring_is_empty(&s->channels));
+    g_warn_if_fail(s->channels == NULL);
 
     g_clear_object(&s->audio_manager);
     g_clear_object(&s->usb_manager);
@@ -1662,23 +1654,21 @@ void spice_session_switching_disconnect(SpiceSession *self)
     g_return_if_fail(SPICE_IS_SESSION(self));
 
     SpiceSessionPrivate *s = self->priv;
-    struct channel *item;
-    RingItem *ring, *next;
 
     g_return_if_fail(s->cmain != NULL);
 
     /* disconnect/destroy all but main channel */
 
-    for (ring = ring_get_head(&s->channels); ring != NULL; ring = next) {
-        next = ring_next(&s->channels, ring);
-        item = SPICE_CONTAINEROF(ring, struct channel, link);
+    for (GList *l = s->channels; l != NULL; ) {
+        SpiceChannel *channel = l->data;
+        l = l->next;
 
-        if (item->channel == s->cmain)
+        if (channel == s->cmain)
             continue;
-        spice_session_channel_destroy(self, item->channel);
+        spice_session_channel_destroy(self, channel);
     }
 
-    g_warn_if_fail(!ring_is_empty(&s->channels)); /* ring_get_length() == 1 */
+    g_warn_if_fail(s->channels != NULL);
 
     cache_clear_all(self);
     s->connection_id = 0;
@@ -1716,10 +1706,10 @@ void spice_session_start_migrating(SpiceSession *session,
     SWAP_STR(s->tls_port, m->tls_port);
     SWAP_STR(s->unix_path, m->unix_path);
 
-    g_warn_if_fail(ring_get_length(&s->channels) == ring_get_length(&m->channels));
+    g_warn_if_fail(g_list_length(s->channels) == g_list_length(m->channels));
 
     SPICE_DEBUG("migration channels left:%u (in migration:%u)",
-                ring_get_length(&s->channels), ring_get_length(&m->channels));
+                g_list_length(s->channels), g_list_length(m->channels));
     s->migration_left = spice_session_get_channels(session);
 }
 #undef SWAP_STR
@@ -1729,26 +1719,21 @@ SpiceChannel* spice_session_lookup_channel(SpiceSession *session, gint id, gint 
 {
     g_return_val_if_fail(SPICE_IS_SESSION(session), NULL);
 
-    RingItem *ring, *next;
     SpiceSessionPrivate *s = session->priv;
-    struct channel *c;
+    SpiceChannel *channel = NULL;
 
-    for (ring = ring_get_head(&s->channels);
-         ring != NULL; ring = next) {
-        next = ring_next(&s->channels, ring);
-        c = SPICE_CONTAINEROF(ring, struct channel, link);
-        if (c == NULL || c->channel == NULL) {
-            g_warn_if_reached();
-            continue;
-        }
+    for (GList *l = s->channels; l != NULL; ) {
+        channel = l->data;
+        l = l->next;
 
-        if (id == spice_channel_get_channel_id(c->channel) &&
-            type == spice_channel_get_channel_type(c->channel))
+        if (id == spice_channel_get_channel_id(channel) &&
+            type == spice_channel_get_channel_type(channel)) {
             break;
+        }
     }
-    g_return_val_if_fail(ring != NULL, NULL);
+    g_return_val_if_fail(channel != NULL, NULL);
 
-    return c->channel;
+    return channel;
 }
 
 G_GNUC_INTERNAL
@@ -1757,8 +1742,6 @@ void spice_session_abort_migration(SpiceSession *session)
     g_return_if_fail(SPICE_IS_SESSION(session));
 
     SpiceSessionPrivate *s = session->priv;
-    RingItem *ring, *next;
-    struct channel *c;
 
     if (s->migration == NULL) {
         SPICE_DEBUG("no migration in progress");
@@ -1769,18 +1752,17 @@ void spice_session_abort_migration(SpiceSession *session)
     if (s->migration_state != SPICE_SESSION_MIGRATION_MIGRATING)
         goto end;
 
-    for (ring = ring_get_head(&s->channels);
-         ring != NULL; ring = next) {
-        next = ring_next(&s->channels, ring);
-        c = SPICE_CONTAINEROF(ring, struct channel, link);
+    for (GList *l = s->channels; l != NULL; ) {
+        SpiceChannel *channel = l->data;
+        l = l->next;
 
-        if (g_list_find(s->migration_left, c->channel))
+        if (g_list_find(s->migration_left, channel))
             continue;
 
-        spice_channel_swap(c->channel,
+        spice_channel_swap(channel,
             spice_session_lookup_channel(s->migration,
-                                         spice_channel_get_channel_id(c->channel),
-                                         spice_channel_get_channel_type(c->channel)),
+                                         spice_channel_get_channel_id(channel),
+                                         spice_channel_get_channel_type(channel)),
                                          !s->full_migration);
     }
 
@@ -1879,14 +1861,13 @@ void spice_session_migrate_end(SpiceSession *self)
 
     SpiceSessionPrivate *s = self->priv;
     SpiceMsgOut *out;
-    GList *l;
 
     g_return_if_fail(s->migration);
     g_return_if_fail(s->migration->priv->cmain);
     g_return_if_fail(g_list_length(s->migration_left) != 0);
 
     /* disconnect and reset all channels */
-    for (l = s->migration_left; l != NULL; ) {
+    for (GList *l = s->migration_left; l != NULL; ) {
         SpiceChannel *channel = l->data;
         l = l->next;
 
@@ -1974,23 +1955,10 @@ void spice_session_disconnect(SpiceSession *session)
  **/
 GList *spice_session_get_channels(SpiceSession *session)
 {
-    SpiceSessionPrivate *s;
-    struct channel *item;
-    GList *list = NULL;
-    RingItem *ring;
-
     g_return_val_if_fail(SPICE_IS_SESSION(session), NULL);
     g_return_val_if_fail(session->priv != NULL, NULL);
 
-    s = session->priv;
-
-    for (ring = ring_get_head(&s->channels);
-         ring != NULL;
-         ring = ring_next(&s->channels, ring)) {
-        item = SPICE_CONTAINEROF(ring, struct channel, link);
-        list = g_list_append(list, item->channel);
-    }
-    return list;
+    return g_list_copy(session->priv->channels);
 }
 
 /**
@@ -2006,19 +1974,15 @@ GList *spice_session_get_channels(SpiceSession *session)
 gboolean spice_session_has_channel_type(SpiceSession *session, gint type)
 {
     SpiceSessionPrivate *s;
-    struct channel *item;
-    RingItem *ring;
 
     g_return_val_if_fail(SPICE_IS_SESSION(session), FALSE);
     g_return_val_if_fail(session->priv != NULL, FALSE);
 
     s = session->priv;
 
-    for (ring = ring_get_head(&s->channels);
-         ring != NULL;
-         ring = ring_next(&s->channels, ring)) {
-        item = SPICE_CONTAINEROF(ring, struct channel, link);
-        if (spice_channel_get_channel_type(item->channel) == type) {
+    for (GList *l = s->channels; l != NULL; l = l->next) {
+        SpiceChannel *channel = l->data;
+        if (spice_channel_get_channel_type(channel) == type) {
             return TRUE;
         }
     }
@@ -2246,12 +2210,8 @@ void spice_session_channel_new(SpiceSession *session, SpiceChannel *channel)
     g_return_if_fail(SPICE_IS_CHANNEL(channel));
 
     SpiceSessionPrivate *s = session->priv;
-    struct channel *item;
 
-
-    item = g_new0(struct channel, 1);
-    item->channel = channel;
-    ring_add(&s->channels, &item->link);
+    s->channels = g_list_prepend(s->channels, channel);
 
     if (SPICE_IS_MAIN_CHANNEL(channel)) {
         gboolean all = spice_strv_contains(s->disable_effects, "all");
@@ -2279,7 +2239,7 @@ static void channel_finally_destroyed(gpointer data, GObject *channel)
     SpiceSession *session = SPICE_SESSION(data);
     SpiceSessionPrivate *s = session->priv;
     s->channels_destroying--;
-    if (ring_is_empty(&s->channels) && (s->channels_destroying == 0)) {
+    if (s->channels == NULL && (s->channels_destroying == 0)) {
         g_signal_emit(session, signals[SPICE_SESSION_DISCONNECTED], 0);
     }
     g_object_unref(session);
@@ -2291,28 +2251,24 @@ static void spice_session_channel_destroy(SpiceSession *session, SpiceChannel *c
     g_return_if_fail(SPICE_IS_CHANNEL(channel));
 
     SpiceSessionPrivate *s = session->priv;
-    struct channel *item = NULL;
-    RingItem *ring;
+    GList *l;
 
     if (s->migration_left)
         s->migration_left = g_list_remove(s->migration_left, channel);
 
-    for (ring = ring_get_head(&s->channels); ring != NULL;
-         ring = ring_next(&s->channels, ring)) {
-        item = SPICE_CONTAINEROF(ring, struct channel, link);
-        if (item->channel == channel)
+    for (l = s->channels; l != NULL; l = l->next) {
+        if (l->data == channel)
             break;
     }
 
-    g_return_if_fail(ring != NULL);
+    g_return_if_fail(l != NULL);
 
     if (channel == s->cmain) {
         CHANNEL_DEBUG(channel, "the session lost the main channel");
         s->cmain = NULL;
     }
 
-    ring_remove(&item->link);
-    g_free(item);
+    s->channels = g_list_delete_link(s->channels, l);
 
     g_signal_emit(session, signals[SPICE_SESSION_CHANNEL_DESTROY], 0, channel);
 
