@@ -127,7 +127,8 @@ SPICE_GTK_SOURCES_COMMON =		\
 	spice-grabsequence-priv.h	\
 	desktop-integration.c		\
 	desktop-integration.h		\
-	usb-device-widget.c		\
+	usb-device-redir-widget.c   \
+	usb-device-widget.c         \
 	$(NULL)
 
 nodist_SPICE_GTK_SOURCES_COMMON =	\
@@ -249,6 +250,15 @@ libspice_client_glib_2_0_la_SOURCES =			\
 	spice-uri-priv.h				\
 	usb-device-manager.c				\
 	usb-device-manager-priv.h			\
+	usb-backend-common.c                \
+	usb-backend.h                       \
+	cd-usb-bulk-msd.c                   \
+	cd-usb-bulk-msd.h                   \
+	cd-scsi.c                           \
+	cd-scsi.h                           \
+	cd-device.h                         \
+	cd-device-win.c                     \
+	cd-device-linux.c                   \
 	usbutil.c					\
 	usbutil.h					\
 	$(USB_ACL_HELPER_SRCS)				\
@@ -536,7 +546,8 @@ gtk_introspection_files =				\
 	spice-gtk-session.c				\
 	spice-widget.c					\
 	spice-grabsequence.c				\
-	usb-device-widget.c				\
+	usb-device-redir-widget.c       \
+	usb-device-widget.c             \
 	$(NULL)
 
 SpiceClientGLib-2.0.gir: libspice-client-glib-2.0.la

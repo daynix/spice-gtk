@@ -24,14 +24,13 @@
 #include <glib.h>
 
 #ifdef USE_USBREDIR
-#include <libusb.h>
 
 G_BEGIN_DECLS
 
-const char *spice_usbutil_libusb_strerror(enum libusb_error error_code);
 void spice_usb_util_get_device_strings(int bus, int address,
                                        int vendor_id, int product_id,
-                                       gchar **manufacturer, gchar **product);
+                                       gchar **manufacturer, gchar **product,
+                                       gboolean fill_always);
 
 G_END_DECLS
 

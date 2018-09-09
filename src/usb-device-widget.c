@@ -25,6 +25,8 @@
 #include "spice-marshal.h"
 #include "usb-device-widget.h"
 
+#ifndef USE_NEW_USB_WIDGET
+
 /**
  * SECTION:usb-device-widget
  * @short_description: USB device selection widget
@@ -62,6 +64,7 @@ static void device_removed_cb(SpiceUsbDeviceManager *manager,
     SpiceUsbDevice *device, gpointer user_data);
 static void device_error_cb(SpiceUsbDeviceManager *manager,
     SpiceUsbDevice *device, GError *err, gpointer user_data);
+
 static gboolean spice_usb_device_widget_update_status(gpointer user_data);
 
 enum {
@@ -591,3 +594,5 @@ static void device_error_cb(SpiceUsbDeviceManager *manager,
 
     spice_usb_device_widget_update_status(self);
 }
+
+#endif // !USE_NEW_USB_WIDGET
