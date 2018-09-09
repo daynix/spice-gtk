@@ -32,9 +32,12 @@ void spice_usb_device_manager_stop_event_listening(
     SpiceUsbDeviceManager *manager);
 
 #ifdef USE_USBREDIR
-#include <libusb.h>
+#include "usb-backend.h"
 void spice_usb_device_manager_device_error(
     SpiceUsbDeviceManager *manager, SpiceUsbDevice *device, GError *err);
+void spice_usb_device_manager_check_redir_on_connect(
+    SpiceUsbDeviceManager *manager, SpiceChannel *channel);
+
 
 guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *device);
 guint8 spice_usb_device_get_devaddr(const SpiceUsbDevice *device);

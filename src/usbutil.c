@@ -58,42 +58,6 @@ static GMutex usbids_load_mutex;
 static int usbids_vendor_count = 0; /* < 0: failed, 0: empty, > 0: loaded */
 static usb_vendor_info *usbids_vendor_info = NULL;
 
-G_GNUC_INTERNAL
-const char *spice_usbutil_libusb_strerror(enum libusb_error error_code)
-{
-    switch (error_code) {
-    case LIBUSB_SUCCESS:
-        return "Success";
-    case LIBUSB_ERROR_IO:
-        return "Input/output error";
-    case LIBUSB_ERROR_INVALID_PARAM:
-        return "Invalid parameter";
-    case LIBUSB_ERROR_ACCESS:
-        return "Access denied (insufficient permissions)";
-    case LIBUSB_ERROR_NO_DEVICE:
-        return "No such device (it may have been disconnected)";
-    case LIBUSB_ERROR_NOT_FOUND:
-        return "Entity not found";
-    case LIBUSB_ERROR_BUSY:
-        return "Resource busy";
-    case LIBUSB_ERROR_TIMEOUT:
-        return "Operation timed out";
-    case LIBUSB_ERROR_OVERFLOW:
-        return "Overflow";
-    case LIBUSB_ERROR_PIPE:
-        return "Pipe error";
-    case LIBUSB_ERROR_INTERRUPTED:
-        return "System call interrupted (perhaps due to signal)";
-    case LIBUSB_ERROR_NO_MEM:
-        return "Insufficient memory";
-    case LIBUSB_ERROR_NOT_SUPPORTED:
-        return "Operation not supported or unimplemented on this platform";
-    case LIBUSB_ERROR_OTHER:
-        return "Other error";
-    }
-    return "Unknown error";
-}
-
 #ifdef __linux__
 /* <Sigh> libusb does not allow getting the manufacturer and product strings
    without opening the device, so grab them directly from sysfs */
@@ -252,7 +216,8 @@ leave:
 G_GNUC_INTERNAL
 void spice_usb_util_get_device_strings(int bus, int address,
                                        int vendor_id, int product_id,
-                                       gchar **manufacturer, gchar **product)
+                                       gchar **manufacturer, gchar **product,
+                                       gboolean fill_always)
 {
     usb_product_info *product_info;
     int i, j;
@@ -292,17 +257,20 @@ void spice_usb_util_get_device_strings(int bus, int address,
         }
     }
 
-    if (!*manufacturer)
+    if (!*manufacturer && fill_always)
         *manufacturer = g_strdup(_("USB"));
-    if (!*product)
+    if (!*product && fill_always)
         *product = g_strdup(_("Device"));
 
     /* Some devices have unwanted whitespace in their strings */
-    g_strstrip(*manufacturer);
-    g_strstrip(*product);
+    if (*manufacturer)
+        g_strstrip(*manufacturer);
+    if (*product)
+        g_strstrip(*product);
 
     /* Some devices repeat the manufacturer at the beginning of product */
-    if (g_str_has_prefix(*product, *manufacturer) &&
+    if (*manufacturer && *product &&
+            g_str_has_prefix(*product, *manufacturer) &&
             strlen(*product) > strlen(*manufacturer)) {
         gchar *tmp = g_strdup(*product + strlen(*manufacturer));
         g_free(*product);

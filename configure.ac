@@ -349,6 +349,32 @@ else
 fi
 AM_CONDITIONAL([WITH_USBREDIR], [test "x$have_usbredir" = "xyes"])
 
+AC_ARG_ENABLE([newusbwidget],
+  AS_HELP_STRING([--enable-newusbwidget=@<:@yes/no@:>@],
+                 [Use new USB devices widget @<:@default=yes@:>@]),
+  [],
+  [enable_newusbwidget="yes"])
+
+AC_ARG_ENABLE([cdsharing],
+  AS_HELP_STRING([--enable-cdsharing=@<:@auto/yes/no@:>@],
+                 [Enable CD charing feature @<:@default=auto@:>@]),
+  [],
+  [enable_cdsharing="auto"])
+
+if test "x$enable_newusbwidget" = "xno" || test "x$have_usbredir" != "xyes" ; then
+  have_newusbwidget="no"
+else
+  have_newusbwidget="yes"
+  AC_DEFINE([USE_NEW_USB_WIDGET], [1], [Define if new USB widget should be used])
+fi
+
+if test "x$enable_cdsharing" = "xno" || test "x$have_newusbwidget" = "xno"; then
+  have_cdsharing="no"
+else
+  have_cdsharing="yes"
+  AC_DEFINE([USE_CD_SHARING], [1], [Define if supporting cd sharing via usbredir])
+fi
+
 AC_ARG_ENABLE([polkit],
   AS_HELP_STRING([--enable-polkit=@<:@auto/yes/no@:>@],
                  [Enable PolicyKit support (for the usb acl helper)@<:@default=auto@:>@]),
@@ -605,6 +631,7 @@ AC_MSG_NOTICE([
         SASL support:             ${have_sasl}
         Smartcard support:        ${have_smartcard}
         USB redirection support:  ${have_usbredir} ${with_usbredir_hotplug}
+        CD sharing support:       ${have_cdsharing} new widget: ${have_newusbwidget}
         DBus:                     ${have_dbus}
         WebDAV support:           ${have_phodav}
         LZ4 support:              ${have_lz4}

@@ -104,6 +104,8 @@ typedef enum
     G_UDEV_CLIENT_WINAPI_FAILED
 } GUdevClientError;
 
+/* callback to indicate creation of new simulated device */
+void spice_usb_backend_indicate_dev_change(void);
 
 G_END_DECLS
 

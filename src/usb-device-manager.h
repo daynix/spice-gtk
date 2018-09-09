@@ -71,6 +71,7 @@ struct _SpiceUsbDeviceManager
  * @device_removed: Signal class handler for the #SpiceUsbDeviceManager::device-removed signal.
  * @auto_connect_failed: Signal class handler for the #SpiceUsbDeviceManager::auto-connect-failed signal.
  * @device_error: Signal class handler for the #SpiceUsbDeviceManager::device_error signal.
+ * @device_changed: Signal class handler for the #SpiceUsbDeviceManager::device_changed signal.
  *
  * Class structure for #SpiceUsbDeviceManager.
  */
@@ -87,18 +88,52 @@ struct _SpiceUsbDeviceManagerClass
                                  SpiceUsbDevice *device, GError *error);
     void (*device_error) (SpiceUsbDeviceManager *manager,
                           SpiceUsbDevice *device, GError *error);
+    void (*device_changed) (SpiceUsbDeviceManager *manager,
+                          SpiceUsbDevice *device);
+
     /*< private >*/
     /*
      * If adding fields to this struct, remove corresponding
      * amount of padding to avoid changing overall struct size
      */
-    gchar _spice_reserved[SPICE_RESERVED_PADDING];
+    gchar _spice_reserved[SPICE_RESERVED_PADDING - 1 * sizeof(void *)];
 };
 
 GType spice_usb_device_get_type(void);
 GType spice_usb_device_manager_get_type(void);
 
 gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format);
+
+/**
+* SpiceUsbDeviceDescription:
+* @bus: USB bus number.
+* @address: address on the bus.
+* @vendor_id: vendor ID value from device descriptor.
+* @product_id: product ID value from device descriptor.
+* @vendor: vendor name (new string allocated on return)
+* @product: vendor name (new string allocated on return)
+*
+* Structure containing description of Spice USB device.
+*/
+typedef struct _SpiceUsbDeviceDescription
+{
+    guint16 bus;
+    guint16 address;
+    guint16 vendor_id;
+    guint16 product_id;
+    // (OUT) allocated strings for vendor and product
+    gchar *vendor;
+    gchar *product;
+} SpiceUsbDeviceDescription;
+
+/*
+spice_usb_device_get_info is similar to spice_usb_device_get_description,
+i.e. 'vendor' and 'product' strings are allocated by callee and shall be
+freed by caller
+*/
+void spice_usb_device_get_info(SpiceUsbDeviceManager *manager,
+                               SpiceUsbDevice *device,
+                               SpiceUsbDeviceDescription *info);
 gconstpointer spice_usb_device_get_libusb_device(const SpiceUsbDevice *device);
 
 SpiceUsbDeviceManager *spice_usb_device_manager_get(SpiceSession *session,
@@ -142,6 +177,76 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
                                              GError                **err);
 
 gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self);
+
+guint spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
+                                               SpiceUsbDevice *device);
+
+/* returns new array of guint LUN indices */
+GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
+                                                SpiceUsbDevice *device);
+
+/**
+* SpiceUsbDeviceLunInfo:
+* @file_path: Path to ISO file or local CD device that the unit represents.
+* @vendor: string containing vendor name according to SCSI standard (first 8 characters used)
+* @product: string containing product name according to SCSI standard  (first 16 characters used)
+* @revision: string containing the revision according to SCSI standard  (first 4 characters used)
+* @loaded: %TRUE if the media is currently loaded
+* @locked: %TRUE if the media is currently locked from ejection
+* @started: %TRUE if the device is started by guest OS
+*
+* Structure containing information about CD logical unit of Spice USB device.
+*/
+typedef struct _SpiceUsbDeviceLunInfo
+{
+    const gchar *file_path;
+    const gchar *vendor;
+    const gchar *product;
+    const gchar *revision;
+    gboolean loaded;
+    gboolean locked;
+    gboolean started;
+} SpiceUsbDeviceLunInfo;
+
+/* CD LUN will be attached to a (possibly new) USB device automatically */
+gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
+    SpiceUsbDeviceLunInfo *lun_info);
+
+/* Get CD LUN info, intended primarily for enumerating LUNs.
+   The caller shall not free the strings returned in lun_info structure
+   on successfull call. It can use them only in context of current call or
+   duplicate for further usage.
+*/
+gboolean
+spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
+                                             SpiceUsbDevice *device,
+                                             guint lun,
+                                             SpiceUsbDeviceLunInfo *lun_info);
+/* lock or unlock device */
+gboolean
+spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
+                                         SpiceUsbDevice *device,
+                                         guint lun,
+                                         gboolean lock);
+
+/* load or eject device */
+gboolean
+spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
+                                         SpiceUsbDevice *device,
+                                         guint lun,
+                                         gboolean load);
+
+/* change the media - device must be not currently loaded */
+gboolean
+spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
+                                         SpiceUsbDevice *device,
+                                         guint lun,
+                                         const SpiceUsbDeviceLunInfo *lun_info);
+/* remove lun from the usb device */
+gboolean
+spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,
+                                           SpiceUsbDevice *device,
+                                           guint lun);
 
 G_END_DECLS
 
