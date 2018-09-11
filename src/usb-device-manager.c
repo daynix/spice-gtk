@@ -808,12 +808,12 @@ static gboolean spice_usb_device_manager_get_udev_bus_n_address(
 
 /**
  * spice_usb_device_get_libusb_device:
- * @device: #SpiceUsbDevice to get the descriptor information of
+ * @device: #SpiceUsbDevice to get the libusb device of (if exists)
  *
  * Finds the %libusb_device associated with the @device.
  *
- * Returns: (transfer none): the %libusb_device associated to %SpiceUsbDevice.
- *
+ * Returns: (transfer none): the %libusb_device associated to %SpiceUsbDevice
+ *    or NULL (if the device does not have associated libusb device)
  * Since: 0.27
  **/
 gconstpointer
@@ -2094,6 +2094,18 @@ static void on_device_change(void *user_data, SpiceUsbBackendDevice *bdev)
     }
 }
 
+/**
+ * spice_usb_device_manager_is_device_cd:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to query whether it is shared CD
+ *
+ * Checks whether specified #SpiceUsbDevice is shared CD device.
+ *
+ * Returns: (transfer none): maximal possible number of logical units
+ *     on the device or 0 if the device is not shared CD
+ *
+ * Since: 0.35
+ **/
 guint spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device)
 {
@@ -2107,12 +2119,44 @@ guint spice_usb_device_manager_is_device_cd(SpiceUsbDeviceManager *self,
     return val;
 }
 
+/**
+ * spice_usb_device_manager_add_cd_lun:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @lun_info: structure containing data for logical
+ *     unit to create
+ *
+ * Creates new shared CD device with logical CD unit on it
+ *     (emits %device-added signal) or
+ *     adds logical unit to existing device
+ *     (emits %device-changed signal)
+ *
+ * Returns: (transfer none): TRUE if new logical unit was created,
+ *     otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean spice_usb_device_manager_add_cd_lun(SpiceUsbDeviceManager *self,
     SpiceUsbDeviceLunInfo *lun_info)
 {
     return spice_usb_backend_add_cd_lun(self->priv->context, lun_info);
 }
 
+/**
+ * spice_usb_device_manager_device_lun_remove:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to remove the logical CD unit from
+ * @lun: index of logical unit to remove
+ *
+ * Removes specified logical CD unit from specified shared CD device
+ *    (emits %device-changed signal)
+ *    If after LUN removal the device does not have any LUNs,
+ *    removes the device too (emits %device-removed signal)
+ *
+ * Returns: (transfer none): TRUE if the device is shared CD and
+ *    specified LUN exists, otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean
 spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
@@ -2127,6 +2171,21 @@ spice_usb_device_manager_device_lun_remove(SpiceUsbDeviceManager *self,
     return b;
 }
 
+/**
+ * spice_usb_device_manager_device_lun_get_info:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to get the logical CD unit info of
+ * @lun: index of logical unit to get the info of
+ * @lun_info: contains actual LUN information on output
+ *
+ * Retrieves information about specified logical CD unit on
+ *    specified shared CD device.
+ *
+ * Returns: (transfer none): TRUE if the device is shared CD and
+ *    specified LUN exists, otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean
 spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
@@ -2142,6 +2201,22 @@ spice_usb_device_manager_device_lun_get_info(SpiceUsbDeviceManager *self,
     return b;
 }
 
+/**
+ * spice_usb_device_manager_device_lun_load:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to load/unload logical CD unit on
+ * @lun: index of logical unit to load/unload media on
+ * @load: TRUE if the media shall be loaded
+ *
+ * Loads or unloads specified logical CD unit on
+ *    specified shared CD device.
+ *
+ * Returns: (transfer none): TRUE if the device is shared CD,
+ *    specified LUN exists and load/unload operation done,
+ *    otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean
 spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
@@ -2157,6 +2232,23 @@ spice_usb_device_manager_device_lun_load(SpiceUsbDeviceManager *self,
     return b;
 }
 
+/**
+ * spice_usb_device_manager_device_lun_change_media:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to change the media in
+ * @lun: index of logical unit to change the media
+ * @lun_info: structure describing new media file path
+ *
+ * Changes path to the media file (usually ISO) in specified
+ *    logical CD unit on specified shared CD device.
+ *
+ * Returns: (transfer none): TRUE if the device is shared CD,
+ *    specified LUN exists and the media is ejected and
+ *    new media files accessible,
+ *    otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean
 spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
@@ -2172,6 +2264,22 @@ spice_usb_device_manager_device_lun_change_media(SpiceUsbDeviceManager *self,
     return b;
 }
 
+/**
+ * spice_usb_device_manager_device_lun_lock:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to lock or unlock
+ * @lun: index of logical unit to lock or unlock
+ * @lock: TRUE to lock, FALSE to unlock
+ *
+ * Locks or unlocks the media in specified logical CD unit.
+ *     When the media is locked, the media can't be ejected.
+ *
+ * Returns: (transfer none): TRUE if the device is shared CD,
+ *    specified LUN exists and the media is locked or unlocked successfully,
+ *    otherwise FALSE
+ *
+ * Since: 0.35
+ **/
 gboolean
 spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device,
@@ -2187,6 +2295,20 @@ spice_usb_device_manager_device_lun_lock(SpiceUsbDeviceManager *self,
     return b;
 }
 
+/**
+ * spice_usb_device_manager_get_device_luns:
+ * @self:  the #SpiceUsbDeviceManager manager
+ * @device: #SpiceUsbDevice to get LUN indices for
+ *
+ * Returns array of integers, where each value contains
+ *     index of logical CD unit on the device
+ *
+ * Returns: (element-type guint) (transfer full): a
+ * %GArray of %indices. If the device is not shared CD device,
+ * the array is empty.
+ *
+ * Since: 0.35
+ **/
 GArray *spice_usb_device_manager_get_device_luns(SpiceUsbDeviceManager *self,
     SpiceUsbDevice *device)
 {
