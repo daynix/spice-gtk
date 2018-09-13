@@ -199,7 +199,6 @@ spice_client_glib_lib = library('spice-client-glib-2.0', spice_client_glib_sourc
                                 include_directories : spice_gtk_include,
                                 link_args : [spice_gtk_version_script],
                                 link_depends : spice_client_glib_syms,
-                                link_with : spice_gtk_libs,
                                 dependencies : spice_gtk_deps)
 
 spice_client_glib_dep = declare_dependency(sources : [spice_marshals[1], spice_client_glib_enums[1]],
