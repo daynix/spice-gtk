@@ -417,7 +417,7 @@ void cd_usb_bulk_msd_lun_changed(void *user_data, uint32_t lun)
     if (!cd_usb_bulk_msd_get_info(d->d.msc, lun, &cd_info)) {
         // load or unload command received from SCSI
         if (d->units[lun].loaded != cd_info.loaded) {
-            if (!load_lun(d, lun, cd_info.loaded && cd_info.loaded)) {
+            if (!load_lun(d, lun, cd_info.loaded)) {
                 SPICE_DEBUG("%s: load failed, unloading unit", __FUNCTION__);
                 cd_usb_bulk_msd_unload(d->d.msc, lun);
             }
