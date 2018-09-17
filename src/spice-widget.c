@@ -1979,7 +1979,7 @@ static gboolean scroll_event(GtkWidget *widget, GdkEventScroll *scroll)
         break;
     case GDK_SCROLL_SMOOTH:
         d->scroll_delta_y += scroll->delta_y;
-        while (ABS(d->scroll_delta_y) > 1) {
+        while (ABS(d->scroll_delta_y) >= 1) {
             if (d->scroll_delta_y < 0) {
                 press_and_release(display, SPICE_MOUSE_BUTTON_UP, button_state);
                 d->scroll_delta_y += 1;
