@@ -88,10 +88,9 @@ foreach dep, version : deps
   spice_gtk_deps += dependency(dep, version : version)
 endforeach
 
-spice_gtk_deps += dependency('json-glib-1.0')
-
+# mandatory dependencies, without specific version requirement
 # TODO: specify minimum version for cairo, jpeg and zlib?
-deps = ['cairo', 'libjpeg', 'zlib']
+deps = ['cairo', 'libjpeg', 'zlib', 'json-glib-1.0']
 if spice_gtk_host_system == 'windows'
   deps += 'gio-windows-2.0'
 else
