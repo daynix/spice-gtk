@@ -30,7 +30,6 @@ spice_gtk_global_cflags = ['-DHAVE_CONFIG_H',
 # other global vars
 compiler = meson.get_compiler('c')
 spice_gtk_config_data = configuration_data()
-spice_protocol_min_version='0.12.13'
 spice_gtk_include = [include_directories('.')]
 spice_gtk_deps = []
 spice_gtk_host_system = host_machine.system()
@@ -72,13 +71,13 @@ endforeach
 #
 # check for mandatory dependencies
 #
-spice_protocol_version='0.12.15'
+spice_protocol_version='>= 0.12.15'
 
 glib_version = '2.46'
 glib_version_info = '>= @0@'.format(glib_version)
 pixman_version = '>= 0.17.7'
 
-deps = {'spice-protocol' : '>= @0@'.format(spice_protocol_version),
+deps = {'spice-protocol' : spice_protocol_version,
         'glib-2.0'       : glib_version_info,
         'gio-2.0'        : glib_version_info,
         'gobject-2.0'    : glib_version_info,
@@ -423,7 +422,7 @@ pkgconfig = import('pkgconfig')
 pkgconfig.generate(spice_client_glib_lib,
                    description : 'SPICE Client GLib 2.0 library',
                    subdirs : 'spice-client-glib-2.0',
-                   requires : 'spice-protocol >= @0@'.format(spice_protocol_min_version),
+                   requires : 'spice-protocol',
                    variables : 'exec_prefix=${prefix}')
 
 #
