@@ -1,12 +1,20 @@
 image: fedora:latest
 
+variables:
+  DEPS: git libtool make python3 python3-six redhat-rpm-config
+        python3-pyparsing meson ninja-build zlib-devel openssl-devel
+        intltool gtk3-devel gtk-doc gobject-introspection-devel
+        cyrus-sasl-devel pulseaudio-libs-devel libjpeg-turbo-devel
+        libacl-devel gstreamer1-devel gstreamer1-plugins-base-devel
+        polkit-devel vala lz4-devel opus-devel libgudev-devel
+        pixman-devel libcacard-devel celt051-devel libphodav-devel
+        usbutils usbredir-devel libusbx-devel libsoup-devel
+        json-glib-devel
+
 before_script:
-  - >
-    dnf install 'dnf-command(copr)' git libtool make redhat-rpm-config
-    python3 python3-six python3-pyparsing meson ninja-build
-    -y
-  - dnf copr enable @spice/nightly -y
-  - dnf builddep spice-gtk -y
+  - dnf install -y $DEPS
+  - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
+  - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
 
 makecheck:
   script:
