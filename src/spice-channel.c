@@ -1315,11 +1315,8 @@ static void spice_channel_send_link(SpiceChannel *channel)
     g_object_get(c->session, "protocol", &protocol, NULL);
     switch (protocol) {
     case 1: /* protocol 1 == major 1, old 0.4 protocol, last active minor */
-        c->link_hdr.major_version = 1;
-        c->link_hdr.minor_version = 3;
-        c->parser = spice_get_server_channel_parser1(c->channel_type, NULL);
-        c->marshallers = spice_message_marshallers_get1();
-        break;
+        g_critical("deprecated major %d", protocol);
+        return;
     case SPICE_VERSION_MAJOR: /* protocol 2 == current */
         c->link_hdr.major_version = SPICE_VERSION_MAJOR;
         c->link_hdr.minor_version = SPICE_VERSION_MINOR;
@@ -1410,16 +1407,6 @@ static gboolean spice_channel_recv_link_hdr(SpiceChannel *channel)
     return TRUE;
 
 error:
-    /* Windows socket seems to give early CONNRESET errors. The server
-       does not linger when closing the socket if the protocol is
-       incompatible. Try with the oldest protocol in this case: */
-    if (c->link_hdr.major_version != 1) {
-        SPICE_DEBUG("%s: error, switching to protocol 1 (spice 0.4)", c->name);
-        c->state = SPICE_CHANNEL_STATE_RECONNECTING;
-        g_object_set(c->session, "protocol", 1, NULL);
-        return FALSE;
-    }
-
     c->event = SPICE_CHANNEL_ERROR_LINK;
     return FALSE;
 }
