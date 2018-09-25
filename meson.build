@@ -2,17 +2,9 @@
 # project definition
 #
 project('spice-gtk', 'c',
-         version : run_command('build-aux/git-version-gen', '${MESON_SOURCE_ROOT}/.tarball-version').stdout().strip(),
+         version : run_command('build-aux/git-version-gen', '${MESON_SOURCE_ROOT}/.tarball-version', check : true).stdout().strip(),
          license : 'LGPLv2.1',
-         meson_version : '>= 0.47.0')
-
-# double check meson.project_version()
-# we can not use 'check' keyword in run_command() for git-version-gen above
-# https://github.com/mesonbuild/meson/issues/3944
-version = run_command('build-aux/git-version-gen', '${MESON_SOURCE_ROOT}/.tarball-version', check : true).stdout().strip()
-if meson.project_version() != version
-  error('Wrong project version')
-endif
+         meson_version : '>= 0.47.2')
 
 message('Updating submodules')
 run_command('build-aux/meson/check-spice-common', check : true)
