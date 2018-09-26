@@ -203,6 +203,8 @@ static void spice_qmp_port_dispose(GObject *gobject)
     g_object_set_data(G_OBJECT(self->priv->channel),
                       "spice-qmp-port", NULL);
 
+    g_clear_object(&self->priv->channel);
+
     if (G_OBJECT_CLASS(spice_qmp_port_parent_class)->dispose)
         G_OBJECT_CLASS(spice_qmp_port_parent_class)->dispose(gobject);
 }
