@@ -172,7 +172,6 @@ static void spice_port_channel_class_init(SpicePortChannelClass *klass)
      * SpicePortChannel::port-event:
      * @channel: the channel that emitted the signal
      * @event: the event received
-     * @size: number of bytes read
      *
      * The #SpicePortChannel::port-event signal is emitted when new
      * port event is received.
