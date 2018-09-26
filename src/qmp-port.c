@@ -209,6 +209,15 @@ static void spice_qmp_port_dispose(GObject *gobject)
         G_OBJECT_CLASS(spice_qmp_port_parent_class)->dispose(gobject);
 }
 
+static void spice_qmp_handle_port_event(SpiceQmpPort *self, gint event)
+{
+    SPICE_DEBUG("QMP port event:%d", event);
+
+    if (event == SPICE_PORT_EVENT_CLOSED) {
+        g_hash_table_remove_all(self->priv->qmp_tasks);
+    }
+}
+
 static void spice_qmp_port_constructed(GObject *gobject)
 {
     SpiceQmpPort *self = SPICE_QMP_PORT(gobject);
@@ -218,6 +227,10 @@ static void spice_qmp_port_constructed(GObject *gobject)
 
     spice_g_signal_connect_object(self->priv->channel,
                                   "port-data", G_CALLBACK(spice_qmp_handle_port_data),
+                                  self, G_CONNECT_SWAPPED);
+
+    spice_g_signal_connect_object(self->priv->channel,
+                                  "port-event", G_CALLBACK(spice_qmp_handle_port_event),
                                   self, G_CONNECT_SWAPPED);
 
     if (G_OBJECT_CLASS(spice_qmp_port_parent_class)->constructed)
