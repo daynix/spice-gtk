@@ -101,7 +101,7 @@ spice_qmp_dispatch_message(SpiceQmpPort *self)
 
     if (json_object_get_member(obj, "QMP")) {
         g_warn_if_fail(!self->priv->ready);
-        g_debug("QMP greeting received");
+        SPICE_DEBUG("QMP greeting received");
         return TRUE;
     }
 
@@ -109,7 +109,7 @@ spice_qmp_dispatch_message(SpiceQmpPort *self)
         gint id = json_object_get_int_member(obj, "id");
         const gchar *desc = json_object_get_string_member(obj, "desc");
 
-        g_debug("QMP return error: %s, id:%d", desc, id);
+        SPICE_DEBUG("QMP return error: %s, id:%d", desc, id);
         task = g_hash_table_lookup(self->priv->qmp_tasks, GINT_TO_POINTER(id));
         g_return_val_if_fail(task != NULL, TRUE);
         g_hash_table_steal(self->priv->qmp_tasks, GINT_TO_POINTER(id));
@@ -118,7 +118,7 @@ spice_qmp_dispatch_message(SpiceQmpPort *self)
         gint id = json_object_get_int_member(obj, "id");
         QMPCb *cb;
 
-        g_debug("QMP return id:%d", id);
+        SPICE_DEBUG("QMP return id:%d", id);
         if (!self->priv->ready && id == 0) {
             self->priv->ready = TRUE;
             g_object_notify(G_OBJECT(self), "ready");
@@ -131,7 +131,7 @@ spice_qmp_dispatch_message(SpiceQmpPort *self)
         g_hash_table_steal(self->priv->qmp_tasks, GINT_TO_POINTER(id));
         cb(task, node);
     } else if ((event = json_object_get_string_member(obj, "event"))) {
-        g_debug("QMP event %s", event);
+        SPICE_DEBUG("QMP event %s", event);
         g_signal_emit(G_OBJECT(self), signals[SIGNAL_EVENT], 0, event,
                       json_object_get_member(obj, "data"));
     } else {
