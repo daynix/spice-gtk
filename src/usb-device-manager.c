@@ -877,7 +877,6 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
 
 static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data)
-
 {
     SpiceUsbDeviceManager *self = user_data;
 
@@ -897,7 +896,7 @@ static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
         g_ptr_array_remove(self->priv->channels, channel);
         return;
     default:
-        g_warning("Unhandled SpiceChannelEvent %d, disconnecting usbredir %p", event, channel);
+        g_warning("Unhandled SpiceChannelEvent %u, disconnecting usbredir %p", event, channel);
         g_signal_handlers_disconnect_by_func(channel, channel_event, user_data);
         g_ptr_array_remove(self->priv->channels, channel);
     }
