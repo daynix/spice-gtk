@@ -2778,16 +2778,6 @@ gboolean spice_session_is_for_migration(SpiceSession *session)
 }
 
 G_GNUC_INTERNAL
-void spice_session_set_main_channel(SpiceSession *session, SpiceChannel *channel)
-{
-    g_return_if_fail(SPICE_IS_SESSION(session));
-    g_return_if_fail(SPICE_IS_CHANNEL(channel));
-    g_return_if_fail(session->priv->cmain == NULL);
-
-    session->priv->cmain = channel;
-}
-
-G_GNUC_INTERNAL
 gboolean spice_session_set_migration_session(SpiceSession *session, SpiceSession *mig_session)
 {
     g_return_val_if_fail(SPICE_IS_SESSION(session), FALSE);

@@ -96,7 +96,6 @@ const guint8* spice_session_get_webdav_magic(SpiceSession *session);
 PhodavServer *spice_session_get_webdav_server(SpiceSession *session);
 PhodavServer* channel_webdav_server_new(SpiceSession *session);
 guint spice_session_get_n_display_channels(SpiceSession *session);
-void spice_session_set_main_channel(SpiceSession *session, SpiceChannel *channel);
 gboolean spice_session_set_migration_session(SpiceSession *session, SpiceSession *mig_session);
 SpiceAudio *spice_audio_get(SpiceSession *session, GMainContext *context);
 const gchar* spice_audio_data_mode_to_string(gint mode);
