@@ -368,14 +368,12 @@ endif
 #
 # global C defines
 #
-glib_major_minor = glib_version.split('.')
-glib_encoded_version = 'GLIB_VERSION_@0@_@1@'.format(glib_major_minor[0], glib_major_minor[1])
+glib_encoded_version = 'GLIB_VERSION_@0@'.format(glib_version.underscorify())
 spice_gtk_global_cflags += ['-DGLIB_VERSION_MIN_REQUIRED=@0@'.format(glib_encoded_version),
                             '-DGLIB_VERSION_MAX_ALLOWED=@0@'.format(glib_encoded_version)]
 
 if spice_gtk_has_gtk
-  gtk_major_minor = gtk_version_required.split('.')
-  gtk_encoded_version='GDK_VERSION_@0@_@1@'.format(gtk_major_minor[0], gtk_major_minor[1])
+  gtk_encoded_version='GDK_VERSION_@0@'.format(gtk_version_required.underscorify())
   spice_gtk_global_cflags += ['-DGDK_VERSION_MIN_REQUIRED=@0@'.format(gtk_encoded_version),
                               '-DGDK_VERSION_MAX_ALLOWED=@0@'.format(gtk_encoded_version)]
 endif
