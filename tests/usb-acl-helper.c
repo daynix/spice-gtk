@@ -26,7 +26,7 @@ typedef struct {
     guint timeout_source;
 } Fixture;
 
-gboolean abort_test(gpointer user_data)
+static gboolean abort_test(gpointer user_data)
 {
     Fixture *fixture = user_data;
     g_cancellable_cancel(fixture->cancellable);
@@ -34,7 +34,7 @@ gboolean abort_test(gpointer user_data)
     return G_SOURCE_REMOVE;
 }
 
-gboolean cancel_test(gpointer user_data)
+static gboolean cancel_test(gpointer user_data)
 {
     Fixture *fixture = user_data;
     g_cancellable_cancel(fixture->cancellable);
