@@ -86,8 +86,6 @@ void spice_session_set_name(SpiceSession *session, const gchar *name);
 gboolean spice_session_is_playback_active(SpiceSession *session);
 guint32 spice_session_get_playback_latency(SpiceSession *session);
 void spice_session_sync_playback_latency(SpiceSession *session);
-const gchar* spice_session_get_shared_dir(SpiceSession *session);
-void spice_session_set_shared_dir(SpiceSession *session, const gchar *dir);
 gboolean spice_session_get_audio_enabled(SpiceSession *session);
 gboolean spice_session_get_smartcard_enabled(SpiceSession *session);
 gboolean spice_session_get_usbredir_enabled(SpiceSession *session);

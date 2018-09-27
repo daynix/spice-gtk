@@ -221,6 +221,9 @@ static const GEnumValue _spice_image_compress_values[] = {
 
 G_STATIC_ASSERT(G_N_ELEMENTS(_spice_image_compress_values) == SPICE_IMAGE_COMPRESSION_ENUM_END + 1);
 
+static const gchar* spice_session_get_shared_dir(SpiceSession *session);
+static void spice_session_set_shared_dir(SpiceSession *session, const gchar *dir);
+
 GType
 spice_image_compress_get_type (void)
 {
@@ -2574,8 +2577,7 @@ guint32 spice_session_get_playback_latency(SpiceSession *session)
     }
 }
 
-G_GNUC_INTERNAL
-const gchar* spice_session_get_shared_dir(SpiceSession *session)
+static const gchar* spice_session_get_shared_dir(SpiceSession *session)
 {
     g_return_val_if_fail(SPICE_IS_SESSION(session), NULL);
 
@@ -2584,8 +2586,7 @@ const gchar* spice_session_get_shared_dir(SpiceSession *session)
     return s->shared_dir;
 }
 
-G_GNUC_INTERNAL
-void spice_session_set_shared_dir(SpiceSession *session, const gchar *dir)
+static void spice_session_set_shared_dir(SpiceSession *session, const gchar *dir)
 {
     g_return_if_fail(SPICE_IS_SESSION(session));
 
