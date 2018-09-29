@@ -57,3 +57,11 @@ makecheck_simple-meson:
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)
   - ninja -C build
   - (cd build && meson test) || (cat build/meson-logs/testlog.txt && exit 1)
+
+make-win:
+  script:
+  - dnf install -y mingw64-gcc mingw64-pkg-config mingw64-pixman mingw64-openssl mingw64-gtk3 mingw64-json-glib mingw64-opus mingw64-gstreamer1-plugins-base mingw64-gstreamer1-plugins-good
+  - (cd spice-protocol && make clean && mingw64-configure --prefix=/usr && make install)
+  - NOCONFIGURE=yes ./autogen.sh
+  - PYTHON=python3 mingw64-configure --enable-static
+  - make -j4
