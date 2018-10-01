@@ -135,10 +135,7 @@ static void spice_usb_device_widget_hide_info_bar(SpiceUsbDeviceWidget *self)
 {
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
 
-    if (priv->info_bar) {
-        gtk_widget_destroy(priv->info_bar);
-        priv->info_bar = NULL;
-    }
+    g_clear_pointer(&priv->info_bar, gtk_widget_destroy);
 }
 
 static void
@@ -412,8 +409,7 @@ static gboolean spice_usb_device_widget_update_status(gpointer user_data)
         spice_usb_device_widget_show_info_bar(self, priv->err_msg,
                                               GTK_MESSAGE_INFO,
                                               "dialog-warning");
-        g_free(priv->err_msg);
-        priv->err_msg = NULL;
+        g_clear_pointer(&priv->err_msg, g_free);
     } else if (redirecting) {
         spice_usb_device_widget_show_info_bar(self, _("Redirecting USB Device..."),
                                               GTK_MESSAGE_INFO,
