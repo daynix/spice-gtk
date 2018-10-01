@@ -748,7 +748,8 @@ gboolean gstvideo_has_codec(int codec_type)
            GST_ELEMENT_FACTORY_TYPE_MEDIA_IMAGE;
     all_decoders = gst_element_factory_list_get_elements(type, GST_RANK_NONE);
     if (all_decoders == NULL) {
-        spice_warning("No video decoders from GStreamer were found");
+        spice_debug("No video decoders from GStreamer for %s were found",
+                    gst_opts[codec_type].name);
         return FALSE;
     }
 
