@@ -389,7 +389,7 @@ static display_cursor *set_cursor(SpiceChannel *channel, SpiceCursor *scursor)
     if (scursor->flags & SPICE_CURSOR_FLAGS_NONE)
         return NULL;
 
-    CHANNEL_DEBUG(channel, "%s: type %s(%d), %" PRIx64 ", %dx%d", __FUNCTION__,
+    CHANNEL_DEBUG(channel, "%s: type %s(%d), %" G_GINT64_MODIFIER "x, %dx%d", __FUNCTION__,
                   cursor_type_to_string(hdr->type), hdr->type, hdr->unique,
                   hdr->width, hdr->height);
 

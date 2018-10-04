@@ -87,7 +87,7 @@ spice_channel_handle_disconnect(SpiceChannel *channel, SpiceMsgIn *in)
 {
     SpiceMsgDisconnect *disconnect = spice_msg_in_parsed(in);
 
-    CHANNEL_DEBUG(channel, "%s: ts: %" PRIu64", reason: %u", __FUNCTION__,
+    CHANNEL_DEBUG(channel, "%s: ts: %" G_GUINT64_FORMAT", reason: %u", __FUNCTION__,
                   disconnect->time_stamp, disconnect->reason);
 }
 
@@ -127,11 +127,14 @@ void spice_channel_handle_wait_for_channels(SpiceChannel *channel, SpiceMsgIn *i
             .channel = channel
         };
 
-        CHANNEL_DEBUG(channel, "waiting for serial %" PRIu64 " (%d/%d)", data.wait->message_serial, i + 1, wfc->wait_count);
+        CHANNEL_DEBUG(channel, "waiting for serial %" G_GUINT64_FORMAT " (%d/%d)",
+                      data.wait->message_serial, i + 1, wfc->wait_count);
         if (g_coroutine_condition_wait(&c->coroutine, wait_for_channel, &data))
-            CHANNEL_DEBUG(channel, "waiting for serial %"  PRIu64 ", done", data.wait->message_serial);
+            CHANNEL_DEBUG(channel, "waiting for serial %"  G_GUINT64_FORMAT ", done",
+                          data.wait->message_serial);
         else
-            CHANNEL_DEBUG(channel, "waiting for serial %" PRIu64 ", cancelled", data.wait->message_serial);
+            CHANNEL_DEBUG(channel, "waiting for serial %" G_GUINT64_FORMAT ", cancelled",
+                          data.wait->message_serial);
     }
 }
 

@@ -346,10 +346,10 @@ static void decode_header(GlibGlzDecoder *d)
     d->image.id = decode_64(d);
     d->image.win_head_dist = decode_32(d);
 
-    SPICE_DEBUG("%s: %ux%u, id %" PRIu64 ", ref %" PRIu64,
-            __FUNCTION__,
-            d->image.width, d->image.height, d->image.id,
-            d->image.id - d->image.win_head_dist);
+    SPICE_DEBUG("%s: %ux%u, id %" G_GUINT64_FORMAT ", ref %" G_GUINT64_FORMAT,
+                __FUNCTION__,
+                d->image.width, d->image.height, d->image.id,
+                d->image.id - d->image.win_head_dist);
 }
 
 static void decode(SpiceGlzDecoder *decoder,

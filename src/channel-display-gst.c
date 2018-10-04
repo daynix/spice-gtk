@@ -338,7 +338,8 @@ static gboolean handle_pipeline_message(GstBus *bus, GstMessage *msg, gpointer v
         if (gst_is_video_overlay_prepare_window_handle_message(msg)) {
             GstVideoOverlay *overlay;
 
-            SPICE_DEBUG("prepare-window-handle msg received (handle: %" PRIuPTR ")", decoder->win_handle);
+            SPICE_DEBUG("prepare-window-handle msg received (handle: %" G_GUINTPTR_FORMAT")",
+                        decoder->win_handle);
             if (decoder->win_handle != 0) {
                 overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(msg));
                 gst_video_overlay_set_window_handle(overlay, decoder->win_handle);
