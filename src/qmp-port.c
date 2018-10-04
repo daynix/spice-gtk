@@ -160,7 +160,7 @@ spice_qmp_handle_port_data(SpiceQmpPort *self, gpointer data,
     }
 
     str = qmp->str;
-    while ((crlf = memmem(str, qmp->len - (str - qmp->str), "\r\n", 2))) {
+    while ((crlf = strstr(str, "\r\n")) != NULL) {
         GError *err = NULL;
 
         *crlf = '\0';
