@@ -92,7 +92,6 @@ static void mjpeg_decoder_schedule(MJpegDecoder *decoder);
 static gboolean mjpeg_decoder_decode_frame(gpointer video_decoder)
 {
     MJpegDecoder *decoder = (MJpegDecoder*)video_decoder;
-    gboolean back_compat = decoder->base.stream->channel->priv->peer_hdr.major_version == 1;
     JDIMENSION width, height;
     uint8_t *dest;
     uint8_t *lines[4];
@@ -109,10 +108,7 @@ static gboolean mjpeg_decoder_decode_frame(gpointer video_decoder)
 
 #ifdef JCS_EXTENSIONS
     // requires jpeg-turbo
-    if (back_compat)
-        decoder->mjpeg_cinfo.out_color_space = JCS_EXT_RGBX;
-    else
-        decoder->mjpeg_cinfo.out_color_space = JCS_EXT_BGRX;
+    decoder->mjpeg_cinfo.out_color_space = JCS_EXT_BGRX;
 #else
 #warning "You should consider building with libjpeg-turbo"
     decoder->mjpeg_cinfo.out_color_space = JCS_RGB;
@@ -153,20 +149,11 @@ static gboolean mjpeg_decoder_decode_frame(gpointer video_decoder)
             uint8_t *s = lines[0];
             uint32_t *d = SPICE_ALIGNED_CAST(uint32_t *, s);
 
-            if (back_compat) {
-                for (unsigned int j = lines_read * width; j > 0; ) {
-                    j -= 1; // reverse order, bad for cache?
-                    d[j] = s[j * 3 + 0] |
-                        s[j * 3 + 1] << 8 |
-                        s[j * 3 + 2] << 16;
-                }
-            } else {
-                for (unsigned int j = lines_read * width; j > 0; ) {
-                    j -= 1; // reverse order, bad for cache?
-                    d[j] = s[j * 3 + 0] << 16 |
-                        s[j * 3 + 1] << 8 |
-                        s[j * 3 + 2];
-                }
+            for (unsigned int j = lines_read * width; j > 0; ) {
+                j -= 1; // reverse order, bad for cache?
+                d[j] = s[j * 3 + 0] << 16 |
+                    s[j * 3 + 1] << 8 |
+                    s[j * 3 + 2];
             }
         }
 #endif
