@@ -108,7 +108,11 @@ static gboolean mjpeg_decoder_decode_frame(gpointer video_decoder)
 
 #ifdef JCS_EXTENSIONS
     // requires jpeg-turbo
+#if SPICE_ENDIAN == SPICE_ENDIAN_LITTLE
     decoder->mjpeg_cinfo.out_color_space = JCS_EXT_BGRX;
+#else
+    decoder->mjpeg_cinfo.out_color_space = JCS_EXT_XRGB;
+#endif
 #else
 #warning "You should consider building with libjpeg-turbo"
     decoder->mjpeg_cinfo.out_color_space = JCS_RGB;
