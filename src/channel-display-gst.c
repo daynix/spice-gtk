@@ -424,7 +424,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
         decoder->appsink = GST_APP_SINK(sink);
     } else {
         /* handle has received, it means playbin will render directly into
-         * widget using the gstvideoooverlay interface instead of app-sink.
+         * widget using the gstvideooverlay interface instead of app-sink.
          * Also avoid using vaapisink if exist since vaapisink could be
          * buggy when it is combined with playbin. changing its rank to
          * none will make playbin to avoid of using it.
