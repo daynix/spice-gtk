@@ -80,3 +80,8 @@ option('smartcard',
 option('gtk_doc',
        type : 'feature',
        description : 'Generate API documentation with gtk-doc')
+
+option('recorder',
+    type : 'boolean',
+    value : false,
+    description: 'Enable recorder instrumentation')
