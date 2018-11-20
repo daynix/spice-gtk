@@ -1896,7 +1896,8 @@ static void store_caps(const uint8_t *caps_src, uint32_t ncaps,
 static gboolean spice_channel_recv_link_msg(SpiceChannel *channel)
 {
     SpiceChannelPrivate *c;
-    int rc, num_caps;
+    int rc;
+    uint32_t num_caps;
     uint32_t num_channel_caps, num_common_caps;
     uint8_t *caps_src;
     SpiceChannelEvent event = SPICE_CHANNEL_ERROR_LINK;
@@ -1931,7 +1932,7 @@ static gboolean spice_channel_recv_link_msg(SpiceChannel *channel)
     num_common_caps = GUINT32_FROM_LE(c->peer_msg->num_common_caps);
 
     num_caps = num_channel_caps + num_common_caps;
-    CHANNEL_DEBUG(channel, "%s: %d caps", __FUNCTION__, num_caps);
+    CHANNEL_DEBUG(channel, "%s: %u caps", __FUNCTION__, num_caps);
 
     /* see original spice/client code: */
     /* g_return_if_fail(c->peer_msg + c->peer_msg->caps_offset * sizeof(uint32_t) > c->peer_msg + c->peer_hdr.size); */
