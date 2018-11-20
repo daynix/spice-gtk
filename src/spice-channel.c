@@ -1124,6 +1124,8 @@ static int spice_channel_read_sasl(SpiceChannel *channel, void *data, size_t len
 
 /*
  * Fill the 'data' buffer up with exactly 'len' bytes worth of data
+ * Returns 0 if connection was closed or on unknown errors, <0 for error and
+ * length on success
  */
 /* coroutine context */
 static int spice_channel_read(SpiceChannel *channel, void *data, size_t length)
