@@ -1906,7 +1906,7 @@ static gboolean spice_channel_recv_link_msg(SpiceChannel *channel)
     int rc;
     uint32_t num_caps;
     uint32_t num_channel_caps, num_common_caps;
-    uint8_t *caps_src;
+    const uint8_t *caps_src, *caps_end;
     SpiceChannelEvent event = SPICE_CHANNEL_ERROR_LINK;
 
     g_return_val_if_fail(channel != NULL, FALSE);
@@ -1947,14 +1947,25 @@ static gboolean spice_channel_recv_link_msg(SpiceChannel *channel)
     num_caps = num_channel_caps + num_common_caps;
     CHANNEL_DEBUG(channel, "%s: %u caps", __FUNCTION__, num_caps);
 
+    if (c->peer_msg->caps_offset > c->peer_hdr.size) {
+        goto error;
+    }
+    caps_end = (uint8_t*)c->peer_msg + c->peer_hdr.size;
+
     /* see original spice/client code: */
     /* g_return_if_fail(c->peer_msg + c->peer_msg->caps_offset * sizeof(uint32_t) > c->peer_msg + c->peer_hdr.size); */
 
     caps_src = (uint8_t *)c->peer_msg + c->peer_msg->caps_offset;
+    if ((caps_end - caps_src) / sizeof(uint32_t) < num_common_caps) {
+        goto error;
+    }
     CHANNEL_DEBUG(channel, "got remote common caps:");
     store_caps(caps_src, num_common_caps, c->remote_common_caps);
 
     caps_src += num_common_caps * sizeof(uint32_t);
+    if ((caps_end - caps_src) / sizeof(uint32_t) < num_channel_caps) {
+        goto error;
+    }
     CHANNEL_DEBUG(channel, "got remote channel caps:");
     store_caps(caps_src, num_channel_caps, c->remote_caps);
 
