@@ -1400,6 +1400,11 @@ static gboolean spice_channel_recv_link_hdr(SpiceChannel *channel)
     c->peer_hdr.minor_version = GUINT32_FROM_LE(c->peer_hdr.minor_version);
     c->peer_hdr.size = GUINT32_FROM_LE(c->peer_hdr.size);
 
+    if (c->peer_hdr.size < sizeof(*c->peer_msg)) {
+        g_warning("invalid peer header size: %u", c->peer_hdr.size);
+        goto error;
+    }
+
     c->peer_msg = g_malloc0(c->peer_hdr.size);
     if (c->peer_msg == NULL) {
         g_warning("invalid peer header size: %u", c->peer_hdr.size);
