@@ -1906,10 +1906,8 @@ static gboolean spice_channel_recv_link_msg(SpiceChannel *channel)
 
     c = channel->priv;
 
-    rc = spice_channel_read(channel, (uint8_t*)c->peer_msg + c->peer_pos,
-                            c->peer_hdr.size - c->peer_pos);
-    c->peer_pos += rc;
-    if (c->peer_pos != c->peer_hdr.size) {
+    rc = spice_channel_read(channel, (uint8_t*)c->peer_msg, c->peer_hdr.size);
+    if (rc != c->peer_hdr.size) {
         g_critical("%s: %s: incomplete link reply (%d/%u)",
                   c->name, __FUNCTION__, rc, c->peer_hdr.size);
         goto error;
@@ -2821,7 +2819,6 @@ static void channel_reset(SpiceChannel *channel, gboolean migrating)
     c->auth_needs_password = FALSE;
 
     g_clear_pointer(&c->peer_msg, g_free);
-    c->peer_pos = 0;
 
     g_mutex_lock(&c->xmit_queue_lock);
     c->xmit_queue_blocked = TRUE; /* Disallow queuing new messages */

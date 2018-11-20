@@ -129,7 +129,6 @@ struct _SpiceChannelPrivate {
     SpiceLinkHeader             link_hdr;
     SpiceLinkHeader             peer_hdr;
     SpiceLinkReply*             peer_msg;
-    int                         peer_pos;
 
     int                         message_ack_window;
     int                         message_ack_count;
