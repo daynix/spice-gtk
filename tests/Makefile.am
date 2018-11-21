@@ -30,10 +30,10 @@ AM_CPPFLAGS =					\
 	-DG_LOG_DOMAIN=\"GSpice\"		\
 	$(NULL)
 
-AM_LDFLAGS = $(GIO_LIBS) -static
+AM_LDFLAGS = $(GIO_LIBS)
 
 LDADD =							\
-	$(top_builddir)/src/libspice-client-glib-2.0.la	\
+	$(top_builddir)/src/libspice-client-glib-impl.la\
 	$(NULL)
 
 test_util_SOURCES = util.c

@@ -44,6 +44,7 @@ acldir = $(ACL_HELPER_DIR)
 acl_PROGRAMS = spice-client-glib-usb-acl-helper
 endif
 
+noinst_LTLIBRARIES = libspice-client-glib-impl.la
 lib_LTLIBRARIES = libspice-client-glib-2.0.la
 
 if WITH_GTK
@@ -175,7 +176,9 @@ libspice_client_glib_2_0_la_LDFLAGS =	\
 	$(GLIB_SYMBOLS_LDFLAGS)		\
 	$(NULL)
 
-libspice_client_glib_2_0_la_LIBADD =					\
+libspice_client_glib_2_0_la_LIBADD = libspice-client-glib-impl.la
+
+libspice_client_glib_impl_la_LIBADD =					\
 	$(SPICE_COMMON_DIR)/common/libspice-common.la			\
 	$(SPICE_COMMON_DIR)/common/libspice-common-client.la		\
 	$(GLIB2_LIBS)							\
@@ -208,7 +211,8 @@ else
 USB_ACL_HELPER_SRCS =
 endif
 
-libspice_client_glib_2_0_la_SOURCES =			\
+libspice_client_glib_2_0_la_SOURCES =
+libspice_client_glib_impl_la_SOURCES =			\
 	bio-gio.c					\
 	bio-gio.h					\
 	spice-audio.c					\
@@ -270,7 +274,7 @@ libspice_client_glib_2_0_la_SOURCES =			\
 	spice-glib-main.c				\
 	$(NULL)
 
-nodist_libspice_client_glib_2_0_la_SOURCES =	\
+nodist_libspice_client_glib_impl_la_SOURCES =	\
 	spice-glib-enums.c			\
 	spice-marshal.c				\
 	spice-marshal.h				\
@@ -308,49 +312,49 @@ nodist_libspice_client_glibinclude_HEADERS =	\
 	$(NULL)
 
 if HAVE_PULSE
-libspice_client_glib_2_0_la_SOURCES +=	\
+libspice_client_glib_impl_la_SOURCES +=	\
 	spice-pulse.c			\
 	spice-pulse.h			\
 	$(NULL)
 endif
 
 if HAVE_GSTAUDIO
-libspice_client_glib_2_0_la_SOURCES +=	\
+libspice_client_glib_impl_la_SOURCES +=	\
 	spice-gstaudio.c		\
 	spice-gstaudio.h		\
 	$(NULL)
 endif
 
 if HAVE_BUILTIN_MJPEG
-libspice_client_glib_2_0_la_SOURCES +=	\
+libspice_client_glib_impl_la_SOURCES +=	\
 	channel-display-mjpeg.c		\
 	$(NULL)
 endif
 
 if HAVE_GSTVIDEO
-libspice_client_glib_2_0_la_SOURCES +=	\
+libspice_client_glib_impl_la_SOURCES +=	\
 	channel-display-gst.c		\
 	$(NULL)
 endif
 
 if WITH_PHODAV
-libspice_client_glib_2_0_la_SOURCES +=	\
+libspice_client_glib_impl_la_SOURCES +=	\
 	giopipe.c			\
 	giopipe.h			\
 	$(NULL)
 endif
 
 if WITH_UCONTEXT
-libspice_client_glib_2_0_la_SOURCES += continuation.h continuation.c coroutine_ucontext.c
+libspice_client_glib_impl_la_SOURCES += continuation.h continuation.c coroutine_ucontext.c
 endif
 
 if WITH_WINFIBER
-libspice_client_glib_2_0_la_SOURCES += coroutine_winfibers.c
+libspice_client_glib_impl_la_SOURCES += coroutine_winfibers.c
 endif
 
 if WITH_GTHREAD
-libspice_client_glib_2_0_la_SOURCES += coroutine_gthread.c
-libspice_client_glib_2_0_la_LIBADD += $(GTHREAD_LIBS)
+libspice_client_glib_impl_la_SOURCES += coroutine_gthread.c
+libspice_client_glib_impl_la_LIBADD += $(GTHREAD_LIBS)
 endif
 
 
@@ -363,10 +367,10 @@ WIN_USB_FILES= \
 
 if OS_WIN32
 if WITH_USBREDIR
-libspice_client_glib_2_0_la_SOURCES += \
+libspice_client_glib_impl_la_SOURCES += \
 	$(WIN_USB_FILES)
 endif
-libspice_client_glib_2_0_la_LIBADD += -lws2_32 -lgdi32
+libspice_client_glib_impl_la_LIBADD += -lws2_32 -lgdi32
 endif
 
 if WITH_POLKIT
@@ -397,7 +401,7 @@ install-data-hook:
 endif
 
 
-$(libspice_client_glib_2_0_la_SOURCES): spice-glib-enums.h spice-marshal.h
+$(libspice_client_glib_impl_la_SOURCES): spice-glib-enums.h spice-marshal.h
 
 if WITH_GTK
 $(libspice_client_gtk_3_0_la_SOURCES): spice-glib-enums.h spice-widget-enums.h

@@ -1,11 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 NULL =
 
-SUBDIRS = subprojects/spice-common src man po doc data tools
-
-if BUILD_TESTS
-SUBDIRS += tests
-endif
+SUBDIRS = subprojects/spice-common src man po doc data tools tests
 
 if HAVE_INTROSPECTION
 if WITH_VALA
