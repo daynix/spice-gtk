@@ -1060,7 +1060,7 @@ static int spice_channel_read_wire(SpiceChannel *channel, void *data, size_t len
                 continue;
             } else {
                 c->has_error = TRUE;
-                return -errno;
+                return errno > 0 ? -errno : -EIO;
             }
         }
         if (ret == 0) {
