@@ -175,6 +175,11 @@ PKG_CHECK_MODULES(GTHREAD, gthread-2.0)
 
 PKG_CHECK_MODULES(JSON, json-glib-1.0)
 
+PKG_CHECK_EXISTS([libva-x11], [
+    PKG_CHECK_MODULES(LIBVA, libva-x11)
+    AC_DEFINE([HAVE_LIBVA], [1], [Define if libva is available])
+])
+
 AC_ARG_ENABLE([webdav],
   AS_HELP_STRING([--enable-webdav=@<:@auto/yes/no@:>@],
                  [Enable webdav support @<:@default=auto@:>@]),

@@ -134,6 +134,11 @@ if d.found()
   if host_machine.system() != 'windows'
     spice_gtk_deps += dependency('epoxy')
     spice_gtk_deps += dependency('x11')
+    d = dependency('libva-x11', required: false)
+    if d.found()
+      spice_gtk_deps += d
+      spice_gtk_config_data.set('HAVE_LIBVA', '1')
+    endif
   endif
   spice_gtk_has_gtk = true
 endif

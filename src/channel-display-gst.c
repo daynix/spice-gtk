@@ -406,14 +406,17 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
     } else {
         /* handle has received, it means playbin will render directly into
          * widget using the gstvideooverlay interface instead of app-sink.
-         * Also avoid using vaapisink if exist since vaapisink could be
+         */
+        SPICE_DEBUG("Video is presented using gstreamer's GstVideoOverlay interface");
+
+#if !GST_CHECK_VERSION(1,14,0)
+        /* Avoid using vaapisink if exist since vaapisink could be
          * buggy when it is combined with playbin. changing its rank to
          * none will make playbin to avoid of using it.
          */
         GstRegistry *registry = NULL;
         GstPluginFeature *vaapisink = NULL;
 
-        SPICE_DEBUG("Video is presented using gstreamer's GstVideoOverlay interface");
         registry = gst_registry_get();
         if (registry) {
             vaapisink = gst_registry_lookup_feature(registry, "vaapisink");
@@ -422,6 +425,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
             gst_plugin_feature_set_rank(vaapisink, GST_RANK_NONE);
             gst_object_unref(vaapisink);
         }
+#endif
     }
 
     g_signal_connect(playbin, "source-setup", G_CALLBACK(app_source_setup), decoder);

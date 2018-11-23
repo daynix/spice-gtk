@@ -28,6 +28,9 @@
 #ifdef GDK_WINDOWING_X11
 #include <X11/Xlib.h>
 #include <gdk/gdkx.h>
+#ifdef HAVE_LIBVA
+#include <va/va_x11.h>
+#endif
 #endif
 #ifdef G_OS_WIN32
 #include <windows.h>
@@ -2566,6 +2569,40 @@ static void queue_draw_area(SpiceDisplay *display, gint x, gint y,
 }
 
 #if defined(GDK_WINDOWING_X11)
+
+#if defined(HAVE_LIBVA)
+static GstContext *create_vaapi_context(void)
+{
+    static Display *x11_display = NULL;
+    static VADisplay va_display = NULL;
+
+    // note that if VAAPI do not get the context for the
+    // overlay it crashes the entire program!
+    GdkDisplay *display = gdk_display_get_default();
+    g_assert_nonnull(display);
+
+    // Compute display pointers
+    if (!x11_display && GDK_IS_X11_DISPLAY(display)) {
+        x11_display = gdk_x11_display_get_xdisplay(display);
+        // for thread problems we need a different Display,
+        // VAAPI access the Display from another thread
+        x11_display = XOpenDisplay(XDisplayString(x11_display));
+        g_assert_nonnull(x11_display);
+        va_display = vaGetDisplay(x11_display);
+        g_assert_nonnull(va_display);
+    }
+
+    GstContext *context = gst_context_new("gst.vaapi.app.Display", FALSE);
+    GstStructure *structure = gst_context_writable_structure(context);
+    if (x11_display) {
+        gst_structure_set(structure, "x11-display", G_TYPE_POINTER, x11_display, NULL);
+    }
+    gst_structure_set(structure, "va-display", G_TYPE_POINTER, va_display, NULL);
+
+    return context;
+}
+#endif
+
 static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *display)
 {
     switch(GST_MESSAGE_TYPE(msg)) {
@@ -2585,6 +2622,26 @@ static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *displa
                 return;
             }
         }
+        break;
+    }
+    case GST_MESSAGE_NEED_CONTEXT:
+    {
+        const gchar *context_type;
+
+        gst_message_parse_context_type(msg, &context_type);
+        SPICE_DEBUG("GStreamer: got need context %s from %s", context_type,
+                    GST_MESSAGE_SRC_NAME(msg));
+
+#if defined(HAVE_LIBVA)
+        if (g_strcmp0(context_type, "gst.vaapi.app.Display") == 0) {
+            GstContext *context = create_vaapi_context();
+
+            if (context) {
+                gst_element_set_context(GST_ELEMENT(msg->src), context);
+                gst_context_unref(context);
+            }
+        }
+#endif
         break;
     }
     default:

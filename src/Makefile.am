@@ -89,6 +89,7 @@ SPICE_COMMON_CPPFLAGS =						\
 	$(GUDEV_CFLAGS)						\
 	$(SOUP_CFLAGS)						\
 	$(PHODAV_CFLAGS)					\
+	$(LIBVA_CFLAGS)						\
 	$(X11_CFLAGS)					\
 	$(LZ4_CFLAGS)					\
 	$(NULL)
@@ -112,6 +113,7 @@ SPICE_GTK_LIBADD_COMMON =		\
 	$(CAIRO_LIBS)			\
 	$(X11_LIBS)			\
 	$(LIBM)				\
+	$(LIBVA_LIBS)			\
 	$(NULL)
 
 SPICE_GTK_SOURCES_COMMON =		\
