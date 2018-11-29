@@ -2994,8 +2994,6 @@ static void channel_new(SpiceSession *s, SpiceChannel *channel, SpiceDisplay *di
         return;
     }
 #endif
-
-    return;
 }
 
 static void channel_destroy(SpiceSession *s, SpiceChannel *channel, SpiceDisplay *display)
