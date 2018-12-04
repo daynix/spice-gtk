@@ -818,8 +818,9 @@ static gboolean clipboard_grab(SpiceMainChannel *main, guint selection,
 
     if (read_only(self) ||
         !s->auto_clipboard_enable ||
-        s->nclip_targets[selection] == 0)
-        goto skip_grab_clipboard;
+        s->nclip_targets[selection] == 0) {
+        return TRUE;
+    }
 
     if (!gtk_clipboard_set_with_owner(cb, targets, i,
                                       clipboard_get, clipboard_clear, G_OBJECT(self))) {
@@ -829,7 +830,6 @@ static gboolean clipboard_grab(SpiceMainChannel *main, guint selection,
     s->clipboard_by_guest[selection] = TRUE;
     s->clip_hasdata[selection] = FALSE;
 
-skip_grab_clipboard:
     return TRUE;
 }
 
