@@ -786,22 +786,22 @@ static gboolean clipboard_grab(SpiceMainChannel *main, guint selection,
     gboolean target_selected[SPICE_N_ELEMENTS(atom2agent)] = { FALSE, };
     gboolean found;
     GtkClipboard* cb;
-    int m, n, i;
+    int m, n;
+    int num_targets = 0;
 
     cb = get_clipboard_from_selection(s, selection);
     g_return_val_if_fail(cb != NULL, FALSE);
 
-    i = 0;
     for (n = 0; n < ntypes; ++n) {
         found = FALSE;
         for (m = 0; m < SPICE_N_ELEMENTS(atom2agent); m++) {
             if (atom2agent[m].vdagent == types[n] && !target_selected[m]) {
                 found = TRUE;
-                g_return_val_if_fail(i < SPICE_N_ELEMENTS(atom2agent), FALSE);
-                targets[i].target = (gchar*)atom2agent[m].xatom;
-                targets[i].info = m;
+                g_return_val_if_fail(num_targets < SPICE_N_ELEMENTS(atom2agent), FALSE);
+                targets[num_targets].target = (gchar*)atom2agent[m].xatom;
+                targets[num_targets].info = m;
                 target_selected[m] = TRUE;
-                i += 1;
+                num_targets++;
             }
         }
         if (!found) {
@@ -811,8 +811,8 @@ static gboolean clipboard_grab(SpiceMainChannel *main, guint selection,
     }
 
     g_free(s->clip_targets[selection]);
-    s->nclip_targets[selection] = i;
-    s->clip_targets[selection] = g_memdup(targets, sizeof(GtkTargetEntry) * i);
+    s->nclip_targets[selection] = num_targets;
+    s->clip_targets[selection] = g_memdup(targets, sizeof(GtkTargetEntry) * num_targets);
     /* Receiving a grab implies we've released our own grab */
     s->clip_grabbed[selection] = FALSE;
 
@@ -822,8 +822,12 @@ static gboolean clipboard_grab(SpiceMainChannel *main, guint selection,
         return TRUE;
     }
 
-    if (!gtk_clipboard_set_with_owner(cb, targets, i,
-                                      clipboard_get, clipboard_clear, G_OBJECT(self))) {
+    if (!gtk_clipboard_set_with_owner(cb,
+                                      targets,
+                                      num_targets,
+                                      clipboard_get,
+                                      clipboard_clear,
+                                      G_OBJECT(self))) {
         g_warning("clipboard grab failed");
         return FALSE;
     }
