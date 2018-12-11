@@ -85,7 +85,6 @@ struct _SpiceSessionPrivate {
 
     GStrv             disable_effects;
     GStrv             secure_channels;
-    gint              color_depth;
 
     int               connection_id;
     int               protocol;
@@ -670,8 +669,8 @@ static void spice_session_get_property(GObject    *gobject,
     case PROP_SECURE_CHANNELS:
         g_value_set_boxed(value, s->secure_channels);
         break;
-    case PROP_COLOR_DEPTH:
-        g_value_set_int(value, s->color_depth);
+    case PROP_COLOR_DEPTH: /* FIXME: deprecated */
+        g_value_set_int(value, 0);
         break;
     case PROP_AUDIO:
         g_value_set_boolean(value, s->audio);
@@ -814,7 +813,7 @@ static void spice_session_set_property(GObject      *gobject,
         s->secure_channels = g_value_dup_boxed(value);
         break;
     case PROP_COLOR_DEPTH:
-        s->color_depth = g_value_get_int(value);
+        spice_info("SpiceSession::color-depth has been deprecated. Property is ignored");
         break;
     case PROP_AUDIO:
         s->audio = g_value_get_boolean(value);
@@ -1119,6 +1118,9 @@ static void spice_session_class_init(SpiceSessionClass *klass)
      * Display color depth to set on new display channels. If 0, don't set.
      *
      * Since: 0.7
+     *
+     * Deprecated: 0.37: Deprecated due lack of support in drivers, only Windows 7 and older.
+     * This option is currently ignored.
      **/
     g_object_class_install_property
         (gobject_class, PROP_COLOR_DEPTH,
@@ -1126,6 +1128,7 @@ static void spice_session_class_init(SpiceSessionClass *klass)
                           "Color depth",
                           "Display channel color depth",
                           0, 32, 0,
+                          G_PARAM_DEPRECATED |
                           G_PARAM_READWRITE |
                           G_PARAM_STATIC_STRINGS));
 
@@ -2276,8 +2279,6 @@ void spice_session_channel_new(SpiceSession *session, SpiceChannel *channel)
                      "disable-font-smooth", all || spice_strv_contains(s->disable_effects, "font-smooth"),
                      "disable-animation", all || spice_strv_contains(s->disable_effects, "animation"),
                      NULL);
-        if (s->color_depth != 0)
-            g_object_set(channel, "color-depth", s->color_depth, NULL);
 
         CHANNEL_DEBUG(channel, "new main channel, switching");
         s->cmain = channel;
