@@ -2295,47 +2295,36 @@ static gboolean migrate_connect(gpointer data)
 
     spice_session_set_migration_state(mig->session, SPICE_SESSION_MIGRATION_CONNECTING);
 
-    if ((c->peer_hdr.major_version == 1) &&
-        (c->peer_hdr.minor_version < 1)) {
-        OldRedMigrationBegin *info = (OldRedMigrationBegin *)mig->info;
-        SPICE_DEBUG("migrate_begin old %s %d %d",
-                    info->host, info->port, info->sport);
-        port = info->port;
-        sport = info->sport;
-        host = info->host;
+    SpiceMigrationDstInfo *info = mig->info;
+    SPICE_DEBUG("migrate_begin %u %s %d %d",
+                info->host_size, info->host_data, info->port, info->sport);
+    port = info->port;
+    sport = info->sport;
+    host = (char*)info->host_data;
+
+    if (c->peer_hdr.major_version == 2 && c->peer_hdr.minor_version < 1) {
+        GByteArray *pubkey = g_byte_array_new();
+
+        g_byte_array_append(pubkey, info->pub_key_data, info->pub_key_size);
+        g_object_set(mig->session,
+                     "pubkey", pubkey,
+                     "verify", SPICE_SESSION_VERIFY_PUBKEY,
+                     NULL);
+        g_byte_array_unref(pubkey);
+    } else if (info->cert_subject_size == 0 ||
+               strlen((const char*)info->cert_subject_data) == 0) {
+        /* only verify hostname if no cert subject */
+        g_object_set(mig->session, "verify", SPICE_SESSION_VERIFY_HOSTNAME, NULL);
     } else {
-        SpiceMigrationDstInfo *info = mig->info;
-        SPICE_DEBUG("migrate_begin %u %s %d %d",
-                    info->host_size, info->host_data, info->port, info->sport);
-        port = info->port;
-        sport = info->sport;
-        host = (char*)info->host_data;
+        gchar *subject = g_alloca(info->cert_subject_size + 1);
+        strncpy(subject, (const char*)info->cert_subject_data, info->cert_subject_size);
+        subject[info->cert_subject_size] = '\0';
 
-        if ((c->peer_hdr.major_version == 1) ||
-            (c->peer_hdr.major_version == 2 && c->peer_hdr.minor_version < 1)) {
-            GByteArray *pubkey = g_byte_array_new();
-
-            g_byte_array_append(pubkey, info->pub_key_data, info->pub_key_size);
-            g_object_set(mig->session,
-                         "pubkey", pubkey,
-                         "verify", SPICE_SESSION_VERIFY_PUBKEY,
-                         NULL);
-            g_byte_array_unref(pubkey);
-        } else if (info->cert_subject_size == 0 ||
-                   strlen((const char*)info->cert_subject_data) == 0) {
-            /* only verify hostname if no cert subject */
-            g_object_set(mig->session, "verify", SPICE_SESSION_VERIFY_HOSTNAME, NULL);
-        } else {
-            gchar *subject = g_alloca(info->cert_subject_size + 1);
-            strncpy(subject, (const char*)info->cert_subject_data, info->cert_subject_size);
-            subject[info->cert_subject_size] = '\0';
-
-            // session data are already copied
-            g_object_set(mig->session,
-                         "cert-subject", subject,
-                         "verify", SPICE_SESSION_VERIFY_SUBJECT,
-                         NULL);
-        }
+        // session data are already copied
+        g_object_set(mig->session,
+                     "cert-subject", subject,
+                     "verify", SPICE_SESSION_VERIFY_SUBJECT,
+                     NULL);
     }
 
     if (g_getenv("SPICE_MIG_HOST"))

@@ -163,10 +163,6 @@ spice_channel_handle_migrate(SpiceChannel *channel, SpiceMsgIn *in)
     if (mig->flags & SPICE_MIGRATE_NEED_FLUSH) {
         /* if peer version > 1: pushing the mark msg before all other messgages and sending it,
          * and only it */
-        if (c->peer_hdr.major_version == 1) {
-            /* iterate_write is blocking and flushing all pending write */
-            SPICE_CHANNEL_GET_CLASS(channel)->iterate_write(channel);
-        }
         out = spice_msg_out_new(SPICE_CHANNEL(channel), SPICE_MSGC_MIGRATE_FLUSH_MARK);
         spice_msg_out_send_internal(out);
     }
