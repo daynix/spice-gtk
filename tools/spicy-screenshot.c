@@ -29,9 +29,9 @@ static gboolean version = FALSE;
 static SpiceSession  *session;
 static GMainLoop     *mainloop;
 
-enum SpiceSurfaceFmt d_format;
-gint                 d_width, d_height, d_stride;
-gpointer             d_data;
+static enum SpiceSurfaceFmt d_format;
+static gint d_width, d_height, d_stride;
+static gpointer d_data;
 
 static bool image_grabbed = false;
 
