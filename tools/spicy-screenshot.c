@@ -33,6 +33,8 @@ enum SpiceSurfaceFmt d_format;
 gint                 d_width, d_height, d_stride;
 gpointer             d_data;
 
+static bool image_grabbed = false;
+
 /* ------------------------------------------------------------------ */
 
 static void primary_create(SpiceChannel *channel, gint format,
@@ -93,8 +95,10 @@ static void invalidate(SpiceChannel *channel,
         rc = -1;
         break;
     }
-    if (rc == 0)
+    if (rc == 0) {
         fprintf(stderr, "wrote screen shot to %s\n", outf);
+        image_grabbed = true;
+    }
     g_main_loop_quit(mainloop);
 }
 
@@ -190,5 +194,5 @@ int main(int argc, char *argv[])
     }
 
     g_main_loop_run(mainloop);
-    return 0;
+    return image_grabbed ? 0 : 1;
 }
