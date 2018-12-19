@@ -53,7 +53,7 @@ static int write_ppm_32(void)
     uint8_t *p;
     int n;
 
-    fp = fopen(outf,"w");
+    fp = fopen(outf,"wb");
     if (NULL == fp) {
         fprintf(stderr, "%s: can't open %s: %s\n", g_get_prgname(), outf, strerror(errno));
         return -1;
