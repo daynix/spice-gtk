@@ -55,8 +55,8 @@ static int write_ppm_32(void)
 
     fp = fopen(outf,"w");
     if (NULL == fp) {
-	fprintf(stderr, "%s: can't open %s: %s\n", g_get_prgname(), outf, strerror(errno));
-	return -1;
+        fprintf(stderr, "%s: can't open %s: %s\n", g_get_prgname(), outf, strerror(errno));
+        return -1;
     }
     fprintf(fp, "P6\n%d %d\n255\n",
             d_width, d_height);
