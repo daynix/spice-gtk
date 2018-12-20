@@ -19,7 +19,6 @@
 # define SPICE_CHANNEL_CACHE_H_
 
 #include "common/mem.h"
-#include "common/ring.h"
 
 G_BEGIN_DECLS
 

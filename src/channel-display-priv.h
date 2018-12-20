@@ -28,7 +28,6 @@
 
 #include "common/canvas_utils.h"
 #include "client_sw_canvas.h"
-#include "common/ring.h"
 #include "common/quic.h"
 #include "common/rop3.h"
 
