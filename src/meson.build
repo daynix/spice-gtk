@@ -199,12 +199,12 @@ spice_client_glib_lib = library('spice-client-glib-2.0', spice_client_glib_sourc
                                 include_directories : spice_gtk_include,
                                 link_args : [spice_gtk_version_script],
                                 link_depends : spice_client_glib_syms,
-                                dependencies : spice_gtk_deps)
+                                dependencies : spice_glib_deps)
 
 spice_client_glib_dep = declare_dependency(sources : [spice_marshals[1], spice_client_glib_enums[1]],
                                            link_with : spice_client_glib_lib,
                                            include_directories : spice_gtk_include,
-                                           dependencies : spice_gtk_deps)
+                                           dependencies : spice_glib_deps)
 
 #
 # SpiceClientGLib-2.0.gir
@@ -234,7 +234,7 @@ if spice_gtk_has_polkit
              install : true,
              install_dir : spice_gtk_usb_acl_helper_dir,
              install_mode : ['rwsr-xr-x', 'root', 'root'],
-             dependencies : spice_gtk_deps,
+             dependencies : spice_acl_deps,
              pie : spice_gtk_has_pie
             )
 endif
@@ -340,11 +340,11 @@ if spice_gtk_has_gtk
                                  install : true,
                                  link_args : [spice_gtk_version_script],
                                  link_depends : spice_client_gtk_syms,
-                                 dependencies : spice_client_glib_dep)
+                                 dependencies : [spice_client_glib_dep, spice_gtk_deps])
 
   spice_client_gtk_dep = declare_dependency(sources : spice_widget_enums[1],
                                             link_with : spice_client_gtk_lib,
-                                            dependencies : spice_client_glib_dep)
+                                            dependencies : [spice_client_glib_dep, spice_gtk_deps])
 
   #
   # SpiceClientGtk-3.0.gir

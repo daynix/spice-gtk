@@ -31,7 +31,9 @@ spice_gtk_global_cflags = ['-DHAVE_CONFIG_H',
 compiler = meson.get_compiler('c')
 spice_gtk_config_data = configuration_data()
 spice_gtk_include = [include_directories('.')]
+spice_glib_deps = []
 spice_gtk_deps = []
+spice_acl_deps = []
 spice_gtk_host_system = host_machine.system()
 
 #
@@ -39,7 +41,7 @@ spice_gtk_host_system = host_machine.system()
 #
 spice_common = subproject('spice-common', default_options : ['generate-code=client'])
 spice_gtk_config_data.merge_from(spice_common.get_variable('spice_common_config_data'))
-spice_gtk_deps += spice_common.get_variable('spice_common_client_dep')
+spice_glib_deps += spice_common.get_variable('spice_common_client_dep')
 
 #
 # check for system headers
@@ -85,7 +87,7 @@ deps = {'spice-protocol' : spice_protocol_version,
         'openssl'        : '>= 1.0.0'}
 
 foreach dep, version : deps
-  spice_gtk_deps += dependency(dep, version : version)
+  spice_glib_deps += dependency(dep, version : version)
 endforeach
 
 # mandatory dependencies, without specific version requirement
@@ -98,7 +100,7 @@ else
 endif
 
 foreach dep : deps
-  spice_gtk_deps += dependency(dep)
+  spice_glib_deps += dependency(dep)
 endforeach
 
 deps = ['librt', 'libm']
@@ -107,7 +109,7 @@ if spice_gtk_host_system == 'windows'
 endif
 
 foreach dep : deps
-  spice_gtk_deps += compiler.find_library(dep)
+  spice_glib_deps += compiler.find_library(dep)
 endforeach
 
 #
@@ -118,7 +120,7 @@ optional_deps = {'celt051' : '>= 0.5.1.1',
 foreach dep, version : optional_deps
   d = dependency(dep, required : get_option(dep), version : version)
   if d.found()
-    spice_gtk_deps += d
+    spice_glib_deps += d
     spice_gtk_config_data.set('HAVE_@0@'.format(dep.underscorify().to_upper()), '1')
   endif
 endforeach
@@ -138,8 +140,8 @@ endif
 # webdav
 spice_gtk_has_phodav = false
 if get_option('webdav')
-  spice_gtk_deps += dependency('libphodav-2.0')
-  spice_gtk_deps += dependency('libsoup-2.4', version : '>= 2.49.91')
+  spice_glib_deps += dependency('libphodav-2.0')
+  spice_glib_deps += dependency('libsoup-2.4', version : '>= 2.49.91')
   spice_gtk_config_data.set('USE_PHODAV', '1')
   spice_gtk_has_phodav = true
 endif
@@ -149,7 +151,7 @@ spice_gtk_has_pulse = false
 if get_option('pulse')
   deps = ['libpulse', 'libpulse-mainloop-glib']
   foreach dep : deps
-    spice_gtk_deps += dependency(dep)
+    spice_glib_deps += dependency(dep)
   endforeach
   spice_gtk_config_data.set('HAVE_PULSE', '1')
   spice_gtk_has_pulse = true
@@ -161,7 +163,7 @@ spice_gtk_has_gstaudio = false
 if get_option('gstaudio')
   deps = gst_base_deps + ['gstreamer-audio-1.0']
   foreach dep : deps
-    spice_gtk_deps += dependency(dep)
+    spice_glib_deps += dependency(dep)
   endforeach
   spice_gtk_config_data.set('HAVE_GSTAUDIO', '1')
   spice_gtk_has_gstaudio = true
@@ -175,7 +177,7 @@ if get_option('gstvideo')
     deps += gst_base_deps
   endif
   foreach dep : deps
-    spice_gtk_deps += dependency(dep)
+    spice_glib_deps += dependency(dep)
   endforeach
   spice_gtk_config_data.set('HAVE_GSTVIDEO', '1')
   spice_gtk_has_gstvideo = true
@@ -199,21 +201,21 @@ if get_option('usbredir')
   if not usb_dep.found()
     usb_dep = dependency('libusbredirparser', version : '>= 0.4')
   endif
-  spice_gtk_deps += usb_dep
+  spice_glib_deps += usb_dep
 
   deps = {'libusbredirhost' : '>= 0.4.2',
           'libusb-1.0' : '>= 1.0.9'}
 
   foreach dep, version : deps
     usb_dep = dependency(dep, version : version)
-    spice_gtk_deps += usb_dep
+    spice_glib_deps += usb_dep
   endforeach
 
   if spice_gtk_host_system != 'windows'
     if usb_dep.version().version_compare('>= 1.0.16')
       spice_gtk_config_data.set('USE_LIBUSB_HOTPLUG', '1')
     else
-      spice_gtk_deps += dependency('gudev-1.0')
+      spice_glib_deps += dependency('gudev-1.0')
       spice_gtk_config_data.set('USE_GUDEV', '1')
     endif
   endif
@@ -239,11 +241,12 @@ if get_option('polkit')
       if not compiler.has_function('acl_get_file', dependencies : acl_dep)
         error('PolicyKit support requested, but some required packages are not available')
       endif
-      spice_gtk_deps += acl_dep
+      spice_acl_deps += acl_dep
     endif
   endif
 
-  spice_gtk_deps += polkit_dep
+  spice_acl_deps += polkit_dep
+  spice_acl_deps += dependency('gio-unix-2.0')
   spice_gtk_config_data.set('USE_POLKIT', '1')
   spice_gtk_has_polkit = true
 endif
@@ -303,7 +306,7 @@ endif
 # introspection
 spice_gtk_has_introspection = false
 if get_option('introspection')
-  spice_gtk_deps += dependency('gobject-introspection-1.0', version : '>= 0.94')
+  spice_glib_deps += dependency('gobject-introspection-1.0', version : '>= 0.94')
   spice_gtk_has_introspection = true
 endif
 
@@ -331,7 +334,7 @@ if get_option('lz4')
     lz4_dep = dependency('liblz4', version : '>= 1.7.3')
   endif
 
-  spice_gtk_deps += lz4_dep
+  spice_glib_deps += lz4_dep
   spice_gtk_config_data.set('USE_LZ4', '1')
   spice_gtk_has_lz4 = true
 endif
@@ -339,7 +342,7 @@ endif
 # sasl
 spice_gtk_has_sasl = false
 if get_option('sasl')
-  spice_gtk_deps += dependency('libsasl2')
+  spice_glib_deps += dependency('libsasl2')
   spice_gtk_config_data.set('HAVE_SASL', '1')
   spice_gtk_has_sasl = true
 endif
@@ -349,12 +352,12 @@ spice_gtk_has_smartcard = false
 if get_option('smartcard')
   smartcard_dep = dependency('libcacard', required : false, version : '>= 2.5.1')
   if smartcard_dep.found()
-    spice_gtk_deps += smartcard_dep
+    spice_glib_deps += smartcard_dep
     spice_gtk_config_data.set('USE_SMARTCARD', '1')
   else
     smartcard012_dep = dependency('libcacard', required : false, version : '>= 0.1.2')
     if smartcard012_dep.found()
-      spice_gtk_deps += smartcard012_dep
+      spice_glib_deps += smartcard012_dep
       spice_gtk_config_data.set('USE_SMARTCARD_012', '1')
     endif
   endif
