@@ -228,22 +228,15 @@ spice_client_glib_gir = gnome.generate_gir(spice_client_glib_lib,
 # spice-client-glib-usb-acl-helper
 #
 if spice_gtk_has_polkit
-  usb_acl_helper_c_args = []
-  usb_acl_helper_link_args = []
-
-  if spice_gtk_has_pie
-    usb_acl_helper_c_args += compiler.get_supported_arguments(['-fPIE'])
-    usb_acl_helper_link_args += compiler.get_supported_link_arguments(['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
-  endif
   executable('spice-client-glib-usb-acl-helper',
              'spice-client-glib-usb-acl-helper.c',
              include_directories : spice_gtk_include,
              install : true,
              install_dir : spice_gtk_usb_acl_helper_dir,
              install_mode : ['rwsr-xr-x', 'root', 'root'],
-             c_args : usb_acl_helper_c_args,
-             link_args : usb_acl_helper_link_args,
-             dependencies : spice_gtk_deps)
+             dependencies : spice_gtk_deps,
+             pie : spice_gtk_has_pie
+            )
 endif
 
 

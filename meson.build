@@ -4,7 +4,7 @@
 project('spice-gtk', 'c',
          version : run_command('build-aux/git-version-gen', '${MESON_SOURCE_ROOT}/.tarball-version', check : true).stdout().strip(),
          license : 'LGPLv2.1',
-         meson_version : '>= 0.47.2')
+         meson_version : '>= 0.49')
 
 message('Updating submodules')
 run_command('build-aux/meson/check-spice-common', check : true)
