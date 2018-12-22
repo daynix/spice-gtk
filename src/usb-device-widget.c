@@ -163,9 +163,9 @@ spice_usb_device_widget_show_info_bar(SpiceUsbDeviceWidget *self,
     widget = gtk_label_new(message);
     gtk_box_pack_start(GTK_BOX(hbox), widget, TRUE, TRUE, 0);
 
-    priv->info_bar = gtk_alignment_new(0.0, 0.0, 1.0, 0.0);
-    gtk_alignment_set_padding(GTK_ALIGNMENT(priv->info_bar), 0, 0, 12, 0);
-    gtk_container_add(GTK_CONTAINER(priv->info_bar), info_bar);
+    priv->info_bar = info_bar;
+    gtk_widget_set_margin_start(info_bar, 12);
+    gtk_widget_set_halign(info_bar, GTK_ALIGN_FILL);
     gtk_box_pack_start(GTK_BOX(self), priv->info_bar, FALSE, FALSE, 0);
     gtk_widget_show_all(priv->info_bar);
 }
@@ -187,7 +187,8 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
     str = g_strdup_printf("<b>%s</b>", _("Select USB devices to redirect"));
     gtk_label_set_markup(GTK_LABEL (priv->label), str);
     g_free(str);
-    gtk_misc_set_alignment(GTK_MISC(priv->label), 0.0, 0.5);
+    gtk_label_set_xalign(GTK_LABEL(priv->label), 0.0);
+    gtk_label_set_yalign(GTK_LABEL(priv->label), 0.5);
     gtk_box_pack_start(GTK_BOX(self), priv->label, FALSE, FALSE, 0);
 
     priv->manager = spice_usb_device_manager_get(priv->session, &err);
@@ -336,10 +337,6 @@ GtkWidget *spice_usb_device_widget_new(SpiceSession    *session,
 
 static SpiceUsbDevice *get_usb_device(GtkWidget *widget)
 {
-    if (!GTK_IS_ALIGNMENT(widget))
-        return NULL;
-
-    widget = gtk_bin_get_child(GTK_BIN(widget));
     return g_object_get_data(G_OBJECT(widget), "usb-device");
 }
 
@@ -525,7 +522,7 @@ static void device_added_cb(SpiceUsbDeviceManager *manager,
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
-    GtkWidget *align, *check;
+    GtkWidget *check;
     gchar *desc;
 
     desc = spice_usb_device_get_description(device,
@@ -544,12 +541,10 @@ static void device_added_cb(SpiceUsbDeviceManager *manager,
     g_signal_connect(G_OBJECT(check), "clicked",
                      G_CALLBACK(checkbox_clicked_cb), self);
 
-    align = gtk_alignment_new(0, 0, 0, 0);
-    gtk_alignment_set_padding(GTK_ALIGNMENT(align), 0, 0, 12, 0);
-    gtk_container_add(GTK_CONTAINER(align), check);
-    gtk_box_pack_end(GTK_BOX(self), align, FALSE, FALSE, 0);
+    gtk_widget_set_margin_start(check, 12);
+    gtk_box_pack_end(GTK_BOX(self), check, FALSE, FALSE, 0);
     spice_usb_device_widget_update_status(self);
-    gtk_widget_show_all(align);
+    gtk_widget_show_all(check);
 }
 
 static void destroy_widget_by_usb_device(GtkWidget *widget, gpointer user_data)
