@@ -1526,7 +1526,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
     SpiceStreamDataHeader *op = spice_msg_in_parsed(in);
     display_stream *st = get_stream_by_id(channel, op->id);
     guint32 mmtime;
-    int32_t latency;
+    int32_t latency, latency_report;
     SpiceFrame *frame;
 
     g_return_if_fail(st != NULL);
@@ -1546,7 +1546,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
     }
     st->num_input_frames++;
 
-    latency = op->multi_media_time - mmtime;
+    latency = latency_report = op->multi_media_time - mmtime;
     if (latency < 0) {
         CHANNEL_DEBUG(channel, "stream data too late by %u ms (ts: %u, mmtime: %u)",
                       mmtime - op->multi_media_time, op->multi_media_time, mmtime);
@@ -1562,7 +1562,15 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
         st->cur_drops_seq_stats.len++;
         st->playback_sync_drops_seq_len++;
     } else {
-        CHANNEL_DEBUG(channel, "video latency: %d", latency);
+        SpiceSession *s = spice_channel_get_session(channel);
+
+        if (st->surface->streaming_mode && !spice_session_is_playback_active(s)) {
+            CHANNEL_DEBUG(channel, "video latency: %d, set to 0 since there is no playback", latency);
+            latency = 0;
+        } else {
+            CHANNEL_DEBUG(channel, "video latency: %d", latency);
+        }
+
         if (st->cur_drops_seq_stats.len) {
             st->cur_drops_seq_stats.duration = op->multi_media_time -
                                                st->cur_drops_seq_stats.start_mm_time;
@@ -1593,7 +1601,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
 
     if (c->enable_adaptive_streaming) {
         display_update_stream_report(SPICE_DISPLAY_CHANNEL(channel), op->id,
-                                     op->multi_media_time, latency);
+                                     op->multi_media_time, latency_report);
         if (st->playback_sync_drops_seq_len >= STREAM_PLAYBACK_SYNC_DROP_SEQ_LEN_LIMIT) {
             spice_session_sync_playback_latency(spice_channel_get_session(channel));
             st->playback_sync_drops_seq_len = 0;
