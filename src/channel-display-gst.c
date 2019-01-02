@@ -548,11 +548,7 @@ static void spice_gst_decoder_destroy(VideoDecoder *video_decoder)
         g_source_remove(decoder->timer_id);
     }
     g_mutex_clear(&decoder->queues_mutex);
-    SpiceGstFrame *gstframe;
-    while ((gstframe = g_queue_pop_head(decoder->decoding_queue))) {
-        free_gst_frame(gstframe);
-    }
-    g_queue_free(decoder->decoding_queue);
+    g_queue_free_full(decoder->decoding_queue, (GDestroyNotify)free_gst_frame);
     if (decoder->display_frame) {
         free_gst_frame(decoder->display_frame);
     }
