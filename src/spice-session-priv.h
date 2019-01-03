@@ -89,6 +89,7 @@ void spice_session_sync_playback_latency(SpiceSession *session);
 gboolean spice_session_get_audio_enabled(SpiceSession *session);
 gboolean spice_session_get_smartcard_enabled(SpiceSession *session);
 gboolean spice_session_get_usbredir_enabled(SpiceSession *session);
+gboolean spice_session_get_gl_scanout_enabled(SpiceSession *session);
 
 const guint8* spice_session_get_webdav_magic(SpiceSession *session);
 PhodavServer *spice_session_get_webdav_server(SpiceSession *session);

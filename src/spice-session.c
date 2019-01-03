@@ -61,6 +61,9 @@ struct _SpiceSessionPrivate {
     /* whether to enable smartcard event forwarding to the server */
     gboolean          smartcard;
 
+    /* whether to enable GL scanout */
+    gboolean          gl_scanout;
+
     /* list of certificates to use for the software smartcard reader if
      * enabled. For now, it has to contain exactly 3 certificates for
      * the software reader to be functional
@@ -191,6 +194,7 @@ enum {
     PROP_USERNAME,
     PROP_UNIX_PATH,
     PROP_PREF_COMPRESSION,
+    PROP_GL_SCANOUT,
 };
 
 /* signals */
@@ -699,6 +703,9 @@ static void spice_session_get_property(GObject    *gobject,
     case PROP_PREF_COMPRESSION:
         g_value_set_enum(value, s->preferred_compression);
         break;
+    case PROP_GL_SCANOUT:
+        g_value_set_boolean(value, s->gl_scanout);
+        break;
     default:
 	G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, pspec);
 	break;
@@ -837,6 +844,13 @@ static void spice_session_set_property(GObject      *gobject,
         break;
     case PROP_PREF_COMPRESSION:
         s->preferred_compression = g_value_get_enum(value);
+        break;
+    case PROP_GL_SCANOUT:
+#ifdef G_OS_UNIX
+        s->gl_scanout = g_value_get_boolean(value);
+#else
+        g_warning("SpiceSession:gl-scanout is only available on Unix");
+#endif
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, pspec);
@@ -1478,6 +1492,35 @@ static void spice_session_class_init(SpiceSessionClass *klass)
                            SPICE_IMAGE_COMPRESSION_INVALID,
                            G_PARAM_READWRITE |
                            G_PARAM_STATIC_STRINGS));
+
+    /**
+     * SpiceSession:gl-scanout:
+     *
+     * Whether to enable gl-scanout (Unix only).  Set to TRUE by
+     * default on EGL-enabled host, unless SPICE_DISABLE_GL_SCANOUT
+     * environment variable is set.
+     *
+     * Since: 0.36
+     **/
+    g_object_class_install_property
+        (gobject_class, PROP_GL_SCANOUT,
+         g_param_spec_boolean("gl-scanout",
+                              "Enable GL scanout support",
+                              "Enable GL scanout support",
+#ifdef HAVE_EGL
+                              g_getenv("SPICE_DISABLE_GL_SCANOUT") == NULL,
+                              G_PARAM_CONSTRUCT |
+#else
+                              false,
+#endif
+                              G_PARAM_READWRITE |
+                              G_PARAM_STATIC_STRINGS));
+}
+
+G_GNUC_INTERNAL
+gboolean spice_session_get_gl_scanout_enabled(SpiceSession *session)
+{
+    return session->priv->gl_scanout;
 }
 
 /* ------------------------------------------------------------------ */

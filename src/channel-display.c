@@ -870,6 +870,7 @@ static SpiceImageSurfacesOps image_surfaces_ops = {
 
 static void spice_display_channel_set_capabilities(SpiceChannel *channel)
 {
+    SpiceSession *s = spice_channel_get_session(channel);
     guint i;
 
     spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_SIZED_STREAM);
@@ -882,9 +883,9 @@ static void spice_display_channel_set_capabilities(SpiceChannel *channel)
     if (SPICE_DISPLAY_CHANNEL(channel)->priv->enable_adaptive_streaming) {
         spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_STREAM_REPORT);
     }
-#ifdef G_OS_UNIX
-    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_GL_SCANOUT);
-#endif
+    if (spice_session_get_gl_scanout_enabled(s)) {
+        spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_GL_SCANOUT);
+    }
     spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_MULTI_CODEC);
 #ifdef HAVE_BUILTIN_MJPEG
     spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_CODEC_MJPEG);
