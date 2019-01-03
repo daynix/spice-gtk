@@ -195,6 +195,7 @@ static void spice_display_channel_constructed(GObject *object)
                                   G_CALLBACK(display_session_mm_time_reset_cb),
                                   SPICE_CHANNEL(object), 0);
 
+    spice_display_channel_set_capabilities(SPICE_CHANNEL(object));
 
     if (G_OBJECT_CLASS(spice_display_channel_parent_class)->constructed)
         G_OBJECT_CLASS(spice_display_channel_parent_class)->constructed(object);
@@ -924,7 +925,6 @@ static void spice_display_channel_init(SpiceDisplayChannel *channel)
     } else {
         c->enable_adaptive_streaming = TRUE;
     }
-    spice_display_channel_set_capabilities(SPICE_CHANNEL(channel));
 }
 
 /* ------------------------------------------------------------------ */
