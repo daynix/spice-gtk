@@ -43,8 +43,6 @@ typedef struct SpiceGstDecoder {
     GstElement *pipeline;
     GstClock *clock;
 
-    guintptr win_handle;
-
     /* ---------- Decoding and display queues ---------- */
 
     uint32_t last_mm_time;
@@ -334,20 +332,6 @@ static gboolean handle_pipeline_message(GstBus *bus, GstMessage *msg, gpointer v
         g_free(filename);
         break;
     }
-    case GST_MESSAGE_ELEMENT: {
-        if (gst_is_video_overlay_prepare_window_handle_message(msg)) {
-            GstVideoOverlay *overlay;
-
-            SPICE_DEBUG("prepare-window-handle msg received (handle: %" G_GUINTPTR_FORMAT")",
-                        decoder->win_handle);
-            if (decoder->win_handle != 0) {
-                overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(msg));
-                gst_video_overlay_set_window_handle(overlay, decoder->win_handle);
-                gst_video_overlay_handle_events(overlay, false);
-            }
-        }
-        break;
-    }
     default:
         /* not being handled */
         break;
@@ -396,14 +380,11 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
         return FALSE;
     }
 
-    /* Will try to get window handle in order to apply the GstVideoOverlay
-     * interface, setting overlay to this window will happen only when
-     * prepare-window-handle message is received
+    /* Passing the pipeline to widget, try to get window handle and
+     * set the GstVideoOverlay interface, setting overlay to the window
+     * will happen only when prepare-window-handle message is received
      */
-    decoder->win_handle = get_window_handle(decoder->base.stream);
-    SPICE_DEBUG("Creating Gstreamer pipeline (handle for overlay %s)\n",
-                decoder->win_handle ? "received" : "not received");
-    if (decoder->win_handle == 0) {
+    if (!hand_pipeline_to_widget(decoder->base.stream, GST_PIPELINE(playbin))) {
         sink = gst_element_factory_make("appsink", "sink");
         if (sink == NULL) {
             spice_warning("error upon creation of 'appsink' element");
@@ -432,6 +413,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
         GstRegistry *registry = NULL;
         GstPluginFeature *vaapisink = NULL;
 
+        SPICE_DEBUG("Video is presented using gstreamer's GstVideoOverlay interface");
         registry = gst_registry_get();
         if (registry) {
             vaapisink = gst_registry_lookup_feature(registry, "vaapisink");
@@ -572,7 +554,7 @@ static void spice_gst_decoder_destroy(VideoDecoder *video_decoder)
  * 3) As soon as the GStreamer pipeline no longer needs the compressed frame it
  *    will call frame->unref_data() to free it.
  *
- * If GstVideoOverlay is used (win_handle was obtained by pipeline creation):
+ * If GstVideoOverlay is used (window handle was obtained successfully at the widget):
  *   4) Decompressed frames will be renderd to widget directly from gstreamer's pipeline
  *      using some gstreamer sink plugin which implements the GstVideoOverlay interface
  *      (last step).

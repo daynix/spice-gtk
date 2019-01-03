@@ -2115,10 +2115,16 @@ static void realize(GtkWidget *widget)
 
 static void unrealize(GtkWidget *widget)
 {
-    spice_cairo_image_destroy(SPICE_DISPLAY(widget));
+    SpiceDisplay *display = SPICE_DISPLAY(widget);
+
+    spice_cairo_image_destroy(display);
 #if HAVE_EGL
-    if (SPICE_DISPLAY(widget)->priv->egl.context_ready)
-        spice_egl_unrealize_display(SPICE_DISPLAY(widget));
+    if (display->priv->egl.context_ready) {
+        spice_egl_unrealize_display(display);
+    }
+#endif
+#ifdef HAVE_GSTVIDEO
+    g_weak_ref_set(&display->priv->overlay_weak_ref, NULL);
 #endif
 
     GTK_WIDGET_CLASS(spice_display_parent_class)->unrealize(widget);
@@ -2547,26 +2553,62 @@ static void queue_draw_area(SpiceDisplay *display, gint x, gint y,
                                x, y, width, height);
 }
 
-static void* prepare_streaming_mode(SpiceChannel *channel, bool streaming_mode, gpointer data)
+#if defined(HAVE_GSTVIDEO) && defined(GDK_WINDOWING_X11)
+static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *display)
 {
-#ifdef GDK_WINDOWING_X11
-    SpiceDisplay *display = data;
+    switch(GST_MESSAGE_TYPE(msg)) {
+    case GST_MESSAGE_ELEMENT: {
+        if (gst_is_video_overlay_prepare_window_handle_message(msg) &&
+            !g_getenv("DISABLE_GSTVIDEOOVERLAY") &&
+            GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+            GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(display));
+
+            if (window && gdk_window_ensure_native(window)) {
+                SpiceDisplayPrivate *d = display->priv;
+
+                GstVideoOverlay *overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(msg));
+                g_weak_ref_set(&d->overlay_weak_ref, overlay);
+                gst_video_overlay_set_window_handle(overlay, (uintptr_t)GDK_WINDOW_XID(window));
+                gst_video_overlay_handle_events(overlay, false);
+                return;
+            }
+        }
+        break;
+    }
+    default:
+        /* not being handled */
+        break;
+    }
+}
+#endif
+
+/* This callback should pass to the widget a pointer of the pipeline
+ * so that we can set pipeline and overlay related calls from here.
+ */
+static gboolean set_overlay(SpiceChannel *channel, void* pipeline_ptr, SpiceDisplay *display)
+{
+#if defined(HAVE_GSTVIDEO) && defined(GDK_WINDOWING_X11)
     SpiceDisplayPrivate *d = display->priv;
 
-    /* GstVideoOverlay will currently be used only under x */
+    /* GstVideoOverlay is currently used only under x */
     if (!g_getenv("DISABLE_GSTVIDEOOVERLAY") &&
-        streaming_mode &&
         GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
         GdkWindow *window;
 
         window = gtk_widget_get_window(GTK_WIDGET(display));
         if (window && gdk_window_ensure_native(window)) {
+            GstBus *bus;
+
             gtk_stack_set_visible_child_name(d->stack, "gst-area");
-            return (void*)(uintptr_t)GDK_WINDOW_XID(window);
+            bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline_ptr));
+            gst_bus_enable_sync_message_emission(bus);
+            g_signal_connect(bus, "sync-message", G_CALLBACK(gst_sync_bus_call), display);
+            gst_object_unref(bus);
+            return true;
         }
     }
 #endif
-    return NULL;
+    return false;
 }
 
 static void invalidate(SpiceChannel *channel,
@@ -2936,8 +2978,8 @@ static void channel_new(SpiceSession *s, SpiceChannel *channel, SpiceDisplay *di
         spice_g_signal_connect_object(channel, "notify::monitors",
                                       G_CALLBACK(spice_display_widget_update_monitor_area),
                                       display, G_CONNECT_AFTER | G_CONNECT_SWAPPED);
-        spice_g_signal_connect_object(channel, "streaming-mode",
-                                      G_CALLBACK(prepare_streaming_mode), display, G_CONNECT_AFTER);
+        spice_g_signal_connect_object(channel, "gst-video-overlay",
+                                      G_CALLBACK(set_overlay), display, G_CONNECT_AFTER);
         if (spice_display_channel_get_primary(channel, 0, &primary)) {
             primary_create(channel, primary.format, primary.width, primary.height,
                            primary.stride, primary.shmid, primary.data, display);

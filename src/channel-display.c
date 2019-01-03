@@ -29,6 +29,9 @@
 #include "spice-session-priv.h"
 #include "channel-display-priv.h"
 #include "decode.h"
+#ifdef HAVE_GSTVIDEO
+#include "gst/gst.h"
+#endif
 
 /**
  * SECTION:channel-display
@@ -88,7 +91,7 @@ enum {
     SPICE_DISPLAY_INVALIDATE,
     SPICE_DISPLAY_MARK,
     SPICE_DISPLAY_GL_DRAW,
-    SPICE_DISPLAY_STREAMING_MODE,
+    SPICE_DISPLAY_OVERLAY,
 
     SPICE_DISPLAY_LAST_SIGNAL,
 };
@@ -453,26 +456,27 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
                      G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT);
 
     /**
-     * SpiceDisplayChannel::streaming-mode:
+     * SpiceDisplayChannel::gst-video-overlay
      * @display: the #SpiceDisplayChannel that emitted the signal
-     * @streaming_mode: %TRUE when it's streaming mode
+     * @pipeline: pointer to gstreamer's pipeline
      *
-     * Return: handle for the display window if possible
+     * Return: valid window handle on success
      *
-     * The #SpiceDisplayChannel::streaming-mode signal is emitted when
-     * spice server is working in streaming mode.
+     * The #SpiceDisplayChannel::gst-video-overlay signal is emitted when
+     * pipeline is ready and can be passed to widget to regeister gstreamer
+     * overlay interface and other gstreamer callbacks.
      *
-     * Since 0.35
+     * Since 0.36
      **/
-    signals[SPICE_DISPLAY_STREAMING_MODE] =
-        g_signal_new("streaming-mode",
+    signals[SPICE_DISPLAY_OVERLAY] =
+        g_signal_new("gst-video-overlay",
                      G_OBJECT_CLASS_TYPE(gobject_class),
                      0, 0,
                      NULL, NULL,
-                     g_cclosure_user_marshal_POINTER__BOOLEAN,
-                     G_TYPE_POINTER,
+                     g_cclosure_user_marshal_BOOLEAN__POINTER,
+                     G_TYPE_BOOLEAN,
                      1,
-                     G_TYPE_BOOLEAN);
+                     GST_TYPE_PIPELINE);
 
     channel_set_handlers(SPICE_CHANNEL_CLASS(klass));
 }
@@ -1391,15 +1395,19 @@ void stream_display_frame(display_stream *st, SpiceFrame *frame,
     }
 }
 
+#ifdef HAVE_GSTVIDEO
 G_GNUC_INTERNAL
-guintptr get_window_handle(display_stream *st)
+gboolean hand_pipeline_to_widget(display_stream *st, GstPipeline *pipeline)
 {
-   void* handle = 0;
+    gboolean res = false;
 
-   g_signal_emit(st->channel, signals[SPICE_DISPLAY_STREAMING_MODE], 0,
-                 st->surface->streaming_mode, &handle);
-   return st->surface->streaming_mode ? (guintptr)handle : 0;
+    if (st->surface->streaming_mode) {
+        g_signal_emit(st->channel, signals[SPICE_DISPLAY_OVERLAY], 0,
+                      pipeline, &res);
+    }
+    return res;
 }
+#endif
 
 /* after a sequence of 3 drops, push a report to the server, even
  * if the report window is bigger */
