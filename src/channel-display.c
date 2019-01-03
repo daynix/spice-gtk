@@ -106,7 +106,7 @@ static void clear_surfaces(SpiceChannel *channel, gboolean keep_primary);
 static void clear_streams(SpiceChannel *channel);
 static display_surface *find_surface(SpiceDisplayChannelPrivate *c, guint32 surface_id);
 static void spice_display_channel_reset(SpiceChannel *channel, gboolean migrating);
-static void spice_display_channel_reset_capabilities(SpiceChannel *channel);
+static void spice_display_channel_set_capabilities(SpiceChannel *channel);
 static void destroy_canvas(display_surface *surface);
 static void display_stream_destroy(gpointer st);
 static void display_session_mm_time_reset_cb(SpiceSession *session, gpointer data);
@@ -270,7 +270,6 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
 
     channel_class->channel_up   = spice_display_channel_up;
     channel_class->channel_reset = spice_display_channel_reset;
-    channel_class->channel_reset_capabilities = spice_display_channel_reset_capabilities;
 
     g_object_class_install_property
         (gobject_class, PROP_HEIGHT,
@@ -868,7 +867,7 @@ static SpiceImageSurfacesOps image_surfaces_ops = {
     .get = surfaces_get
 };
 
-static void spice_display_channel_reset_capabilities(SpiceChannel *channel)
+static void spice_display_channel_set_capabilities(SpiceChannel *channel)
 {
     guint i;
 
@@ -925,7 +924,7 @@ static void spice_display_channel_init(SpiceDisplayChannel *channel)
     } else {
         c->enable_adaptive_streaming = TRUE;
     }
-    spice_display_channel_reset_capabilities(SPICE_CHANNEL(channel));
+    spice_display_channel_set_capabilities(SPICE_CHANNEL(channel));
 }
 
 /* ------------------------------------------------------------------ */

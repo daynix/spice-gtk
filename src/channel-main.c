@@ -238,7 +238,7 @@ static gboolean test_agent_cap(SpiceMainChannel *channel, guint32 cap)
     return VD_AGENT_HAS_CAPABILITY(c->agent_caps, G_N_ELEMENTS(c->agent_caps), cap);
 }
 
-static void spice_main_channel_reset_capabilties(SpiceChannel *channel)
+static void spice_main_channel_set_capabilties(SpiceChannel *channel)
 {
     spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_MAIN_CAP_SEMI_SEAMLESS_MIGRATE);
     spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_MAIN_CAP_NAME_AND_UUID);
@@ -256,7 +256,7 @@ static void spice_main_channel_init(SpiceMainChannel *channel)
     c->flushing = g_hash_table_new(g_direct_hash, g_direct_equal);
     c->cancellable_volume_info = g_cancellable_new();
 
-    spice_main_channel_reset_capabilties(SPICE_CHANNEL(channel));
+    spice_main_channel_set_capabilties(SPICE_CHANNEL(channel));
     c->requested_mouse_mode = SPICE_MOUSE_MODE_CLIENT;
 }
 
@@ -464,7 +464,6 @@ static void spice_main_channel_class_init(SpiceMainChannelClass *klass)
     channel_class->handle_msg    = spice_main_handle_msg;
     channel_class->iterate_write = spice_channel_iterate_write;
     channel_class->channel_reset = spice_main_channel_reset;
-    channel_class->channel_reset_capabilities = spice_main_channel_reset_capabilties;
     channel_class->channel_send_migration_handshake = spice_main_channel_send_migration_handshake;
 
     /**

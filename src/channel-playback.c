@@ -87,7 +87,7 @@ static void channel_set_handlers(SpiceChannelClass *klass);
 
 #define SPICE_PLAYBACK_DEFAULT_LATENCY_MS 200
 
-static void spice_playback_channel_reset_capabilities(SpiceChannel *channel)
+static void spice_playback_channel_set_capabilities(SpiceChannel *channel)
 {
     if (!g_getenv("SPICE_DISABLE_CELT"))
         if (snd_codec_is_capable(SPICE_AUDIO_DATA_MODE_CELT_0_5_1, SND_CODEC_ANY_FREQUENCY))
@@ -103,7 +103,7 @@ static void spice_playback_channel_init(SpicePlaybackChannel *channel)
 {
     channel->priv = spice_playback_channel_get_instance_private(channel);
 
-    spice_playback_channel_reset_capabilities(SPICE_CHANNEL(channel));
+    spice_playback_channel_set_capabilities(SPICE_CHANNEL(channel));
 }
 
 static void spice_playback_channel_finalize(GObject *obj)
@@ -185,7 +185,6 @@ static void spice_playback_channel_class_init(SpicePlaybackChannelClass *klass)
     gobject_class->set_property = spice_playback_channel_set_property;
 
     channel_class->channel_reset = spice_playback_channel_reset;
-    channel_class->channel_reset_capabilities = spice_playback_channel_reset_capabilities;
 
     g_object_class_install_property
         (gobject_class, PROP_NCHANNELS,
