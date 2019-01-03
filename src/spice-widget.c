@@ -120,6 +120,10 @@ static void size_allocate(GtkWidget *widget, GtkAllocation *conf, gpointer data)
 static gboolean draw_event(GtkWidget *widget, cairo_t *cr, gpointer data);
 static void update_size_request(SpiceDisplay *display);
 static GdkDevice *spice_gdk_window_get_pointing_device(GdkWindow *window);
+#ifdef HAVE_GSTVIDEO
+static void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data);
+static gboolean gst_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data);
+#endif
 
 /* ---------------------------------------------------------------- */
 
@@ -649,8 +653,14 @@ static void spice_display_init(SpiceDisplay *display)
                      NULL);
     gtk_stack_add_named(d->stack, area, "gl-area");
 #endif
+#ifdef HAVE_GSTVIDEO
     area = gtk_drawing_area_new();
     gtk_stack_add_named(d->stack, area, "gst-area");
+    g_object_connect(area,
+                     "signal::draw", gst_draw_event, display,
+                     "signal::size-allocate", gst_size_allocate, display,
+                     NULL);
+#endif
 
     gtk_widget_show_all(widget);
 
@@ -2578,6 +2588,38 @@ static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *displa
     default:
         /* not being handled */
         break;
+    }
+}
+#endif
+
+#ifdef HAVE_GSTVIDEO
+static gboolean gst_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    SpiceDisplay *display = SPICE_DISPLAY(data);
+    SpiceDisplayPrivate *d = display->priv;
+    GstVideoOverlay *overlay = g_weak_ref_get(&d->overlay_weak_ref);
+
+    if (overlay) {
+        gst_video_overlay_expose(overlay);
+        gst_object_unref(overlay);
+        update_mouse_pointer(display);
+        return true;
+    }
+    return false;
+}
+
+void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data)
+{
+    SpiceDisplay *display = SPICE_DISPLAY(data);
+    SpiceDisplayPrivate *d = display->priv;
+    GstVideoOverlay *overlay = g_weak_ref_get(&d->overlay_weak_ref);
+
+    if (overlay) {
+        gint scale = gtk_widget_get_scale_factor(widget);
+
+        gst_video_overlay_set_render_rectangle(overlay, a->x * scale, a->y * scale,
+                                               a->width * scale, a->height * scale);
+        gst_object_unref(overlay);
     }
 }
 #endif
