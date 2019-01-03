@@ -61,6 +61,7 @@ struct _SpiceDisplayClass {
 
 struct _SpiceDisplayPrivate {
     GtkStack                *stack;
+    GtkWidget               *label;
     gint                    channel_id;
     gint                    monitor_id;
 

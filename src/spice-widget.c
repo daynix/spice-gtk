@@ -20,6 +20,7 @@
 #include <math.h>
 #include <glib.h>
 #include <gdk/gdk.h>
+#include <glib/gi18n-lib.h>
 
 #ifdef HAVE_X11_XKBLIB_H
 #include <X11/XKBlib.h>
@@ -251,6 +252,9 @@ static void update_ready(SpiceDisplay *display)
     SpiceDisplayPrivate *d = display->priv;
     gboolean ready = FALSE;
 
+    if (gtk_stack_get_visible_child(d->stack) == d->label) {
+        ready = true;
+    }
     if (d->monitor_ready) {
         ready = egl_enabled(d) || d->mark != 0;
     }
@@ -661,6 +665,9 @@ static void spice_display_init(SpiceDisplay *display)
                      "signal::size-allocate", gst_size_allocate, display,
                      NULL);
 #endif
+    d->label = gtk_label_new(NULL);
+    gtk_label_set_selectable(GTK_LABEL(d->label), true);
+    gtk_stack_add_named(d->stack, d->label, "label");
 
     gtk_widget_show_all(widget);
 
@@ -2988,6 +2995,17 @@ static void gl_draw(SpiceDisplay *display,
         spice_display_channel_gl_draw_done(d->display);
     }
 }
+#else
+static void spice_display_widget_gl_scanout(SpiceDisplay *display)
+{
+    SpiceDisplayPrivate *d = display->priv;
+
+    DISPLAY_DEBUG(display, "%s !EGL",  __FUNCTION__);
+    gtk_label_set_label(GTK_LABEL(d->label), _("spice-gtk: The remote requires EGL support."));
+    gtk_stack_set_visible_child(d->stack, d->label);
+    update_ready(display);
+    spice_display_channel_gl_draw_done(d->display);
+}
 #endif
 
 static void channel_new(SpiceSession *s, SpiceChannel *channel, SpiceDisplay *display)
@@ -3028,10 +3046,10 @@ static void channel_new(SpiceSession *s, SpiceChannel *channel, SpiceDisplay *di
             mark(display, primary.marked);
         }
 
-#if HAVE_EGL
         spice_g_signal_connect_object(channel, "notify::gl-scanout",
                                       G_CALLBACK(spice_display_widget_gl_scanout),
                                       display, G_CONNECT_SWAPPED);
+#if HAVE_EGL
         spice_g_signal_connect_object(channel, "gl-draw",
                                       G_CALLBACK(gl_draw), display, G_CONNECT_SWAPPED);
 #endif
