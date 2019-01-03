@@ -843,26 +843,26 @@ static void spice_display_channel_reset_capabilities(SpiceChannel *channel)
 {
     guint i;
 
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_SIZED_STREAM);
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_MONITORS_CONFIG);
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_COMPOSITE);
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_A8_SURFACE);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_SIZED_STREAM);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_MONITORS_CONFIG);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_COMPOSITE);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_A8_SURFACE);
 #ifdef USE_LZ4
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_LZ4_COMPRESSION);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_LZ4_COMPRESSION);
 #endif
     if (SPICE_DISPLAY_CHANNEL(channel)->priv->enable_adaptive_streaming) {
-        spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_STREAM_REPORT);
+        spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_STREAM_REPORT);
     }
 #ifdef G_OS_UNIX
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_GL_SCANOUT);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_GL_SCANOUT);
 #endif
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_MULTI_CODEC);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_MULTI_CODEC);
 #ifdef HAVE_BUILTIN_MJPEG
-    spice_channel_set_capability(SPICE_CHANNEL(channel), SPICE_DISPLAY_CAP_CODEC_MJPEG);
+    spice_channel_set_capability(channel, SPICE_DISPLAY_CAP_CODEC_MJPEG);
 #endif
     for (i = 1; i < G_N_ELEMENTS(gst_opts); i++) {
         if (gstvideo_has_codec(i)) {
-            spice_channel_set_capability(SPICE_CHANNEL(channel), gst_opts[i].cap);
+            spice_channel_set_capability(channel, gst_opts[i].cap);
         } else {
             SPICE_DEBUG("GStreamer does not support the %s codec", gst_opts[i].name);
         }
