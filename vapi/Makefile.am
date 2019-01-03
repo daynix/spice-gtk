@@ -27,6 +27,7 @@ spice-client-glib-2.0.vapi: $(top_builddir)/src/SpiceClientGLib-2.0.gir SpiceCli
 		--metadatadir=$(srcdir)		\
 		--library spice-client-glib-2.0	\
 		--pkg gio-2.0			\
+		--pkg gstreamer-1.0		\
 		$<
 
 spice-client-gtk-3.0.vapi: $(top_builddir)/src/SpiceClientGtk-3.0.gir spice-client-glib-2.0.vapi
@@ -34,6 +35,7 @@ spice-client-gtk-3.0.vapi: $(top_builddir)/src/SpiceClientGtk-3.0.gir spice-clie
 		--vapidir=$(builddir)					\
 		--girdir=$(top_builddir)/src				\
 		--pkg spice-client-glib-2.0				\
+		--pkg gstreamer-1.0					\
 		--pkg gtk+-3.0						\
 		--library spice-client-gtk-3.0				\
 		$<
