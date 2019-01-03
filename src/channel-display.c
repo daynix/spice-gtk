@@ -1391,6 +1391,7 @@ void stream_display_frame(display_stream *st, SpiceFrame *frame,
     }
 }
 
+G_GNUC_INTERNAL
 guintptr get_window_handle(display_stream *st)
 {
    void* handle = 0;
