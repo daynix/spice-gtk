@@ -456,17 +456,17 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
                      G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT);
 
     /**
-     * SpiceDisplayChannel::gst-video-overlay
+     * SpiceDisplayChannel::gst-video-overlay:
      * @display: the #SpiceDisplayChannel that emitted the signal
-     * @pipeline: pointer to gstreamer's pipeline
-     *
-     * Return: valid window handle on success
+     * @pipeline: pointer to GStreamer's pipeline
      *
      * The #SpiceDisplayChannel::gst-video-overlay signal is emitted when
-     * pipeline is ready and can be passed to widget to regeister gstreamer
-     * overlay interface and other gstreamer callbacks.
+     * pipeline is ready and can be passed to widget to register GStreamer
+     * overlay interface and other GStreamer callbacks.
      *
-     * Since 0.36
+     * Returns: %TRUE if the overlay is being set
+     *
+     * Since: 0.36
      **/
     signals[SPICE_DISPLAY_OVERLAY] =
         g_signal_new("gst-video-overlay",
