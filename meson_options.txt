@@ -75,8 +75,7 @@ option('alignment-checks',
     description : 'Enable runtime checks for cast alignment')
 
 option('lz4',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Enable lz4 compression support')
 
 option('sasl',
