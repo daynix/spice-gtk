@@ -50,7 +50,6 @@ makecheck_simple-meson:
                 -Dlz4=false
                 -Dgstaudio=false
                 -Dgstvideo=false
-                -Dwebdav=false
                 -Dsasl=false
                 -Dpulse=false
                 -Dsmartcard=false

@@ -3,8 +3,7 @@ option('gtk',
     description: 'Enable gtk+')
 
 option('webdav',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Enable webdav support')
 
 option('pulse',

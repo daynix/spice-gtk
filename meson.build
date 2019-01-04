@@ -141,11 +141,15 @@ endif
 
 # webdav
 spice_gtk_has_phodav = false
-if get_option('webdav')
-  spice_glib_deps += dependency('libphodav-2.0')
-  spice_glib_deps += dependency('libsoup-2.4', version : '>= 2.49.91')
-  spice_gtk_config_data.set('USE_PHODAV', '1')
-  spice_gtk_has_phodav = true
+d = dependency('libphodav-2.0', required: get_option('webdav'))
+if d.found()
+  spice_glib_deps += d
+  d = dependency('libsoup-2.4', version : '>= 2.49.91', required: get_option('webdav'))
+  if d.found()
+    spice_glib_deps += d
+    spice_gtk_config_data.set('USE_PHODAV', '1')
+    spice_gtk_has_phodav = true
+  endif
 endif
 
 # pulse
