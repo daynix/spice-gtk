@@ -6,7 +6,7 @@ variables:
         intltool gtk3-devel gtk-doc gobject-introspection-devel
         cyrus-sasl-devel pulseaudio-libs-devel libjpeg-turbo-devel
         libacl-devel gstreamer1-devel gstreamer1-plugins-base-devel
-        polkit-devel vala lz4-devel opus-devel libgudev-devel
+        polkit-devel vala lz4-devel opus-devel
         pixman-devel libcacard-devel celt051-devel libphodav-devel
         usbutils usbredir-devel libusbx-devel libsoup-devel
         json-glib-devel

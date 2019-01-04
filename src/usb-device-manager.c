@@ -31,13 +31,9 @@
 #include "usbdk_api.h"
 #endif
 
-#if defined(USE_GUDEV)
-#include <gudev/gudev.h>
-#elif defined(G_OS_WIN32)
+#if defined(G_OS_WIN32)
 #include "win-usb-dev.h"
 #define USE_GUDEV /* win-usb-dev.h provides a fake gudev interface */
-#elif !defined USE_LIBUSB_HOTPLUG
-#error "Expecting one of USE_GUDEV or USE_LIBUSB_HOTPLUG to be defined"
 #endif
 
 #include "channel-usbredir-priv.h"
@@ -370,7 +366,7 @@ static void spice_usb_device_manager_dispose(GObject *gobject)
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(gobject);
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
 
-#ifdef USE_LIBUSB_HOTPLUG
+#ifndef USE_GUDEV
     if (priv->hp_handle) {
         spice_usb_device_manager_stop_event_listening(self);
         if (g_atomic_int_get(&priv->event_thread_run)) {

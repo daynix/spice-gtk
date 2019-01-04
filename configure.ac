@@ -296,36 +296,11 @@ if test "x$enable_usbredir" = "xno"; then
   have_usbredir="no"
 else
   PKG_CHECK_MODULES([USBREDIR],
-                    [libusb-1.0 >= 1.0.9 libusbredirhost libusbredirparser-0.5],
+                    [libusb-1.0 >= 1.0.16 libusbredirhost libusbredirparser-0.5],
                     [have_usbredir=yes],
                     [have_usbredir=no])
   if test "x$have_usbredir" = "xno" && test "x$enable_usbredir" = "xyes"; then
     AC_MSG_ERROR([usbredir support explicitly requested, but some required packages are not available])
-  fi
-
-  # On non windows we need either libusb hotplug support or gudev
-  if test "x$have_usbredir" = "xyes" && test "x$os_win32" = "xno"; then
-    PKG_CHECK_MODULES([LIBUSB_HOTPLUG], [libusb-1.0 >= 1.0.16],
-                      [have_libusb_hotplug=yes], [have_libusb_hotplug=no])
-    if test "x$have_libusb_hotplug" = "xyes"; then
-      AC_DEFINE([USE_LIBUSB_HOTPLUG], [1], [Define if libusb has hotplug support])
-      with_usbredir_hotplug="with libusb hotplug"
-    else
-      PKG_CHECK_MODULES([GUDEV],
-                        [gudev-1.0],
-                        [have_gudev=yes],
-                        [have_gudev=no])
-
-      if test "x$have_gudev" = "xno" && test "x$enable_usbredir" = "xyes"; then
-        AC_MSG_ERROR([usbredir requested but required gudev is not available])
-      fi
-      if test "x$have_gudev" = "xyes"; then
-        AC_DEFINE([USE_GUDEV], [1], [Define if supporting gudev])
-        with_usbredir_hotplug="with gudev hotplug"
-      else
-        have_usbredir=no
-      fi
-    fi
   fi
 
   if test "x$have_usbredir" = "xyes"; then

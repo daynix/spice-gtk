@@ -199,21 +199,12 @@ spice_gtk_has_usbredir = false
 if get_option('usbredir')
   deps = {'libusbredirparser-0.5': '>= 0.5',
           'libusbredirhost' : '>= 0.4.2',
-          'libusb-1.0' : '>= 1.0.9'}
+          'libusb-1.0' : '>= 1.0.16'}
 
   foreach dep, version : deps
     usb_dep = dependency(dep, version : version)
     spice_glib_deps += usb_dep
   endforeach
-
-  if spice_gtk_host_system != 'windows'
-    if usb_dep.version().version_compare('>= 1.0.16')
-      spice_gtk_config_data.set('USE_LIBUSB_HOTPLUG', '1')
-    else
-      spice_glib_deps += dependency('gudev-1.0')
-      spice_gtk_config_data.set('USE_GUDEV', '1')
-    endif
-  endif
 
   spice_gtk_config_data.set('USE_USBREDIR', '1')
   spice_gtk_has_usbredir = true
