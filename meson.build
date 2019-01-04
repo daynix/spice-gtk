@@ -341,22 +341,8 @@ endif
 # smartcard check
 spice_gtk_has_smartcard = false
 if get_option('smartcard')
-  smartcard_dep = dependency('libcacard', required : false, version : '>= 2.5.1')
-  if smartcard_dep.found()
-    spice_glib_deps += smartcard_dep
-    spice_gtk_config_data.set('USE_SMARTCARD', '1')
-  else
-    smartcard012_dep = dependency('libcacard', required : false, version : '>= 0.1.2')
-    if smartcard012_dep.found()
-      spice_glib_deps += smartcard012_dep
-      spice_gtk_config_data.set('USE_SMARTCARD_012', '1')
-    endif
-  endif
-
-  spice_gtk_has_smartcard = smartcard_dep.found() or smartcard012_dep.found()
-  if not spice_gtk_has_smartcard
-    error('Building with smartcard support but dependency not found')
-  endif
+  spice_glib_deps += dependency('libcacard', version : '>= 2.5.1')
+  spice_gtk_config_data.set('USE_SMARTCARD', '1')
 endif
 
 #

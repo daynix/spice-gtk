@@ -20,14 +20,8 @@
 #include <glib-object.h>
 #include <string.h>
 
-#ifdef USE_SMARTCARD_012
-#include <vcard_emul.h>
-#include <vevent.h>
-#include <vreader.h>
-#else
 #ifdef USE_SMARTCARD
 #include <libcacard.h>
-#endif
 #endif
 
 #include "spice-client.h"
