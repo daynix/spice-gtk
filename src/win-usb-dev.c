@@ -373,11 +373,11 @@ static gboolean get_usb_dev_info(libusb_device *dev, GUdevDeviceInfo *udevinfo)
     udevinfo->class = desc.bDeviceClass;
     udevinfo->vid   = desc.idVendor;
     udevinfo->pid   = desc.idProduct;
-    snprintf(udevinfo->sclass, sizeof(udevinfo->sclass), "%d", udevinfo->class);
-    snprintf(udevinfo->sbus,   sizeof(udevinfo->sbus),   "%d", udevinfo->bus);
-    snprintf(udevinfo->saddr,  sizeof(udevinfo->saddr),  "%d", udevinfo->addr);
-    snprintf(udevinfo->svid,   sizeof(udevinfo->svid),   "%d", udevinfo->vid);
-    snprintf(udevinfo->spid,   sizeof(udevinfo->spid),   "%d", udevinfo->pid);
+    g_snprintf(udevinfo->sclass, sizeof(udevinfo->sclass), "%d", udevinfo->class);
+    g_snprintf(udevinfo->sbus,   sizeof(udevinfo->sbus),   "%d", udevinfo->bus);
+    g_snprintf(udevinfo->saddr,  sizeof(udevinfo->saddr),  "%d", udevinfo->addr);
+    g_snprintf(udevinfo->svid,   sizeof(udevinfo->svid),   "%d", udevinfo->vid);
+    g_snprintf(udevinfo->spid,   sizeof(udevinfo->spid),   "%d", udevinfo->pid);
     return TRUE;
 }
 
