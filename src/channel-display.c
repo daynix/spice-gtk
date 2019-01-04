@@ -91,6 +91,7 @@ enum {
     SPICE_DISPLAY_INVALIDATE,
     SPICE_DISPLAY_MARK,
     SPICE_DISPLAY_GL_DRAW,
+    SPICE_DISPLAY_STREAMING_MODE,
     SPICE_DISPLAY_OVERLAY,
 
     SPICE_DISPLAY_LAST_SIGNAL,
@@ -454,6 +455,30 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
                      G_TYPE_NONE,
                      4,
                      G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT);
+
+    /**
+     * SpiceDisplayChannel::streaming-mode:
+     * @display: the #SpiceDisplayChannel that emitted the signal
+     * @streaming_mode: %TRUE when it's streaming mode
+     *
+     * Return: handle for the display window if possible
+     *
+     * The #SpiceDisplayChannel::streaming-mode signal is emitted when
+     * spice server is working in streaming mode.
+     *
+     * Since: 0.35
+     *
+     * Deprecated: 0.36: use #SpiceDisplayChannel::gst-video-overlay
+     * instead
+     **/
+    signals[SPICE_DISPLAY_STREAMING_MODE] =
+        g_signal_new("streaming-mode",
+                     G_OBJECT_CLASS_TYPE(gobject_class),
+                     G_SIGNAL_DEPRECATED, 0,
+                     NULL, NULL, NULL,
+                     G_TYPE_POINTER,
+                     1,
+                     G_TYPE_BOOLEAN);
 
     /**
      * SpiceDisplayChannel::gst-video-overlay:
