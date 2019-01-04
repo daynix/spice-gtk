@@ -49,7 +49,6 @@ makecheck_simple-meson:
   - meson build -Dauto_features=disabled
                 -Dgstaudio=false
                 -Dgstvideo=false
-                -Dsmartcard=false
                 -Dusbredir=false
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)
   - ninja -C build
