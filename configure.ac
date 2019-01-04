@@ -195,16 +195,6 @@ AS_IF([test "x$have_phodav" = "xyes"],
 
 AM_CONDITIONAL([WITH_PHODAV], [test "x$have_phodav" = "xyes"])
 
-AC_ARG_WITH([audio],
-  AS_HELP_STRING([--with-audio=@<:@gstreamer/pulse/auto/no@:>@], [For legacy compatibility only]),
-  [SPICE_WARNING([--with-audio is deprecated. Use --enable-pulse and/or --enable-gstaudio instead])
-   case "$with_audio" in
-   pulse)     enable_pulse="yes"; enable_gstaudio="no" ;;
-   gstreamer) enable_pulse="no";  enable_gstaudio="yes" ;;
-   no)        enable_pulse="no";  enable_gstaudio="no" ;;
-   esac
-])
-
 AC_ARG_ENABLE([pulse],
   AS_HELP_STRING([--enable-pulse=@<:@yes/auto/no@:>@], [Enable the PulseAudio backend @<:@default=auto@:>@]),
   [],
