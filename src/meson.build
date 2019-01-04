@@ -160,7 +160,7 @@ elif spice_gtk_coroutine == 'winfiber'
   spice_client_glib_sources += 'coroutine_winfibers.c'
 endif
 
-if spice_gtk_has_usbredir and spice_gtk_host_system == 'windows'
+if spice_gtk_has_usbredir and host_machine.system() == 'windows'
   spice_client_glib_sources += ['usbdk_api.c',
                                 'usbdk_api.h',
                                 'win-usb-dev.c',

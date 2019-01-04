@@ -34,7 +34,6 @@ spice_gtk_include = [include_directories('.')]
 spice_glib_deps = []
 spice_gtk_deps = []
 spice_acl_deps = []
-spice_gtk_host_system = host_machine.system()
 
 #
 # Spice common subproject
@@ -93,7 +92,7 @@ endforeach
 # mandatory dependencies, without specific version requirement
 # TODO: specify minimum version for cairo, jpeg and zlib?
 deps = ['cairo', 'libjpeg', 'zlib', 'json-glib-1.0']
-if spice_gtk_host_system == 'windows'
+if host_machine.system() == 'windows'
   deps += 'gio-windows-2.0'
 else
   deps += 'gio-unix-2.0'
@@ -104,7 +103,7 @@ foreach dep : deps
 endforeach
 
 deps = []
-if spice_gtk_host_system == 'windows'
+if host_machine.system() == 'windows'
   deps += ['libws2_32', 'libgdi32']
 endif
 
@@ -132,7 +131,7 @@ d = dependency('gtk+-3.0', version : '>= @0@'.format(gtk_version_required),
                required: get_option('gtk'))
 if d.found()
   spice_gtk_deps += d
-  if spice_gtk_host_system != 'windows'
+  if host_machine.system() != 'windows'
     spice_gtk_deps += dependency('epoxy')
     spice_gtk_deps += dependency('x11')
   endif
@@ -277,7 +276,7 @@ spice_gtk_coroutine = get_option('coroutine')
 if spice_gtk_coroutine == 'ucontext'
   if compiler.has_function('makecontext') and compiler.has_function('swapcontext') and compiler.has_function('getcontext')
     spice_gtk_config_data.set('WITH_UCONTEXT', '1')
-    if spice_gtk_host_system == 'darwin'
+    if host_machine.system() == 'darwin'
       spice_gtk_config_data.set('_XOPEN_SOURCE', '1')
     endif
   else
