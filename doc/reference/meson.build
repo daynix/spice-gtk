@@ -45,6 +45,7 @@ gnome.gtkdoc('spice-gtk',
              gobject_typesfile : files('spice-gtk.types'),
              ignore_headers : ignore_headers,
              include_directories: spice_gtk_include,
+             c_args : '-DSPICE_COMPILATION',
              install : true,
              scan_args : ['--deprecated-guards="SPICE_DISABLE_DEPRECATED"', '--ignore-decorators="G_GNUC_INTERNAL"'],
              src_dir : join_paths(meson.source_root(), 'src'))
