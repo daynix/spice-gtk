@@ -45,9 +45,7 @@
 #ifdef HAVE_PULSE
 #include "spice-pulse.h"
 #endif
-#ifdef HAVE_GSTAUDIO
 #include "spice-gstaudio.h"
-#endif
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(SpiceAudio, spice_audio, G_TYPE_OBJECT)
 
@@ -241,10 +239,8 @@ SpiceAudio *spice_audio_new_priv(SpiceSession *session, GMainContext *context,
 #ifdef HAVE_PULSE
     self = SPICE_AUDIO(spice_pulse_new(session, context, name));
 #endif
-#ifdef HAVE_GSTAUDIO
     if (!self)
         self = SPICE_AUDIO(spice_gstaudio_new(session, context, name));
-#endif
     if (!self)
         return NULL;
 

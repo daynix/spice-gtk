@@ -110,6 +110,8 @@ spice_client_glib_sources = [
   'spice-file-transfer-task.c',
   'spice-file-transfer-task-priv.h',
   'spice-glib-main.c',
+  'spice-gstaudio.c',
+  'spice-gstaudio.h',
   'spice-option.h',
   'spice-session-priv.h',
   'spice-uri.c',
@@ -124,11 +126,6 @@ spice_client_glib_sources = [
 
 if spice_gtk_has_builtin_mjpeg
   spice_client_glib_sources += 'channel-display-mjpeg.c'
-endif
-
-if spice_gtk_has_gstaudio
-  spice_client_glib_sources += ['spice-gstaudio.c',
-                                'spice-gstaudio.h']
 endif
 
 if spice_gtk_has_gstvideo

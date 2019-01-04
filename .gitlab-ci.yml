@@ -32,7 +32,6 @@ makecheck_simple:
   script:
   - ./autogen.sh --enable-static
         --enable-lz4=no
-        --enable-gstaudio=no
         --enable-gstvideo=no
         --enable-webdav=no
         --with-sasl=no
@@ -47,7 +46,6 @@ makecheck_simple:
 makecheck_simple-meson:
   script:
   - meson build -Dauto_features=disabled
-                -Dgstaudio=false
                 -Dgstvideo=false
                 -Dusbredir=false
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)

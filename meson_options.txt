@@ -10,11 +10,6 @@ option('pulse',
     type : 'feature',
     description: 'Enable the PulseAudio backend')
 
-option('gstaudio',
-    type : 'boolean',
-    value : true,
-    description : 'Enable the GStreamer 1.0 audio backend')
-
 option('gstvideo',
     type : 'boolean',
     value : true,

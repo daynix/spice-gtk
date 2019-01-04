@@ -160,25 +160,15 @@ if d.found()
   spice_gtk_has_pulse = true
 endif
 
-# gstaudio
-gst_base_deps = ['gstreamer-1.0', 'gstreamer-base-1.0', 'gstreamer-app-1.0']
-spice_gtk_has_gstaudio = false
-if get_option('gstaudio')
-  deps = gst_base_deps + ['gstreamer-audio-1.0']
-  foreach dep : deps
-    spice_glib_deps += dependency(dep)
-  endforeach
-  spice_gtk_config_data.set('HAVE_GSTAUDIO', '1')
-  spice_gtk_has_gstaudio = true
-endif
+deps = ['gstreamer-1.0', 'gstreamer-base-1.0', 'gstreamer-app-1.0', 'gstreamer-audio-1.0']
+foreach dep : deps
+  spice_glib_deps += dependency(dep)
+endforeach
 
 # gstvideo
 spice_gtk_has_gstvideo = false
 if get_option('gstvideo')
   deps = ['gstreamer-video-1.0']
-  if not spice_gtk_has_gstaudio
-    deps += gst_base_deps
-  endif
   foreach dep : deps
     spice_glib_deps += dependency(dep)
   endforeach

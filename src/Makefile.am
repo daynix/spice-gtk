@@ -217,6 +217,8 @@ libspice_client_glib_impl_la_SOURCES =			\
 	bio-gio.h					\
 	spice-audio.c					\
 	spice-audio-priv.h				\
+	spice-gstaudio.c				\
+	spice-gstaudio.h				\
 	spice-common.h					\
 	spice-util.c					\
 	spice-util-priv.h				\
@@ -315,13 +317,6 @@ if HAVE_PULSE
 libspice_client_glib_impl_la_SOURCES +=	\
 	spice-pulse.c			\
 	spice-pulse.h			\
-	$(NULL)
-endif
-
-if HAVE_GSTAUDIO
-libspice_client_glib_impl_la_SOURCES +=	\
-	spice-gstaudio.c		\
-	spice-gstaudio.h		\
 	$(NULL)
 endif
 

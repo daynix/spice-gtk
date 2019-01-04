@@ -210,27 +210,16 @@ AS_IF([test "x$enable_pulse" != "xno"],
 ])
 AM_CONDITIONAL([HAVE_PULSE], [test "x$enable_pulse" = "xyes"])
 
-AC_ARG_ENABLE([gstaudio],
-  AS_HELP_STRING([--enable-gstaudio=@<:@yes/auto/no@:>@], [Enable the GStreamer 1.0 audio backend @<:@default=auto@:>@]),
-  [],
-  [enable_gstaudio="auto"])
-AS_IF([test "x$enable_gstaudio" != "xno"],
-      [SPICE_CHECK_GSTREAMER(GSTAUDIO, 1.0, [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-audio-1.0],
-         [SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gst-plugins-base 1.0], [audioconvert audioresample appsink])
-          SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gst-plugins-good 1.0], [autoaudiosrc])
-          AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
-                SPICE_WARNING([The GStreamer 1.0 audio backend can be built but may not work.]))
-         ],
-         [AS_IF([test "x$enable_gstaudio" = "xyes"],
-                AC_MSG_ERROR([GStreamer 1.0 audio requested but not found]))
-         ])
-      ], [have_gstaudio="no"]
-)
-AM_CONDITIONAL([HAVE_GSTAUDIO], [test "x$have_gstaudio" = "xyes"])
-
-AS_IF([test "x$enable_pulse$have_gstaudio" = "xnono"],
-      [SPICE_WARNING([No PulseAudio or GStreamer 1.0 audio decoder, audio will not be streamed])
-])
+SPICE_CHECK_GSTREAMER(GSTAUDIO, 1.0,
+    [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-audio-1.0],
+    [SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gst-plugins-base 1.0], [audioconvert audioresample appsink])
+     SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gst-plugins-good 1.0], [autoaudiosrc])
+     AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
+         SPICE_WARNING([The GStreamer 1.0 audio backend can be built but may not work.]))
+    ],
+    [AC_MSG_ERROR([Required GStreamer packages missing])])
 
 AC_ARG_ENABLE([gstvideo],
   AS_HELP_STRING([--enable-gstvideo=@<:@auto/yes/no@:>@],
@@ -558,7 +547,6 @@ AC_MSG_NOTICE([
         Gtk:                      ${with_gtk}
         Coroutine:                ${with_coroutine}
         PulseAudio:               ${enable_pulse}
-        GStreamer Audio:          ${have_gstaudio}
         GStreamer Video:          ${have_gstvideo}
         SASL support:             ${have_sasl}
         Smartcard support:        ${have_smartcard}
