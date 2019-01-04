@@ -39,15 +39,13 @@ makecheck_simple:
         --enable-pulse=no
         --enable-smartcard=no
         --enable-usbredir=no
-        --enable-dbus=no
   - make -j4
   - make check
 
 makecheck_simple-meson:
   script:
   - meson build -Dauto_features=disabled
-                -Dgstvideo=false
-                -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)
+                -Dgstvideo=false || (cat build/meson-logs/meson-log.txt && exit 1)
   - ninja -C build
   - (cd build && meson test) || (cat build/meson-logs/testlog.txt && exit 1)
 

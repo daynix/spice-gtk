@@ -30,7 +30,7 @@
 
 #define GNOME_SESSION_INHIBIT_AUTOMOUNT 16
 
-#if defined(USE_GDBUS) && defined(G_OS_UNIX) && !__APPLE__
+#if defined(G_OS_UNIX) && !__APPLE__
 # define WITH_GNOME
 #endif
 

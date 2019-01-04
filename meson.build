@@ -294,13 +294,6 @@ if spice_gtk_has_introspection and get_option('vapi')
   spice_gtk_has_vala = true
 endif
 
-# dbus
-if get_option('dbus')
-  spice_gtk_config_data.set('USE_GDBUS', '1')
-else
-  warning('No D-Bus support, desktop integration and USB redirection may not work properly')
-endif
-
 # lz4
 spice_gtk_has_lz4 = false
 d = dependency('liblz4', required : get_option('lz4'))

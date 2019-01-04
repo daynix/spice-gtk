@@ -470,20 +470,6 @@ AM_CONDITIONAL(WITH_VALA, [test "x$enable_vala" = "xyes"])
 VAPIDIR="${datadir}/vala/vapi"
 AC_SUBST(VAPIDIR)
 
-AC_ARG_ENABLE([dbus],
-  AS_HELP_STRING([--enable-dbus=@<:@auto/yes/no@:>@],
-                 [Enable dbus support for desktop integration (disabling automount) @<:@default=auto@:>@]),
-  [],
-  [enable_dbus="auto"])
-
-have_dbus=no
-if test "x$enable_dbus" != "xno"; then
-  AC_DEFINE([USE_GDBUS], [1], [Define if supporting gdbus])
-  have_dbus=yes
-else
-  SPICE_WARNING([No D-Bus support, desktop integration and USB redirection may not work properly])
-fi
-
 AC_ARG_ENABLE([alignment-checks],
   AS_HELP_STRING([--enable-alignment-checks],
                  [Enable runtime checks for cast alignment @<:@default=no@:>@]),
@@ -551,7 +537,6 @@ AC_MSG_NOTICE([
         SASL support:             ${have_sasl}
         Smartcard support:        ${have_smartcard}
         USB redirection support:  ${have_usbredir} ${with_usbredir_hotplug}
-        DBus:                     ${have_dbus}
         WebDAV support:           ${have_phodav}
         LZ4 support:              ${have_lz4}
 

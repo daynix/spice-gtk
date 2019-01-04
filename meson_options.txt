@@ -57,11 +57,6 @@ option('vapi',
     value : true,
     description: 'Check for vala requirements')
 
-option('dbus',
-    type : 'boolean',
-    value : true,
-    description: 'Enable dbus support for desktop integration (disabling automount)')
-
 option('alignment-checks',
     type : 'boolean',
     value : false,
