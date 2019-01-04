@@ -24,8 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static GCond *run_cond;
-static GMutex *run_lock;
+static GCond run_cond;
+static GMutex run_lock;;
 static struct coroutine *current;
 static struct coroutine leader;
 
@@ -37,19 +37,19 @@ static struct coroutine leader;
 
 static void coroutine_system_init(void)
 {
-	if (!g_thread_supported()) {
-	        CO_DEBUG("INIT");
-		g_thread_init(NULL);
+	if (current != NULL) {
+		return;
 	}
 
+	CO_DEBUG("INIT");
 
-	run_cond = g_cond_new();
-	run_lock = g_mutex_new();
+	g_cond_init(&run_cond);
+
 	CO_DEBUG("LOCK");
-	g_mutex_lock(run_lock);
+	g_mutex_lock(&run_lock);
 
-	/* The thread that creates the first coroutine is the system coroutine
-	 * so let's fill out a structure for it */
+	/* The thread that creates the first coroutine is the system
+	 * coroutine so let's fill out a structure for it */
 	leader.entry = NULL;
 	leader.release = NULL;
 	leader.stack_size = 0;
@@ -66,10 +66,10 @@ static gpointer coroutine_thread(gpointer opaque)
 {
 	struct coroutine *co = opaque;
 	CO_DEBUG("LOCK");
-	g_mutex_lock(run_lock);
+	g_mutex_lock(&run_lock);
 	while (!co->runnable) {
 		CO_DEBUG("WAIT");
-		g_cond_wait(run_cond, run_lock);
+		g_cond_wait(&run_cond, &run_lock);
 	}
 
 	CO_DEBUG("RUNNABLE");
@@ -79,28 +79,19 @@ static gpointer coroutine_thread(gpointer opaque)
 
 	co->caller->runnable = TRUE;
 	CO_DEBUG("BROADCAST");
-	g_cond_broadcast(run_cond);
+	g_cond_broadcast(&run_cond);
 	CO_DEBUG("UNLOCK");
-	g_mutex_unlock(run_lock);
+	g_mutex_unlock(&run_lock);
 
 	return NULL;
 }
 
 void coroutine_init(struct coroutine *co)
 {
-	GError *err = NULL;
-
-	if (run_cond == NULL)
-		coroutine_system_init();
-
+	coroutine_system_init();
 	CO_DEBUG("NEW");
-	co->thread = g_thread_create_full(coroutine_thread, co, co->stack_size,
-					  FALSE, TRUE,
-					  G_THREAD_PRIORITY_NORMAL,
-					  &err);
-	if (err != NULL)
-		g_error("g_thread_create_full() failed: %s", err->message);
-
+	co->thread = g_thread_new("coroutine-thread",
+				  coroutine_thread, co);
 	co->exited = 0;
 	co->runnable = FALSE;
 	co->caller = NULL;
@@ -118,14 +109,14 @@ void *coroutine_swap(struct coroutine *from, struct coroutine *to, void *arg)
 	to->data = arg;
 	to->caller = from;
 	CO_DEBUG("BROADCAST");
-	g_cond_broadcast(run_cond);
+	g_cond_broadcast(&run_cond);
 	CO_DEBUG("UNLOCK");
-	g_mutex_unlock(run_lock);
+	g_mutex_unlock(&run_lock);
 	CO_DEBUG("LOCK");
-	g_mutex_lock(run_lock);
+	g_mutex_lock(&run_lock);
 	while (!from->runnable) {
 	        CO_DEBUG("WAIT");
-		g_cond_wait(run_cond, run_lock);
+		g_cond_wait(&run_cond, &run_lock);
 	}
 	current = from;
 	to->caller = NULL;
@@ -136,9 +127,7 @@ void *coroutine_swap(struct coroutine *from, struct coroutine *to, void *arg)
 
 struct coroutine *coroutine_self(void)
 {
-	if (run_cond == NULL)
-		coroutine_system_init();
-
+	coroutine_system_init();
 	return current;
 }
 
