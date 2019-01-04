@@ -197,13 +197,8 @@ endif
 # usbredir
 spice_gtk_has_usbredir = false
 if get_option('usbredir')
-  usb_dep = dependency('libusbredirparser-0.5', required : false)
-  if not usb_dep.found()
-    usb_dep = dependency('libusbredirparser', version : '>= 0.4')
-  endif
-  spice_glib_deps += usb_dep
-
-  deps = {'libusbredirhost' : '>= 0.4.2',
+  deps = {'libusbredirparser-0.5': '>= 0.5',
+          'libusbredirhost' : '>= 0.4.2',
           'libusb-1.0' : '>= 1.0.9'}
 
   foreach dep, version : deps
