@@ -121,10 +121,8 @@ static void size_allocate(GtkWidget *widget, GtkAllocation *conf, gpointer data)
 static gboolean draw_event(GtkWidget *widget, cairo_t *cr, gpointer data);
 static void update_size_request(SpiceDisplay *display);
 static GdkDevice *spice_gdk_window_get_pointing_device(GdkWindow *window);
-#ifdef HAVE_GSTVIDEO
 static void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data);
 static gboolean gst_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data);
-#endif
 
 /* ---------------------------------------------------------------- */
 
@@ -657,14 +655,13 @@ static void spice_display_init(SpiceDisplay *display)
                      NULL);
     gtk_stack_add_named(d->stack, area, "gl-area");
 #endif
-#ifdef HAVE_GSTVIDEO
     area = gtk_drawing_area_new();
     gtk_stack_add_named(d->stack, area, "gst-area");
     g_object_connect(area,
                      "signal::draw", gst_draw_event, display,
                      "signal::size-allocate", gst_size_allocate, display,
                      NULL);
-#endif
+
     d->label = gtk_label_new(NULL);
     gtk_label_set_selectable(GTK_LABEL(d->label), true);
     gtk_stack_add_named(d->stack, d->label, "label");
@@ -2140,9 +2137,7 @@ static void unrealize(GtkWidget *widget)
         spice_egl_unrealize_display(display);
     }
 #endif
-#ifdef HAVE_GSTVIDEO
     g_weak_ref_set(&display->priv->overlay_weak_ref, NULL);
-#endif
 
     GTK_WIDGET_CLASS(spice_display_parent_class)->unrealize(widget);
 }
@@ -2570,7 +2565,7 @@ static void queue_draw_area(SpiceDisplay *display, gint x, gint y,
                                x, y, width, height);
 }
 
-#if defined(HAVE_GSTVIDEO) && defined(GDK_WINDOWING_X11)
+#if defined(GDK_WINDOWING_X11)
 static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *display)
 {
     switch(GST_MESSAGE_TYPE(msg)) {
@@ -2599,7 +2594,6 @@ static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *displa
 }
 #endif
 
-#ifdef HAVE_GSTVIDEO
 static gboolean gst_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
     SpiceDisplay *display = SPICE_DISPLAY(data);
@@ -2629,14 +2623,13 @@ static void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data)
         gst_object_unref(overlay);
     }
 }
-#endif
 
 /* This callback should pass to the widget a pointer of the pipeline
  * so that we can set pipeline and overlay related calls from here.
  */
 static gboolean set_overlay(SpiceChannel *channel, void* pipeline_ptr, SpiceDisplay *display)
 {
-#if defined(HAVE_GSTVIDEO) && defined(GDK_WINDOWING_X11)
+#if defined(GDK_WINDOWING_X11)
     SpiceDisplayPrivate *d = display->priv;
 
     /* GstVideoOverlay is currently used only under x */

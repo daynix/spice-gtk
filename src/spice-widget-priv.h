@@ -32,9 +32,7 @@
 #include "spice-common.h"
 #include "spice-gtk-session.h"
 
-#ifdef HAVE_GSTVIDEO
 #include <gst/video/videooverlay.h>
-#endif
 
 G_BEGIN_DECLS
 
@@ -154,9 +152,7 @@ struct _SpiceDisplayPrivate {
     } egl;
 #endif // HAVE_EGL
     double scroll_delta_y;
-#ifdef HAVE_GSTVIDEO
     GWeakRef overlay_weak_ref;
-#endif
 };
 
 int      spice_cairo_image_create                 (SpiceDisplay *display);

@@ -29,9 +29,6 @@
 #include "spice-session-priv.h"
 #include "channel-display-priv.h"
 #include "decode.h"
-#ifdef HAVE_GSTVIDEO
-#include "gst/gst.h"
-#endif
 
 /**
  * SECTION:channel-display
@@ -1295,9 +1292,7 @@ static display_stream *display_stream_create(SpiceChannel *channel,
         break;
 #endif
     default:
-#ifdef HAVE_GSTVIDEO
         st->video_decoder = create_gstreamer_decoder(codec_type, st);
-#endif
         break;
     }
     if (st->video_decoder == NULL) {
@@ -1420,7 +1415,6 @@ void stream_display_frame(display_stream *st, SpiceFrame *frame,
     }
 }
 
-#ifdef HAVE_GSTVIDEO
 G_GNUC_INTERNAL
 gboolean hand_pipeline_to_widget(display_stream *st, GstPipeline *pipeline)
 {
@@ -1432,7 +1426,6 @@ gboolean hand_pipeline_to_widget(display_stream *st, GstPipeline *pipeline)
     }
     return res;
 }
-#endif
 
 /* after a sequence of 3 drops, push a report to the server, even
  * if the report window is bigger */

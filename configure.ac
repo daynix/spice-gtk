@@ -221,28 +221,21 @@ SPICE_CHECK_GSTREAMER(GSTAUDIO, 1.0,
     ],
     [AC_MSG_ERROR([Required GStreamer packages missing])])
 
-AC_ARG_ENABLE([gstvideo],
-  AS_HELP_STRING([--enable-gstvideo=@<:@auto/yes/no@:>@],
-                 [Enable GStreamer video support @<:@default=auto@:>@]),
-  [],
-  [enable_gstvideo="auto"])
-AS_IF([test "x$enable_gstvideo" != "xno"],
-      [SPICE_CHECK_GSTREAMER(GSTVIDEO, 1.0,
-         [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-video-1.0],
-         [missing_gstreamer_elements=""
-          SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gst-plugins-base 1.0], [appsrc videoconvert appsink])
-          SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gst-plugins-good 1.0], [jpegdec vp8dec vp9dec])
-          SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gst-plugins-bad 1.0], [h264parse h265parse])
-          SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0, [gstreamer-libav 1.0], [avdec_h264 avdec_h265])
-          AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
-                SPICE_WARNING([The GStreamer video decoder can be built but may not work.]))
-         ],
-         [AS_IF([test "x$enable_gstvideo" = "xyes"],
-                AC_MSG_ERROR([GStreamer 1.0 video requested but not found]))
-         ])
-      ], [have_gstvideo="no"]
-)
-AM_CONDITIONAL([HAVE_GSTVIDEO], [test "x$have_gstvideo" = "xyes"])
+SPICE_CHECK_GSTREAMER(GSTVIDEO, 1.0,
+    [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-video-1.0],
+    [missing_gstreamer_elements=""
+     SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gst-plugins-base 1.0], [appsrc videoconvert appsink])
+     SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gst-plugins-good 1.0], [jpegdec vp8dec vp9dec])
+     SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gst-plugins-bad 1.0], [h264parse h265parse])
+     SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
+         [gstreamer-libav 1.0], [avdec_h264 avdec_h265])
+     AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
+         SPICE_WARNING([The GStreamer video decoder can be built but may not work.]))
+    ],
+    [AC_MSG_ERROR([Required GStreamer packages missing])])
 
 AC_ARG_ENABLE([builtin-mjpeg],
   AS_HELP_STRING([--enable-builtin-mjpeg], [Enable the builtin mjpeg video decoder @<:@default=yes@:>@]),
@@ -251,9 +244,6 @@ AC_ARG_ENABLE([builtin-mjpeg],
 AS_IF([test "x$enable_builtin_mjpeg" = "xyes"],
       [AC_DEFINE([HAVE_BUILTIN_MJPEG], 1, [Use the builtin mjpeg decoder?])])
 AM_CONDITIONAL(HAVE_BUILTIN_MJPEG, [test "x$enable_builtin_mjpeg" != "xno"])
-
-AS_IF([test "x$enable_builtin_mjpeg$enable_gstvideo" = "xnono"],
-      [SPICE_WARNING([No builtin MJPEG or GStreamer decoder, video will not be streamed])])
 
 AC_CHECK_LIB(jpeg, jpeg_destroy_decompress,
     AC_MSG_CHECKING([for jpeglib.h])
@@ -533,7 +523,6 @@ AC_MSG_NOTICE([
         Gtk:                      ${with_gtk}
         Coroutine:                ${with_coroutine}
         PulseAudio:               ${enable_pulse}
-        GStreamer Video:          ${have_gstvideo}
         SASL support:             ${have_sasl}
         Smartcard support:        ${have_smartcard}
         USB redirection support:  ${have_usbredir} ${with_usbredir_hotplug}

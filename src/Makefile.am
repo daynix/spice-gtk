@@ -241,6 +241,7 @@ libspice_client_glib_impl_la_SOURCES =			\
 	channel-webdav.c				\
 	channel-cursor.c				\
 	channel-display.c				\
+	channel-display-gst.c				\
 	channel-display-priv.h				\
 	channel-inputs.c				\
 	channel-main.c					\
@@ -323,12 +324,6 @@ endif
 if HAVE_BUILTIN_MJPEG
 libspice_client_glib_impl_la_SOURCES +=	\
 	channel-display-mjpeg.c		\
-	$(NULL)
-endif
-
-if HAVE_GSTVIDEO
-libspice_client_glib_impl_la_SOURCES +=	\
-	channel-display-gst.c		\
 	$(NULL)
 endif
 

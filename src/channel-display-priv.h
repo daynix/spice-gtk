@@ -31,9 +31,7 @@
 #include "common/quic.h"
 #include "common/rop3.h"
 
-#ifdef HAVE_GSTVIDEO
-#include "gst/gst.h"
-#endif
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
@@ -90,12 +88,8 @@ struct VideoDecoder {
 #ifdef HAVE_BUILTIN_MJPEG
 VideoDecoder* create_mjpeg_decoder(int codec_type, display_stream *stream);
 #endif
-#ifdef HAVE_GSTVIDEO
 VideoDecoder* create_gstreamer_decoder(int codec_type, display_stream *stream);
 gboolean gstvideo_has_codec(int codec_type);
-#else
-# define gstvideo_has_codec(codec_type) FALSE
-#endif
 
 
 typedef struct display_surface {
@@ -205,9 +199,7 @@ void stream_dropped_frame_on_playback(display_stream *st);
 #define SPICE_UNKNOWN_STRIDE 0
 void stream_display_frame(display_stream *st, SpiceFrame *frame, uint32_t width, uint32_t height, int stride, uint8_t* data);
 guintptr get_window_handle(display_stream *st);
-#ifdef HAVE_GSTVIDEO
 gboolean hand_pipeline_to_widget(display_stream *st,  GstPipeline *pipeline);
-#endif
 
 
 G_END_DECLS

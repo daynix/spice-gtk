@@ -161,31 +161,16 @@ if d.found()
   spice_gtk_has_pulse = true
 endif
 
-deps = ['gstreamer-1.0', 'gstreamer-base-1.0', 'gstreamer-app-1.0', 'gstreamer-audio-1.0']
+deps = ['gstreamer-1.0', 'gstreamer-base-1.0', 'gstreamer-app-1.0', 'gstreamer-audio-1.0', 'gstreamer-video-1.0']
 foreach dep : deps
   spice_glib_deps += dependency(dep)
 endforeach
-
-# gstvideo
-spice_gtk_has_gstvideo = false
-if get_option('gstvideo')
-  deps = ['gstreamer-video-1.0']
-  foreach dep : deps
-    spice_glib_deps += dependency(dep)
-  endforeach
-  spice_gtk_config_data.set('HAVE_GSTVIDEO', '1')
-  spice_gtk_has_gstvideo = true
-endif
 
 # builtin-mjpeg
 spice_gtk_has_builtin_mjpeg = false
 if get_option('builtin-mjpeg')
   spice_gtk_config_data.set('HAVE_BUILTIN_MJPEG', '1')
   spice_gtk_has_builtin_mjpeg = true
-endif
-
-if not spice_gtk_has_gstvideo and not spice_gtk_has_builtin_mjpeg
-  warning('No builtin MJPEG or GStreamer decoder, video will not be streamed')
 endif
 
 # usbredir

@@ -88,6 +88,7 @@ spice_client_glib_sources = [
   'bio-gio.c',
   'bio-gio.h',
   'channel-base.c',
+  'channel-display-gst.c',
   'channel-display-priv.h',
   'channel-playback-priv.h',
   'channel-usbredir-priv.h',
@@ -126,10 +127,6 @@ spice_client_glib_sources = [
 
 if spice_gtk_has_builtin_mjpeg
   spice_client_glib_sources += 'channel-display-mjpeg.c'
-endif
-
-if spice_gtk_has_gstvideo
-  spice_client_glib_sources += 'channel-display-gst.c'
 endif
 
 if spice_gtk_has_polkit

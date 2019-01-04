@@ -10,11 +10,6 @@ option('pulse',
     type : 'feature',
     description: 'Enable the PulseAudio backend')
 
-option('gstvideo',
-    type : 'boolean',
-    value : true,
-    description : 'Enable GStreamer video support')
-
 option('builtin-mjpeg',
     type : 'boolean',
     value : true,
