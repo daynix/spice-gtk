@@ -103,7 +103,7 @@ foreach dep : deps
   spice_glib_deps += dependency(dep)
 endforeach
 
-deps = ['librt', 'libm']
+deps = []
 if spice_gtk_host_system == 'windows'
   deps += ['libws2_32', 'libgdi32']
 endif
@@ -130,9 +130,9 @@ spice_gtk_has_gtk = false
 gtk_version_required = '3.22'
 if get_option('gtk')
   spice_gtk_deps += dependency('gtk+-3.0', version : '>= @0@'.format(gtk_version_required))
-  spice_gtk_deps += dependency('x11')
   if spice_gtk_host_system != 'windows'
     spice_gtk_deps += dependency('epoxy')
+    spice_gtk_deps += dependency('x11')
   endif
   spice_gtk_has_gtk = true
 endif
