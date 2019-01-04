@@ -258,16 +258,25 @@ endif
 
 # coroutine
 spice_gtk_coroutine = get_option('coroutine')
-if spice_gtk_coroutine == 'ucontext'
-  if compiler.has_function('makecontext') and compiler.has_function('swapcontext') and compiler.has_function('getcontext')
-    spice_gtk_config_data.set('WITH_UCONTEXT', '1')
-    if host_machine.system() == 'darwin'
-      spice_gtk_config_data.set('_XOPEN_SOURCE', '1')
-    endif
+if spice_gtk_coroutine == 'auto'
+  if host_machine.system() == 'windows'
+    spice_gtk_coroutine = 'winfiber'
   else
-    spice_gtk_coroutine = 'gthread'
+    spice_gtk_coroutine = 'ucontext'
   endif
 endif
+
+if spice_gtk_coroutine == 'ucontext'
+  foreach f : ['makecontext', 'swapcontext', 'getcontext']
+    if not compiler.has_function(f)
+      error('Function missing:' + f)
+    endif
+  endforeach
+  spice_gtk_config_data.set('WITH_UCONTEXT', '1')
+  if host_machine.system() == 'darwin'
+    spice_gtk_config_data.set('_XOPEN_SOURCE', '1')
+  endif
+  endif
 
 if spice_gtk_coroutine == 'gthread'
   spice_gtk_config_data.set('WITH_GTHREAD', '1')

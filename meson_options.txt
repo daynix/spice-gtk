@@ -45,7 +45,8 @@ option('usb-ids-path',
 
 option('coroutine',
     type : 'combo',
-    choices : ['ucontext', 'gthread', 'winfiber'],
+    value : 'auto',
+    choices : ['auto', 'ucontext', 'gthread', 'winfiber'],
     description : 'Use ucontext or GThread for coroutines')
 
 option('introspection',
