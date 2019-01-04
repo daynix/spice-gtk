@@ -296,10 +296,11 @@ endif
 
 # vala (depends on introspection)
 spice_gtk_has_vala = false
-if spice_gtk_has_introspection and get_option('vapi')
-  vapigen_dep = dependency('vapigen')
-  vapidir = vapigen_dep.get_pkgconfig_variable('vapidir')
-  vapigen = dependency('vapigen').get_pkgconfig_variable('vapigen')
+d = dependency('vapigen', required : get_option('vapi'))
+if d.found()
+  if not spice_gtk_has_introspection
+    error('VAPI support requested without introspection')
+  endif
   spice_gtk_has_vala = true
 endif
 

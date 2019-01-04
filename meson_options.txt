@@ -54,8 +54,7 @@ option('introspection',
     description: 'Check for GObject instrospection requirements')
 
 option('vapi',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Check for vala requirements')
 
 option('alignment-checks',
