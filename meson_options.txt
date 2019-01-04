@@ -80,8 +80,7 @@ option('lz4',
     description: 'Enable lz4 compression support')
 
 option('sasl',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description : 'Use cyrus SASL authentication')
 
 option('celt051',

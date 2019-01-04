@@ -332,8 +332,9 @@ endif
 
 # sasl
 spice_gtk_has_sasl = false
-if get_option('sasl')
-  spice_glib_deps += dependency('libsasl2')
+d = dependency('libsasl2', required : get_option('sasl'))
+if d.found()
+  spice_glib_deps += d
   spice_gtk_config_data.set('HAVE_SASL', '1')
   spice_gtk_has_sasl = true
 endif

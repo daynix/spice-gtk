@@ -50,7 +50,6 @@ makecheck_simple-meson:
                 -Dlz4=false
                 -Dgstaudio=false
                 -Dgstvideo=false
-                -Dsasl=false
                 -Dsmartcard=false
                 -Dusbredir=false
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)
