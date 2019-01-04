@@ -128,8 +128,10 @@ endforeach
 # gtk
 spice_gtk_has_gtk = false
 gtk_version_required = '3.22'
-if get_option('gtk')
-  spice_gtk_deps += dependency('gtk+-3.0', version : '>= @0@'.format(gtk_version_required))
+d = dependency('gtk+-3.0', version : '>= @0@'.format(gtk_version_required),
+               required: get_option('gtk'))
+if d.found()
+  spice_gtk_deps += d
   if spice_gtk_host_system != 'windows'
     spice_gtk_deps += dependency('epoxy')
     spice_gtk_deps += dependency('x11')

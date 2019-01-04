@@ -1,6 +1,5 @@
 option('gtk',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Enable gtk+')
 
 option('webdav',
