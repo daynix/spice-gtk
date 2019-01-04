@@ -95,3 +95,7 @@ option('smartcard',
     type : 'boolean',
     value : true,
     description : 'Enable smartcard support')
+
+option('gtk_doc',
+       type : 'feature',
+       description : 'Generate API documentation with gtk-doc')

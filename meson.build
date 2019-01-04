@@ -382,7 +382,15 @@ add_project_arguments(compiler.get_supported_arguments(spice_gtk_global_cflags),
 subdir('src')
 subdir('tools')
 subdir('tests')
-subdir('doc')
+if build_machine.system() == 'windows'
+  message('Disabling gtk-doc while building on Windows')
+else
+  if find_program('gtkdoc-scan', required : get_option('gtk_doc')).found()
+    subdir('doc')
+  else
+    message('Not building documentation as gtk-doc was not found')
+  endif
+endif
 subdir('data')
 subdir('man')
 subdir('po')
