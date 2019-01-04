@@ -25,8 +25,7 @@ option('usbredir',
     description : 'Enable usbredir support')
 
 option('polkit',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description : 'Enable PolicyKit support for the USB acl helper')
 
 option('pie',

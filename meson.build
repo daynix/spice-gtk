@@ -201,26 +201,25 @@ endif
 
 # polkit
 spice_gtk_has_polkit = false
-if get_option('polkit')
-  polkit_dep = dependency('polkit-gobject-1', version : '>= 0.96')# ,required : false)
-  if polkit_dep.found()
-    spice_gtk_policy_dir = polkit_dep.get_pkgconfig_variable('policydir')
-    foreach func : ['polkit_authority_get_sync', 'polkit_authorization_result_get_dismissed']
-      if compiler.has_function(func, dependencies : polkit_dep)
-        spice_gtk_config_data.set('HAVE_@0@'.format(func.to_upper()), '1')
-      endif
-    endforeach
-
-    if not compiler.has_function('acl_get_file')
-      acl_dep = compiler.find_library('acl')
-      if not compiler.has_function('acl_get_file', dependencies : acl_dep)
-        error('PolicyKit support requested, but some required packages are not available')
-      endif
-      spice_acl_deps += acl_dep
+d = dependency('polkit-gobject-1', version : '>= 0.96', required : get_option('polkit'))
+if d.found()
+  spice_gtk_policy_dir = d.get_pkgconfig_variable('policydir')
+  foreach func : ['polkit_authority_get_sync', 'polkit_authorization_result_get_dismissed']
+    if compiler.has_function(func, dependencies : d)
+      spice_gtk_config_data.set('HAVE_@0@'.format(func.to_upper()), '1')
     endif
+  endforeach
+
+  # TODO:  With 'auto', we should just disable polkit support if this is missing.
+  if not compiler.has_function('acl_get_file')
+    acl_dep = compiler.find_library('acl')
+    if not compiler.has_function('acl_get_file', dependencies : acl_dep)
+      error('PolicyKit support requested, but some required packages are not available')
+    endif
+    spice_acl_deps += acl_dep
   endif
 
-  spice_acl_deps += polkit_dep
+  spice_acl_deps += d
   spice_acl_deps += dependency('gio-unix-2.0')
   spice_gtk_config_data.set('USE_POLKIT', '1')
   spice_gtk_has_polkit = true
