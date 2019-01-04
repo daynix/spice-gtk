@@ -46,7 +46,8 @@ makecheck_simple:
 
 makecheck_simple-meson:
   script:
-  - meson build -Dlz4=false
+  - meson build -Dauto_features=disabled
+                -Dlz4=false
                 -Dgstaudio=false
                 -Dgstvideo=false
                 -Dwebdav=false
