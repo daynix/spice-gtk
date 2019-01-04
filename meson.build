@@ -190,16 +190,11 @@ endif
 
 # usbredir
 spice_gtk_has_usbredir = false
-if get_option('usbredir')
-  deps = {'libusbredirparser-0.5': '>= 0.5',
-          'libusbredirhost' : '>= 0.4.2',
-          'libusb-1.0' : '>= 1.0.16'}
-
-  foreach dep, version : deps
-    usb_dep = dependency(dep, version : version)
-    spice_glib_deps += usb_dep
-  endforeach
-
+d1 = dependency('libusbredirparser-0.5', required : get_option('usbredir'))
+d2 = dependency('libusbredirhost', version : '>= 0.4.2', required : get_option('usbredir'))
+d3 = dependency('libusb-1.0', version : '>= 1.0.16', required : get_option('usbredir'))
+if d1.found() and d2.found() and d3.found()
+  spice_glib_deps += [d1, d2, d3]
   spice_gtk_config_data.set('USE_USBREDIR', '1')
   spice_gtk_has_usbredir = true
 endif

@@ -21,8 +21,7 @@ option('builtin-mjpeg',
     description : 'Enable the builtin mjpeg video decoder')
 
 option('usbredir',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description : 'Enable usbredir support')
 
 option('polkit',

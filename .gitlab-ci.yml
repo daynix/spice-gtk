@@ -47,7 +47,6 @@ makecheck_simple-meson:
   script:
   - meson build -Dauto_features=disabled
                 -Dgstvideo=false
-                -Dusbredir=false
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)
   - ninja -C build
   - (cd build && meson test) || (cat build/meson-logs/testlog.txt && exit 1)
