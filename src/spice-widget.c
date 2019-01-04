@@ -2615,7 +2615,7 @@ static gboolean gst_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data)
     return false;
 }
 
-void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data)
+static void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data)
 {
     SpiceDisplay *display = SPICE_DISPLAY(data);
     SpiceDisplayPrivate *d = display->priv;
