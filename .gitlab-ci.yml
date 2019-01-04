@@ -51,7 +51,6 @@ makecheck_simple-meson:
                 -Dgstaudio=false
                 -Dgstvideo=false
                 -Dsasl=false
-                -Dpulse=false
                 -Dsmartcard=false
                 -Dusbredir=false
                 -Ddbus=false || (cat build/meson-logs/meson-log.txt && exit 1)

@@ -154,11 +154,9 @@ endif
 
 # pulse
 spice_gtk_has_pulse = false
-if get_option('pulse')
-  deps = ['libpulse', 'libpulse-mainloop-glib']
-  foreach dep : deps
-    spice_glib_deps += dependency(dep)
-  endforeach
+d = dependency('libpulse-mainloop-glib', required: get_option('pulse'))
+if d.found()
+  spice_glib_deps += d
   spice_gtk_config_data.set('HAVE_PULSE', '1')
   spice_gtk_has_pulse = true
 endif

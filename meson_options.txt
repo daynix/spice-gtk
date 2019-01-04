@@ -7,8 +7,7 @@ option('webdav',
     description: 'Enable webdav support')
 
 option('pulse',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Enable the PulseAudio backend')
 
 option('gstaudio',
