@@ -56,8 +56,7 @@ option('coroutine',
     description : 'Use ucontext or GThread for coroutines')
 
 option('introspection',
-    type : 'boolean',
-    value : true,
+    type : 'feature',
     description: 'Check for GObject instrospection requirements')
 
 option('vapi',
