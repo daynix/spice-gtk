@@ -100,7 +100,6 @@ struct spice_connection {
     const char       *mouse_state;
     const char       *agent_state;
     gboolean         agent_connected;
-    int              channels;
     int              disconnecting;
 
     /* key: SpiceFileTransferTask, value: TransferTaskWidgets */
@@ -111,7 +110,8 @@ struct spice_connection {
 static spice_connection *connection_new(void);
 static void connection_connect(spice_connection *conn);
 static void connection_disconnect(spice_connection *conn);
-static void connection_destroy(spice_connection *conn);
+static void connection_destroy(SpiceSession *session,
+                               spice_connection *conn);
 static void usb_connect_failed(GObject               *object,
                                SpiceUsbDevice        *device,
                                GError                *error,
@@ -1726,7 +1726,6 @@ static void channel_new(SpiceSession *s, SpiceChannel *channel, gpointer data)
     int id;
 
     g_object_get(channel, "channel-id", &id, NULL);
-    conn->channels++;
     SPICE_DEBUG("new channel (#%d)", id);
 
     if (SPICE_IS_MAIN_CHANNEL(channel)) {
@@ -1809,13 +1808,6 @@ static void channel_destroy(SpiceSession *s, SpiceChannel *channel, gpointer dat
         if (SPICE_PORT_CHANNEL(channel) == stdin_port)
             stdin_port = NULL;
     }
-
-    conn->channels--;
-    if (conn->channels > 0) {
-        return;
-    }
-
-    connection_destroy(conn);
 }
 
 static void migration_state(GObject *session,
@@ -1842,6 +1834,8 @@ static spice_connection *connection_new(void)
                      G_CALLBACK(channel_destroy), conn);
     g_signal_connect(conn->session, "notify::migration-state",
                      G_CALLBACK(migration_state), conn);
+    g_signal_connect(conn->session, "disconnected",
+                     G_CALLBACK(connection_destroy), conn);
 
     manager = spice_usb_device_manager_get(conn->session, NULL);
     if (manager) {
@@ -1873,7 +1867,8 @@ static void connection_disconnect(spice_connection *conn)
     spice_session_disconnect(conn->session);
 }
 
-static void connection_destroy(spice_connection *conn)
+static void connection_destroy(SpiceSession *session,
+                               spice_connection *conn)
 {
     g_object_unref(conn->session);
     g_hash_table_unref(conn->transfers);
