@@ -559,3 +559,6 @@ AC_MSG_NOTICE([
 
 ])
 SPICE_PRINT_MESSAGES
+
+AS_IF([test "x$enable_pulse" = "xyes"],
+  AC_MSG_WARN([PulseAudio backend is deprecated and will be removed in a future release]))
