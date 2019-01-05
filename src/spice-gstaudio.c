@@ -191,7 +191,7 @@ static void record_start(SpiceRecordChannel *channel, gint format, gint channels
     if (p->record.pipe &&
         (p->record.rate != frequency ||
          p->record.channels != channels)) {
-        record_stop(gstaudio);
+        gst_element_set_state(p->record.pipe, GST_STATE_NULL);
         g_clear_pointer(&p->record.pipe, gst_object_unref);
     }
 
