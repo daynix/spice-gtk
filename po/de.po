@@ -1,0 +1,361 @@
+# German po translation of the spice-gtk package.
+# Copyright (C) 2009-2016 Red Hat, Inc.
+# This file is distributed under the same license as the gtk-spice package.
+# Copyright of this file © 2017 Chris Leick <c.leick@vollbio.de>.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gtk-spice 0.33-3.3\n"
+"Report-Msgid-Bugs-To: spice-devel@lists.freedesktop.org\n"
+"POT-Creation-Date: 2019-01-05 12:47+0400\n"
+"PO-Revision-Date: 2017-08-15 19:05+0100\n"
+"Last-Translator: Chris Leick <c.leick@vollbio.de>\n"
+"Language-Team: German <debian-l10n-german@lists.debian.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# https://de.wikipedia.org/wiki/Software-Agent
+#: src/channel-main.c:1898
+msgid "The spice agent cancelled the file transfer"
+msgstr "Der Spice-Agent hat die Dateiübertragung abgebrochen."
+
+#: src/channel-main.c:1902
+msgid "The spice agent reported an error during the file transfer"
+msgstr "Der Spice-Agent meldete während der Dateiübertragung einen Fehler."
+
+#: src/channel-main.c:1909
+#, c-format
+msgid ""
+"File transfer failed due to lack of free space on remote machine (%s free, "
+"%s to transfer)"
+msgstr ""
+
+#: src/channel-main.c:1917
+msgid ""
+"User's session is locked and cannot transfer files, unlock it and try again."
+msgstr ""
+
+#: src/channel-main.c:1922
+msgid "Session agent not connected."
+msgstr ""
+
+#: src/channel-main.c:1926
+#, fuzzy
+msgid "File transfer is disabled."
+msgstr "USB-Weiterleitung ist deaktiviert."
+
+#: src/channel-main.c:3318
+#, fuzzy, c-format
+msgid "The file transfer is disabled"
+msgstr "USB-Weiterleitung ist deaktiviert."
+
+#: src/channel-usbredir.c:920
+#, c-format
+msgid "usbredir protocol parse error for %s"
+msgstr "Usbredir-Protokollauswertungsfehler für %s"
+
+#: src/channel-usbredir.c:925
+#, c-format
+msgid "%s rejected by host"
+msgstr "%s vom Host zurückgewiesen"
+
+#: src/channel-usbredir.c:930
+#, c-format
+msgid "%s disconnected (fatal IO error)"
+msgstr "%s getrennt (schwerwiegender E/A-Fehler)"
+
+#: src/channel-usbredir.c:934
+#, c-format
+msgid "Unknown error (%d) for %s"
+msgstr "unbekannter Fehler (%d) für %s"
+
+#: src/desktop-integration.c:98
+msgid "Automounting has been inhibited for USB auto-redirecting"
+msgstr ""
+"Automatisches Einhängen wurde für automatische USB-Weiterleitung verhindert."
+
+#: src/spice-channel.c:1178
+#, fuzzy
+msgid "Authentication failed"
+msgstr "Authentifizierung fehlgeschlagen: Benutzername ist erforderlich."
+
+#: src/spice-channel.c:1196
+msgid "Authentication failed: password is too long"
+msgstr "Authentifizierung fehlgeschlagen: Passwort ist zu lang."
+
+#: src/spice-channel.c:1201
+#, fuzzy
+msgid "Authentication failed: wrong password?"
+msgstr "Authentifizierung fehlgeschlagen: Passwort ist erforderlich."
+
+#: src/spice-option.c:65
+#, c-format
+msgid "missing color depth, must be 16 or 32"
+msgstr "fehlende Farbtiefe, muss 16 oder 32 sein"
+
+#: src/spice-option.c:81
+#, c-format
+msgid "invalid color depth (%s), must be 16 or 32"
+msgstr "ungültige Farbtiefe (%s), muss 16 oder 32 sein"
+
+#: src/spice-option.c:101
+#, c-format
+msgid ""
+"invalid effect name (%s), must be 'wallpaper', 'font-smooth', 'animation' or "
+"'all'"
+msgstr ""
+"ungültiger Effektname (%s), muss »wallpaper«, »font-smooth«, »animation« "
+"oder »all« sein"
+
+#: src/spice-option.c:125
+#, c-format
+msgid "invalid channel name (%s), valid names: all, %s"
+msgstr "ungültiger Kanalname (%s), gültige Namen: all, %s"
+
+#: src/spice-option.c:173
+#, c-format
+msgid "Image compression algorithm %s not supported"
+msgstr "Bildkomprimierungsalgorithmus %s nicht unterstützt"
+
+#: src/spice-option.c:195
+msgid "Force the specified channels to be secured"
+msgstr "erzwingt die Absicherung der angegebenen Kanäle"
+
+#: src/spice-option.c:197
+msgid "Disable guest display effects"
+msgstr "deaktiviert Gastanzeigeeffekte"
+
+#: src/spice-option.c:199
+#, fuzzy
+msgid "Guest display color depth (deprecated)"
+msgstr "Gastanzeigefarbtiefe"
+
+# https://de.wikipedia.org/wiki/Certificate_Trust_Store
+#: src/spice-option.c:201
+msgid "Truststore file for secure connections"
+msgstr "Truststore-Datei für sichere Verbindungen"
+
+#: src/spice-option.c:201
+msgid "<file>"
+msgstr "<file>"
+
+#: src/spice-option.c:203
+msgid "Subject of the host certificate (field=value pairs separated by commas)"
+msgstr ""
+"Gegenstand des Host-Zertifikats (durch Kommas getrennte Feld=Wert-Paare)"
+
+#: src/spice-option.c:203
+msgid "<host-subject>"
+msgstr "<host-subject>"
+
+#: src/spice-option.c:205
+msgid "Disable audio support"
+msgstr "deaktiviert Audiounterstützung"
+
+#: src/spice-option.c:207
+msgid "Enable smartcard support"
+msgstr "aktiviert Smartcard-Unterstützung"
+
+#: src/spice-option.c:209
+msgid ""
+"Certificates to use for software smartcards (field=values separated by "
+"commas)"
+msgstr ""
+"Zertifikate, die für Software-Smartcards verwendet werden (durch Kommas "
+"getrennte Feld=Wert-Paare)"
+
+#: src/spice-option.c:209
+msgid "<certificates>"
+msgstr "<certificates>"
+
+#: src/spice-option.c:211
+msgid ""
+"Path to the local certificate database to use for software smartcard "
+"certificates"
+msgstr ""
+"Pfad zur lokalen Zertifikatdatenbank, die für Software-Smartcard-Zertifikate "
+"verwendet wird"
+
+#: src/spice-option.c:211
+msgid "<certificate-db>"
+msgstr "<certificate-db>"
+
+#: src/spice-option.c:213
+msgid "Disable USB redirection support"
+msgstr "deaktiviert die Unterstützung von USB-Weiterleitung"
+
+#: src/spice-option.c:218
+msgid "Filter selecting USB devices to be auto-redirected when plugged in"
+msgstr ""
+"Filter zur Auswahl von USB-Geräten, die beim Einstecken automatisch "
+"weitergeleitet werden"
+
+#: src/spice-option.c:218 src/spice-option.c:220
+msgid "<filter-string>"
+msgstr "<filter-string>"
+
+#: src/spice-option.c:220
+msgid "Filter selecting USB devices to redirect on connect"
+msgstr ""
+"Filter zur Auswahl von USB-Geräten, die beim Verbinden weitergeleitet werden"
+
+#: src/spice-option.c:222
+#, fuzzy
+msgid "Image cache size (deprecated)"
+msgstr "Größe des Bilderzwischenspeichers"
+
+#: src/spice-option.c:222 src/spice-option.c:224
+msgid "<bytes>"
+msgstr "<bytes>"
+
+#: src/spice-option.c:224
+#, fuzzy
+msgid "Glz compression history size (deprecated)"
+msgstr "Glz-Komprimierungs-Chronikgröße"
+
+#: src/spice-option.c:226
+msgid "Shared directory"
+msgstr "gemeinsam benutztes Verzeichnis"
+
+#: src/spice-option.c:226
+msgid "<dir>"
+msgstr "<dir>"
+
+#: src/spice-option.c:228
+msgid "Preferred image compression algorithm"
+msgstr "bevorzugter Bildkomprimierungsalgorithmus"
+
+#: src/spice-option.c:236
+msgid "Enable Spice-GTK debugging"
+msgstr "Spice-GTK-Fehlersuche aktivieren"
+
+#: src/spice-option.c:238
+msgid "Display Spice-GTK version information"
+msgstr "Spice-GTK-Versionsinformationen anzeigen"
+
+#: src/spice-option.c:243
+msgid "Spice Options:"
+msgstr "Spice-Optionen:"
+
+#: src/spice-option.c:243
+msgid "Show Spice Options"
+msgstr "Spice-Optionen anzeigen"
+
+#: src/usb-device-manager.c:362 src/usb-device-manager.c:1777
+msgid "USB redirection support not compiled in"
+msgstr "USB-Weiterleitungsunterstützung nicht einkompiliert"
+
+#: src/usb-device-manager.c:1464
+msgid "Device was not found"
+msgstr "Gerät wurde nicht gefunden."
+
+#: src/usb-device-manager.c:1480
+msgid "No free USB channel"
+msgstr "kein freier USB-Kanal"
+
+#: src/usb-device-manager.c:1714
+msgid "USB redirection is disabled"
+msgstr "USB-Weiterleitung ist deaktiviert."
+
+#: src/usb-device-manager.c:1720
+msgid "The connected VM is not configured for USB redirection"
+msgstr "Die verbundene VM ist nicht für USB-Weiterleitung konfiguriert."
+
+#: src/usb-device-manager.c:1742
+msgid "Some USB devices were not found"
+msgstr "Einige USB-Geräte wurden nicht gefunden."
+
+#: src/usb-device-manager.c:1752
+msgid "Some USB devices are blocked by host policy"
+msgstr "Einige USB-Geräte werden per Host-Richtlinie blockiert."
+
+#: src/usb-device-manager.c:1770
+msgid "There are no free USB channels"
+msgstr "Es gibt keine freien USB-Kanäle."
+
+#: src/usb-device-manager.c:1826
+#, c-format
+msgid "%s %s %s at %d-%d"
+msgstr "%s %s %s bei %d-%d"
+
+#: src/usb-device-widget.c:187
+msgid "Select USB devices to redirect"
+msgstr "Auswahl des USB-Geräts zum Weiterleiten"
+
+#: src/usb-device-widget.c:393
+#, c-format
+msgid "Select USB devices to redirect (%d free channel)"
+msgstr "Auswahl des USB-Geräts zum Weiterleiten (%d freier Kanal)"
+
+#: src/usb-device-widget.c:394
+#, c-format
+msgid "Select USB devices to redirect (%d free channels)"
+msgstr "Auswahl des USB-Geräts zum Weiterleiten (%d freie Kanäle)"
+
+#: src/usb-device-widget.c:411
+msgid "Redirecting USB Device..."
+msgstr "USB-Gerät wird weitergeleitet …"
+
+#: src/usb-device-widget.c:419
+msgid "No USB devices detected"
+msgstr "keine USB-Geräte gefunden"
+
+#: src/usbutil.c:296
+msgid "USB"
+msgstr "USB"
+
+#: src/usbutil.c:298
+msgid "Device"
+msgstr "Gerät"
+
+#: tools/spice-cmdline.c:36
+msgid "Spice server uri"
+msgstr "Spice-Server-URI"
+
+#: tools/spice-cmdline.c:37
+msgid "<uri>"
+msgstr "<uri>"
+
+#: tools/spice-cmdline.c:43
+msgid "Spice server address"
+msgstr "Spice-Server-Adresse"
+
+#: tools/spice-cmdline.c:44
+msgid "<host>"
+msgstr "<host>"
+
+#: tools/spice-cmdline.c:50
+msgid "Spice server port"
+msgstr "Spice-Server-Port"
+
+#: tools/spice-cmdline.c:51 tools/spice-cmdline.c:58
+msgid "<port>"
+msgstr "<port>"
+
+#: tools/spice-cmdline.c:57
+msgid "Spice server secure port"
+msgstr "Spice-Server-Sicherheitsport"
+
+#: tools/spice-cmdline.c:64
+msgid "Server password"
+msgstr "Server-Passwort"
+
+#: tools/spice-cmdline.c:65
+msgid "<password>"
+msgstr "<password>"
+
+#: tools/spice-cmdline.c:76
+msgid "Spice connection options:"
+msgstr "Spice-Verbindungsoptionen:"
+
+#: tools/spice-cmdline.c:77
+msgid "Show Spice options"
+msgstr "Spice-Optionen anzeigen"
+
+#~ msgid "Authentication failed: password and username are required"
+#~ msgstr ""
+#~ "Authentifizierung fehlgeschlagen: Passwort und Benutzername sind "
+#~ "erforderlich."
