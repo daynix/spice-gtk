@@ -59,11 +59,6 @@ static void spice_gstaudio_get_record_volume_info_async(SpiceAudio *audio,
 static gboolean spice_gstaudio_get_record_volume_info_finish(SpiceAudio *audio,
         GAsyncResult *res, gboolean *mute, guint8 *nchannels, guint16 **volume, GError **error);
 
-static void spice_gstaudio_finalize(GObject *obj)
-{
-    G_OBJECT_CLASS(spice_gstaudio_parent_class)->finalize(obj);
-}
-
 static void stream_dispose(struct stream *s)
 {
     if (s->pipe) {
@@ -113,7 +108,6 @@ static void spice_gstaudio_class_init(SpiceGstaudioClass *klass)
     audio_class->get_record_volume_info_async = spice_gstaudio_get_record_volume_info_async;
     audio_class->get_record_volume_info_finish = spice_gstaudio_get_record_volume_info_finish;
 
-    gobject_class->finalize = spice_gstaudio_finalize;
     gobject_class->dispose = spice_gstaudio_dispose;
 }
 
