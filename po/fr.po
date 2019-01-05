@@ -1,6 +1,6 @@
 # French translation for spice.
 # Copyright (C) 2010 Listed translators
-# This file is distributed under the same license as the gtk-vnc package.
+# This file is distributed under the same license as the spice-gtk package.
 #
 # Marc-André Lureau <marcandre.lureau@redhat.com>, 2010
 #
