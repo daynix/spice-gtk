@@ -53,6 +53,7 @@ static void handle_dbus_call_error(const char *call, GError **_error)
     g_clear_error(_error);
 }
 
+G_GNUC_UNUSED
 static gboolean gnome_integration_init(SpiceDesktopIntegration *self)
 {
     G_GNUC_UNUSED SpiceDesktopIntegrationPrivate *priv = self->priv;
@@ -160,8 +161,13 @@ static void spice_desktop_integration_init(SpiceDesktopIntegration *self)
     priv = spice_desktop_integration_get_instance_private(self);
     self->priv = priv;
 
-    if (!gnome_integration_init(self))
-       g_warning("Warning no automount-inhibiting implementation available");
+#if defined(G_OS_UNIX) && !__APPLE__
+    if (gnome_integration_init(self)) {
+        return;
+    }
+#endif
+
+    g_warning("Warning no automount-inhibiting implementation available");
 }
 
 static void spice_desktop_integration_dispose(GObject *gobject)
