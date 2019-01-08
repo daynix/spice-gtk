@@ -30,20 +30,22 @@
 
 #define GNOME_SESSION_INHIBIT_AUTOMOUNT 16
 
-struct _SpiceDesktopIntegrationPrivate {
-#if defined(USE_GDBUS)
-    GDBusProxy *gnome_session_proxy;
-#else
-    GObject *gnome_session_proxy; /* dummy */
+#if defined(USE_GDBUS) && defined(G_OS_UNIX) && !__APPLE__
+# define WITH_GNOME
 #endif
+
+struct _SpiceDesktopIntegrationPrivate {
+#ifdef WITH_GNOME
+    GDBusProxy *gnome_session_proxy;
     guint gnome_automount_inhibit_cookie;
+#endif
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(SpiceDesktopIntegration, spice_desktop_integration, G_TYPE_OBJECT)
 
 /* ------------------------------------------------------------------ */
 /* Gnome specific code                                                */
-
+#ifdef WITH_GNOME
 static void handle_dbus_call_error(const char *call, GError **_error)
 {
     GError *error = *_error;
@@ -53,15 +55,13 @@ static void handle_dbus_call_error(const char *call, GError **_error)
     g_clear_error(_error);
 }
 
-G_GNUC_UNUSED
 static gboolean gnome_integration_init(SpiceDesktopIntegration *self)
 {
-    G_GNUC_UNUSED SpiceDesktopIntegrationPrivate *priv = self->priv;
+    SpiceDesktopIntegrationPrivate *priv = self->priv;
     GError *error = NULL;
     gboolean success = TRUE;
-
-#if defined(USE_GDBUS)
     gchar *name_owner = NULL;
+
     priv->gnome_session_proxy =
         g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION,
                                       G_DBUS_PROXY_FLAGS_NONE,
@@ -77,9 +77,6 @@ static gboolean gnome_integration_init(SpiceDesktopIntegration *self)
         success = FALSE;
     }
     g_free(name_owner);
-#else
-    success = FALSE;
-#endif
 
     if (error) {
         g_warning("Could not create org.gnome.SessionManager dbus proxy: %s",
@@ -95,7 +92,7 @@ static void gnome_integration_inhibit_automount(SpiceDesktopIntegration *self)
 {
     SpiceDesktopIntegrationPrivate *priv = self->priv;
     GError *error = NULL;
-    G_GNUC_UNUSED const gchar *reason =
+    const gchar *reason =
         _("Automounting has been inhibited for USB auto-redirecting");
 
     if (!priv->gnome_session_proxy)
@@ -103,7 +100,6 @@ static void gnome_integration_inhibit_automount(SpiceDesktopIntegration *self)
 
     g_return_if_fail(priv->gnome_automount_inhibit_cookie == 0);
 
-#if defined(USE_GDBUS)
     GVariant *v = g_dbus_proxy_call_sync(priv->gnome_session_proxy,
                 "Inhibit",
                 g_variant_new("(susu)",
@@ -116,7 +112,7 @@ static void gnome_integration_inhibit_automount(SpiceDesktopIntegration *self)
         g_variant_get(v, "(u)", &priv->gnome_automount_inhibit_cookie);
 
     g_clear_pointer(&v, g_variant_unref);
-#endif
+
     if (error)
         handle_dbus_call_error("org.gnome.SessionManager.Inhibit", &error);
 }
@@ -133,14 +129,12 @@ static void gnome_integration_uninhibit_automount(SpiceDesktopIntegration *self)
     if (priv->gnome_automount_inhibit_cookie == 0)
         return;
 
-#if defined(USE_GDBUS)
     GVariant *v = g_dbus_proxy_call_sync(priv->gnome_session_proxy,
                 "Uninhibit",
                 g_variant_new("(u)",
                               priv->gnome_automount_inhibit_cookie),
                 G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
     g_clear_pointer(&v, g_variant_unref);
-#endif
     if (error)
         handle_dbus_call_error("org.gnome.SessionManager.Uninhibit", &error);
 
@@ -153,6 +147,7 @@ static void gnome_integration_dispose(SpiceDesktopIntegration *self)
 
     g_clear_object(&priv->gnome_session_proxy);
 }
+#endif /* WITH_GNOME */
 
 static void spice_desktop_integration_init(SpiceDesktopIntegration *self)
 {
@@ -161,7 +156,7 @@ static void spice_desktop_integration_init(SpiceDesktopIntegration *self)
     priv = spice_desktop_integration_get_instance_private(self);
     self->priv = priv;
 
-#if defined(G_OS_UNIX) && !__APPLE__
+#ifdef WITH_GNOME
     if (gnome_integration_init(self)) {
         return;
     }
@@ -172,9 +167,11 @@ static void spice_desktop_integration_init(SpiceDesktopIntegration *self)
 
 static void spice_desktop_integration_dispose(GObject *gobject)
 {
+#ifdef WITH_GNOME
     SpiceDesktopIntegration *self = SPICE_DESKTOP_INTEGRATION(gobject);
 
     gnome_integration_dispose(self);
+#endif
 
     /* Chain up to the parent class */
     if (G_OBJECT_CLASS(spice_desktop_integration_parent_class)->dispose)
@@ -208,10 +205,14 @@ SpiceDesktopIntegration *spice_desktop_integration_get(SpiceSession *session)
 
 void spice_desktop_integration_inhibit_automount(SpiceDesktopIntegration *self)
 {
+#ifdef WITH_GNOME
     gnome_integration_inhibit_automount(self);
+#endif
 }
 
 void spice_desktop_integration_uninhibit_automount(SpiceDesktopIntegration *self)
 {
+#ifdef WITH_GNOME
     gnome_integration_uninhibit_automount(self);
+#endif
 }
