@@ -26,7 +26,6 @@
 #include "usb-device-manager.h"
 
 static GStrv disable_effects = NULL;
-static gint color_depth = 0;
 static char *ca_file = NULL;
 static char *host_subject = NULL;
 static char *smartcard_db = NULL;
@@ -58,28 +57,8 @@ static gboolean option_debug(void)
 static gboolean parse_color_depth(const gchar *option_name, const gchar *value,
                                   gpointer data, GError **error)
 {
-    unsigned long parsed_depth;
-    char *end;
-
-    if (option_name == NULL) {
-        g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED, _("missing color depth, must be 16 or 32"));
-        return FALSE;
-    }
-
-    parsed_depth = strtoul(value, &end, 0);
-    if (*end != '\0')
-        goto error;
-
-    if ((parsed_depth != 16) && (parsed_depth != 32))
-        goto error;
-
-    color_depth = parsed_depth;
-
+    g_warning(_("--spice-color-depth is deprecated. Use guest's display settings instead"));
     return TRUE;
-
-error:
-    g_set_error(error, G_OPTION_ERROR, G_OPTION_ERROR_FAILED, _("invalid color depth (%s), must be 16 or 32"), value);
-    return FALSE;
 }
 
 static gboolean parse_disable_effects(const gchar *option_name, const gchar *value,
@@ -183,7 +162,8 @@ GOptionGroup* spice_get_option_group(void)
           N_("Force the specified channels to be secured"), "<main,display,inputs,...,all>" },
         { "spice-disable-effects", '\0', 0, G_OPTION_ARG_CALLBACK, parse_disable_effects,
           N_("Disable guest display effects"), "<wallpaper,font-smooth,animation,all>" },
-        { "spice-color-depth", '\0', 0, G_OPTION_ARG_CALLBACK, parse_color_depth,
+        /* Deprecated */
+        { "spice-color-depth", '\0', G_OPTION_FLAG_HIDDEN, G_OPTION_ARG_CALLBACK, parse_color_depth,
           N_("Guest display color depth (deprecated)"), "<16,32>" },
         { "spice-ca-file", '\0', 0, G_OPTION_ARG_FILENAME, &ca_file,
           N_("Truststore file for secure connections"), N_("<file>") },
@@ -263,8 +243,6 @@ void spice_set_session_option(SpiceSession *session)
         g_strfreev(channels);
     }
 
-    if (color_depth)
-        g_object_set(session, "color-depth", color_depth, NULL);
     if (ca_file)
         g_object_set(session, "ca-file", ca_file, NULL);
     if (host_subject)
