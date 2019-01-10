@@ -618,6 +618,23 @@ static void clipboard_get_targets(GtkClipboard *clipboard,
     s->nclip_targets[selection] = 0;
 }
 
+/* Callback for every owner-change event for given @clipboard.
+ * This event is triggered in different ways depending on the environment of
+ * the Client, some examples:
+ *
+ * Situation 1: When another application on the client machine is holding and
+ * changing the clipboard. If client is on Wayland, spice-gtk only receives the
+ * related GtkClipboard::owner-changed event after focus-in event on Spice
+ * widget; On X11, we will receive it at the moment the clipboard data has been
+ * changed in by other application.
+ *
+ * Situation 2: When spice-gtk holds the focus and is changing the clipboard by
+ * either setting new content information with gtk_clipboard_set_with_owner() or
+ * clearing up old content with gtk_clipboard_clear(). The main difference between
+ * Wayland and X11 is that on X11, gtk_clipboard_clear() set the owner to none, which
+ * emits owner-change event; On Wayland that does not happen as spice-gtk still is
+ * the owner of the clipboard.
+ */
 static void clipboard_owner_change(GtkClipboard        *clipboard,
                                    GdkEventOwnerChange *event,
                                    gpointer            user_data)
@@ -631,30 +648,37 @@ static void clipboard_owner_change(GtkClipboard        *clipboard,
     selection = get_selection_from_clipboard(s, clipboard);
     g_return_if_fail(selection != -1);
 
-    if (s->main == NULL)
+    if (s->main == NULL) {
         return;
+    }
 
+    /* In case we sent a grab to the agent, we need to release it now as
+     * previous clipboard data should not be reachable anymore */
     if (s->clip_grabbed[selection]) {
         s->clip_grabbed[selection] = FALSE;
-        if (spice_main_channel_agent_test_capability(s->main, VD_AGENT_CAP_CLIPBOARD_BY_DEMAND))
+        if (spice_main_channel_agent_test_capability(s->main, VD_AGENT_CAP_CLIPBOARD_BY_DEMAND)) {
             spice_main_channel_clipboard_selection_release(s->main, selection);
+        }
     }
 
-    switch (event->reason) {
-    case GDK_OWNER_CHANGE_NEW_OWNER:
-        if (gtk_clipboard_get_owner(clipboard) == G_OBJECT(self))
-            break;
-
-        s->clipboard_by_guest[selection] = FALSE;
-        s->clip_hasdata[selection] = TRUE;
-        if (s->auto_clipboard_enable && !read_only(self))
-            gtk_clipboard_request_targets(clipboard, clipboard_get_targets,
-                                          get_weak_ref(self));
-        break;
-    default:
+    /* We are mostly interested when owner has changed in which case
+     * we would like to let agent know about new clipboard data. */
+    if (event->reason != GDK_OWNER_CHANGE_NEW_OWNER) {
         s->clip_hasdata[selection] = FALSE;
-        break;
+        return;
     }
+
+    /* This situation happens when clipboard is being cleared by us, when agent
+     * sends a release-grab for instance */
+    if (gtk_clipboard_get_owner(clipboard) == G_OBJECT(self)) {
+        return;
+    }
+
+    s->clipboard_by_guest[selection] = FALSE;
+    s->clip_hasdata[selection] = TRUE;
+    if (s->auto_clipboard_enable && !read_only(self))
+        gtk_clipboard_request_targets(clipboard, clipboard_get_targets,
+                                      get_weak_ref(self));
 }
 
 typedef struct
