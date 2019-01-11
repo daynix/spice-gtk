@@ -670,7 +670,8 @@ static void clipboard_owner_change(GtkClipboard        *clipboard,
 
     /* This situation happens when clipboard is being cleared by us, when agent
      * sends a release-grab for instance */
-    if (gtk_clipboard_get_owner(clipboard) == G_OBJECT(self)) {
+    GObject *owner = gtk_clipboard_get_owner(clipboard);
+    if (owner == NULL || owner == G_OBJECT(self)) {
         return;
     }
 
