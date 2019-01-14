@@ -344,7 +344,7 @@ static void playback_data(SpicePlaybackChannel *channel,
 static void playback_volume_changed(GObject *object, GParamSpec *pspec, gpointer data)
 {
     SpiceGstaudio *gstaudio = data;
-    GstElement *e;
+    GstElement *e = NULL;
     guint16 *volume;
     guint nchannels;
     SpiceGstaudioPrivate *p = gstaudio->priv;
@@ -365,7 +365,7 @@ static void playback_volume_changed(GObject *object, GParamSpec *pspec, gpointer
 
     if (GST_IS_BIN(p->playback.sink))
         e = gst_bin_get_by_interface(GST_BIN(p->playback.sink), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->playback.sink);
 
     if (GST_IS_STREAM_VOLUME(e))
@@ -380,7 +380,7 @@ static void playback_mute_changed(GObject *object, GParamSpec *pspec, gpointer d
 {
     SpiceGstaudio *gstaudio = data;
     SpiceGstaudioPrivate *p = gstaudio->priv;
-    GstElement *e;
+    GstElement *e = NULL;
     gboolean mute;
 
     if (!p->playback.sink)
@@ -391,7 +391,7 @@ static void playback_mute_changed(GObject *object, GParamSpec *pspec, gpointer d
 
     if (GST_IS_BIN(p->playback.sink))
         e = gst_bin_get_by_interface(GST_BIN(p->playback.sink), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->playback.sink);
 
     if (GST_IS_STREAM_VOLUME(e))
@@ -404,7 +404,7 @@ static void record_volume_changed(GObject *object, GParamSpec *pspec, gpointer d
 {
     SpiceGstaudio *gstaudio = data;
     SpiceGstaudioPrivate *p = gstaudio->priv;
-    GstElement *e;
+    GstElement *e = NULL;
     guint16 *volume;
     guint nchannels;
     gdouble vol;
@@ -424,7 +424,7 @@ static void record_volume_changed(GObject *object, GParamSpec *pspec, gpointer d
 
     if (GST_IS_BIN(p->record.src))
         e = gst_bin_get_by_interface(GST_BIN(p->record.src), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->record.src);
 
     if (GST_IS_STREAM_VOLUME(e))
@@ -439,7 +439,7 @@ static void record_mute_changed(GObject *object, GParamSpec *pspec, gpointer dat
 {
     SpiceGstaudio *gstaudio = data;
     SpiceGstaudioPrivate *p = gstaudio->priv;
-    GstElement *e;
+    GstElement *e = NULL;
     gboolean mute;
 
     if (!p->record.src)
@@ -450,7 +450,7 @@ static void record_mute_changed(GObject *object, GParamSpec *pspec, gpointer dat
 
     if (GST_IS_BIN(p->record.src))
         e = gst_bin_get_by_interface(GST_BIN(p->record.src), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->record.src);
 
     if (GST_IS_STREAM_VOLUME (e))
@@ -558,7 +558,7 @@ static gboolean spice_gstaudio_get_playback_volume_info_finish(SpiceAudio *audio
                                                                GError **error)
 {
     SpiceGstaudioPrivate *p = SPICE_GSTAUDIO(audio)->priv;
-    GstElement *e;
+    GstElement *e = NULL;
     gboolean lmute;
     gdouble vol;
     GTask *task = G_TASK(res);
@@ -582,7 +582,7 @@ static gboolean spice_gstaudio_get_playback_volume_info_finish(SpiceAudio *audio
 
     if (GST_IS_BIN(p->playback.sink))
         e = gst_bin_get_by_interface(GST_BIN(p->playback.sink), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->playback.sink);
 
     if (GST_IS_STREAM_VOLUME(e)) {
@@ -640,7 +640,7 @@ static gboolean spice_gstaudio_get_record_volume_info_finish(SpiceAudio *audio,
                                                              GError **error)
 {
     SpiceGstaudioPrivate *p = SPICE_GSTAUDIO(audio)->priv;
-    GstElement *e;
+    GstElement *e = NULL;
     gboolean lmute;
     gdouble vol;
     gboolean fake_channel = FALSE;
@@ -665,7 +665,7 @@ static gboolean spice_gstaudio_get_record_volume_info_finish(SpiceAudio *audio,
 
     if (GST_IS_BIN(p->record.src))
         e = gst_bin_get_by_interface(GST_BIN(p->record.src), GST_TYPE_STREAM_VOLUME);
-    else
+    if (!e)
         e = g_object_ref(p->record.src);
 
     if (GST_IS_STREAM_VOLUME(e)) {
