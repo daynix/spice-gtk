@@ -631,7 +631,7 @@ static void clipboard_get_targets(GtkClipboard *clipboard,
  * Situation 2: When spice-gtk holds the focus and is changing the clipboard by
  * either setting new content information with gtk_clipboard_set_with_owner() or
  * clearing up old content with gtk_clipboard_clear(). The main difference between
- * Wayland and X11 is that on X11, gtk_clipboard_clear() set the owner to none, which
+ * Wayland and X11 is that on X11, gtk_clipboard_clear() sets the owner to none, which
  * emits owner-change event; On Wayland that does not happen as spice-gtk still is
  * the owner of the clipboard.
  */
@@ -668,8 +668,7 @@ static void clipboard_owner_change(GtkClipboard        *clipboard,
         return;
     }
 
-    /* This situation happens when clipboard is being cleared by us, when agent
-     * sends a release-grab for instance */
+    /* This situation happens when clipboard is being set by us (grab message) */
     if (gtk_clipboard_get_owner(clipboard) == G_OBJECT(self)) {
         return;
     }
