@@ -2585,8 +2585,8 @@ static void gst_sync_bus_call(GstBus *bus, GstMessage *msg, SpiceDisplay *displa
 
                 GstVideoOverlay *overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(msg));
                 g_weak_ref_set(&d->overlay_weak_ref, overlay);
-                gst_video_overlay_set_window_handle(overlay, (uintptr_t)GDK_WINDOW_XID(window));
                 gst_video_overlay_handle_events(overlay, false);
+                gst_video_overlay_set_window_handle(overlay, (uintptr_t)GDK_WINDOW_XID(window));
                 return;
             }
         }
