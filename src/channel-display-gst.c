@@ -34,6 +34,10 @@ typedef struct SpiceGstFrame SpiceGstFrame;
 
 /* GStreamer decoder implementation */
 
+#if GST_CHECK_VERSION(1,14,0)
+static GstStaticCaps stream_reference = GST_STATIC_CAPS("timestamp/spice-stream");
+#endif
+
 typedef struct SpiceGstDecoder {
     VideoDecoder base;
 
@@ -88,7 +92,16 @@ struct SpiceGstFrame {
 static SpiceGstFrame *create_gst_frame(GstBuffer *buffer, SpiceFrame *frame)
 {
     SpiceGstFrame *gstframe = g_new(SpiceGstFrame, 1);
+
     gstframe->timestamp = GST_BUFFER_PTS(buffer);
+#if GST_CHECK_VERSION(1,14,0)
+    GstReferenceTimestampMeta *time_meta;
+
+    time_meta = gst_buffer_get_reference_timestamp_meta(buffer, gst_static_caps_get(&stream_reference));
+    if (time_meta) {
+        gstframe->timestamp = time_meta->timestamp;
+    }
+#endif
     gstframe->encoded_buffer = gst_buffer_ref(buffer);
     gstframe->encoded_frame = frame;
     gstframe->decoded_sample = NULL;
@@ -215,6 +228,16 @@ static void schedule_frame(SpiceGstDecoder *decoder)
  */
 static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer)
 {
+    GstClockTime buffer_ts = GST_BUFFER_PTS(buffer);
+#if GST_CHECK_VERSION(1,14,0)
+    GstReferenceTimestampMeta *time_meta;
+
+    time_meta = gst_buffer_get_reference_timestamp_meta(buffer, gst_static_caps_get(&stream_reference));
+    if (time_meta) {
+        buffer_ts = time_meta->timestamp;
+    }
+#endif
+
     /* Gstreamer sometimes returns the same buffer twice
      * or buffers that have a modified, and thus unrecognizable, PTS.
      * Blindly removing frames from the decoding_queue until we find a
@@ -226,7 +249,7 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
     GList *l = g_queue_peek_head_link(decoder->decoding_queue);
     while (l) {
         gstframe = l->data;
-        if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
+        if (gstframe->timestamp == buffer_ts) {
             break;
         }
         gstframe = NULL;
@@ -666,9 +689,14 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
                                                     frame->data, frame->size, 0, frame->size,
                                                     frame, (GDestroyNotify) spice_frame_free);
 
+    GstClockTime pts = gst_clock_get_time(decoder->clock) - gst_element_get_base_time(decoder->pipeline) + ((uint64_t)MAX(0, latency)) * 1000 * 1000;
     GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
     GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
-    GST_BUFFER_PTS(buffer) = gst_clock_get_time(decoder->clock) - gst_element_get_base_time(decoder->pipeline) + ((uint64_t)MAX(0, latency)) * 1000 * 1000;
+    GST_BUFFER_PTS(buffer) = pts;
+#if GST_CHECK_VERSION(1,14,0)
+    gst_buffer_add_reference_timestamp_meta(buffer, gst_static_caps_get(&stream_reference),
+                                            pts, GST_CLOCK_TIME_NONE);
+#endif
 
     SpiceGstFrame *gst_frame = create_gst_frame(buffer, frame);
     g_mutex_lock(&decoder->queues_mutex);
