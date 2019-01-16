@@ -527,30 +527,7 @@ SpiceGstaudio *spice_gstaudio_new(SpiceSession *session, GMainContext *context,
                                   const char *name)
 {
     GError *err = NULL;
-
     if (gst_init_check(NULL, NULL, &err)) {
-        GstPluginFeature *pulsesrc;
-
-        pulsesrc = gst_registry_lookup_feature(gst_registry_get(), "pulsesrc");
-        if (pulsesrc) {
-            unsigned maj, min;
-            GstPlugin *plugin = gst_plugin_feature_get_plugin(pulsesrc);
-
-            if (sscanf(gst_plugin_get_version(plugin), "%u.%u", &maj, &min) != 2) {
-                g_warn_if_reached();
-                gst_object_unref(plugin);
-                gst_object_unref(pulsesrc);
-                return NULL;
-            }
-
-            gst_object_unref(plugin);
-            gst_object_unref(pulsesrc);
-            if (maj < 1 || min < 15) {
-                g_warning("Bad pulsesrc version, lowering its rank");
-                gst_plugin_feature_set_rank(pulsesrc, GST_RANK_NONE);
-            }
-        }
-
         return g_object_new(SPICE_TYPE_GSTAUDIO,
                             "session", session,
                             "main-context", context,
