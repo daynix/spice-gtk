@@ -65,7 +65,7 @@ static int write_ppm_32(void)
     n = d_width * d_height;
     p = d_data;
     while (n > 0) {
-#ifdef WORDS_BIGENDIAN
+#if G_BYTE_ORDER == G_BIG_ENDIAN
         fputc(p[1], fp);
         fputc(p[2], fp);
         fputc(p[3], fp);
