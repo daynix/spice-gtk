@@ -1014,14 +1014,13 @@ static gboolean clipboard_request(SpiceMainChannel *main, guint selection,
     GtkClipboard* cb;
     int m;
 
+    cb = get_clipboard_from_selection(s, selection);
+    g_return_val_if_fail(cb != NULL, FALSE);
     g_return_val_if_fail(s->clipboard_by_guest[selection] == FALSE, FALSE);
     g_return_val_if_fail(s->clip_grabbed[selection], FALSE);
 
     if (read_only(self))
         return FALSE;
-
-    cb = get_clipboard_from_selection(s, selection);
-    g_return_val_if_fail(cb != NULL, FALSE);
 
     if (type == VD_AGENT_CLIPBOARD_UTF8_TEXT) {
         gtk_clipboard_request_text(cb, clipboard_received_text_cb,
