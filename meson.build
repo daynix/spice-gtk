@@ -2,7 +2,7 @@
 # project definition
 #
 project('spice-gtk', 'c',
-         version : run_command('build-aux/git-version-gen', '${MESON_SOURCE_ROOT}/.tarball-version', check : true).stdout().strip(),
+         version : '0.36',
          license : 'LGPLv2.1',
          meson_version : '>= 0.49')
 
