@@ -1,9 +1,9 @@
 image: fedora:latest
 
 variables:
-  DEPS_COMMON: git libtool make python3 python3-six redhat-rpm-config
+  DEPS_COMMON: git make python3 python3-six redhat-rpm-config
                python3-pyparsing meson ninja-build gtk-doc glib2-devel
-               gettext gettext-devel
+               gettext gettext-devel gcc
 
   DEPS_FEDORA: zlib-devel openssl-devel intltool gtk3-devel
                gobject-introspection-devel cyrus-sasl-devel
@@ -18,56 +18,7 @@ variables:
               mingw64-gtk3 mingw64-json-glib mingw64-opus
               mingw64-gstreamer1-plugins-base mingw64-gstreamer1-plugins-good
 
-fedora-autotools:
-  artifacts:
-    paths:
-      - tests/*.log
-    when: always
-    expire_in: 1 week
-
-  before_script:
-    - dnf install -y $DEPS_COMMON $DEPS_FEDORA
-    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
-    - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
-
-  script:
-    - git clean -xfd
-    - git submodule foreach --recursive git clean -xfd
-    # Run with default options + out-of-tree
-    - mkdir build
-    - cd build
-    - ../autogen.sh --enable-static
-    - make -j4
-    - make check
-    - cd ..
-    # Run dist, check we don't have -dirty in the build
-    - git clean -xfd
-    - git submodule foreach --recursive git clean -xfd
-    - git reset --hard HEAD
-    - ./autogen.sh --disable-dependency-tracking --enable-celt051
-    - make gitignore
-    - (cd subprojects/spice-common && make gitignore)
-    - ./autogen.sh --disable-dependency-tracking --enable-celt051
-    - if grep -q 'VERSION=.*-dirty' configure; then echo 'Version is dirty!'; false; fi
-    - make -j4
-    - make dist
-    - test -e spice-gtk-*.tar.bz2
-    - test \! -e spice-gtk-*-dirty.tar.bz2
-    # Run without features
-    - git clean -xfd
-    - git submodule foreach --recursive git clean -xfd
-    - ./autogen.sh --enable-static
-          --enable-lz4=no
-          --enable-webdav=no
-          --with-sasl=no
-          --with-coroutine=auto
-          --enable-pulse=no
-          --enable-smartcard=no
-          --enable-usbredir=no
-    - make -j4
-    - make check
-
-fedora-meson:
+fedora:
   artifacts:
     paths:
       - build-*/meson-logs/*.txt
@@ -95,18 +46,7 @@ fedora-meson:
     - ninja -C build-feat-disabled
     - ninja -C build-feat-disabled test
 
-windows-autotools:
-  before_script:
-    - dnf install -y $DEPS_COMMON $DEPS_MINGW
-    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
-    - (cd spice-protocol && autoreconf -if && mingw64-configure --prefix=/usr && make install)
-
-  script:
-    - NOCONFIGURE=yes ./autogen.sh
-    - PYTHON=python3 mingw64-configure --enable-static
-    - make -j4
-
-windows-meson:
+windows:
   artifacts:
     paths:
       - build-win64/meson-logs/*.txt

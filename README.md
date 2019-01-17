@@ -52,20 +52,13 @@ Build dependencies:
 * or install:
 
 >>>
-    gtk3-devel spice-protocol openssl-devel pulseaudio-libs-devel pixman-devel
+    meson ninja gtk3-devel spice-protocol openssl-devel pulseaudio-libs-devel pixman-devel
     gobject-introspection-devel libjpeg-turbo-devel zlib-devel cyrus-sasl-devel gtk-doc
+    gettext-devel vala vala-tools python3 python3-pyparsing
 >>>
 
 The GStreamer backend needs:
 
 >>>
     gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good gstreamer1-plugins-bad-free
->>>
-
-* If you build from git, you'll also need:
-
->>>
-    libtool automake gettext-devel vala vala-tools
-    python3 python3-pyparsing
-    # or python2 python2-pyparsing
 >>>
