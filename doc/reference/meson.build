@@ -47,7 +47,6 @@ docpath = join_paths(spice_gtk_datadir, 'gtk-doc', 'html')
 gnome.gtkdoc(meson.project_name(),
              dependencies : spice_gtk_doc_dep,
              main_xml : meson.project_name() + '-docs.xml',
-             gobject_typesfile : meson.project_name() + '.types',
              ignore_headers : ignore_headers,
              include_directories: spice_gtk_include,
              c_args : '-DSPICE_COMPILATION',
@@ -55,6 +54,7 @@ gnome.gtkdoc(meson.project_name(),
              scan_args : [
                '--deprecated-guards="SPICE_DISABLE_DEPRECATED"',
                '--ignore-decorators="G_GNUC_INTERNAL"',
+               '--rebuild-types',
                join_paths(meson.build_root(), 'src', 'spice-version.h')
              ],
              src_dir : join_paths(meson.source_root(), 'src'),
