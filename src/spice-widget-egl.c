@@ -306,14 +306,13 @@ gl_make_current(SpiceDisplay *display, GError **err)
                                 "failed to activate context");
             return FALSE;
         }
+        return TRUE;
     }
-    else
 #endif
-    {
-        GtkWidget *area = gtk_stack_get_child_by_name(d->stack, "gl-area");
 
-        gtk_gl_area_make_current(GTK_GL_AREA(area));
-    }
+    GtkWidget *area = gtk_stack_get_child_by_name(d->stack, "gl-area");
+
+    gtk_gl_area_make_current(GTK_GL_AREA(area));
 
     return TRUE;
 }
