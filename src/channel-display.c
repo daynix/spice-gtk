@@ -436,7 +436,7 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
      * @width: width
      * @height: height
      *
-     * The #SpiceDisplayChannel::draw signal is emitted when the
+     * The #SpiceDisplayChannel::gl-draw signal is emitted when the
      * rectangular region x/y/w/h of the GL scanout is updated and
      * must be drawn. When the draw is finished, you must call
      * spice_display_gl_draw_done() in order to release the GL

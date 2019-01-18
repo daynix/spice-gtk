@@ -53,8 +53,8 @@ struct _SpiceMainChannel {
 /**
  * SpiceMainChannelClass:
  * @parent_class: Parent class.
- * @mouse_update: Signal class handler for the #SpiceMainChannel::mouse-update signal.
- * @agent_update: Signal class handler for the #SpiceMainChannel::agent-update signal.
+ * @mouse_update: Signal class handler for the #SpiceMainChannel::main-mouse-update signal.
+ * @agent_update: Signal class handler for the #SpiceMainChannel::main-agent-update signal.
  *
  * Class structure for #SpiceMainChannel.
  */
