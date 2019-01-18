@@ -307,8 +307,6 @@ gl_make_current(SpiceDisplay *display, GError **err)
             return FALSE;
         }
     }
-#endif
-#ifdef GDK_WINDOWING_X11
     else
 #endif
     {
