@@ -63,8 +63,8 @@ GTK_SYMBOLS_LDFLAGS = -export-symbols ${srcdir}/spice-gtk-sym-file
 GTK_SYMBOLS_FILE = spice-gtk-sym-file
 endif
 
-KEYMAP_GEN = keycodemapdb/tools/keymap-gen
-KEYMAP_CSV = keycodemapdb/data/keymaps.csv
+KEYMAP_GEN = $(top_srcdir)/subprojects/keycodemapdb/tools/keymap-gen
+KEYMAP_CSV = $(top_srcdir)/subprojects/keycodemapdb/data/keymaps.csv
 
 SPICE_COMMON_CPPFLAGS =						\
 	-DSPICE_COMPILATION					\
@@ -471,28 +471,28 @@ spice-widget-enums.h: spice-widget.h
 
 
 vncdisplaykeymap.c: $(KEYMAPS)
-$(KEYMAPS): $(srcdir)/$(KEYMAP_GEN) $(srcdir)/$(KEYMAP_CSV)
+$(KEYMAPS): $(KEYMAP_GEN) $(KEYMAP_CSV)
 
 vncdisplaykeymap_xorgevdev2xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgevdev2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgevdev xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_xorgevdev2xtkbd code-map $(KEYMAP_CSV) xorgevdev xtkbd > $@ || rm $@
 
 vncdisplaykeymap_xorgkbd2xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgkbd2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgkbd xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_xorgkbd2xtkbd code-map $(KEYMAP_CSV) xorgkbd xtkbd > $@ || rm $@
 
 vncdisplaykeymap_xorgxquartz2xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxquartz2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgxquartz xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxquartz2xtkbd code-map $(KEYMAP_CSV) xorgxquartz xtkbd > $@ || rm $@
 
 vncdisplaykeymap_xorgxwin2xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxwin2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) xorgxwin xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_xorgxwin2xtkbd code-map $(KEYMAP_CSV) xorgxwin xtkbd > $@ || rm $@
 
 vncdisplaykeymap_osx2xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_osx2xtkbd code-map $(srcdir)/$(KEYMAP_CSV) osx xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_osx2xtkbd code-map $(KEYMAP_CSV) osx xtkbd > $@ || rm $@
 
 vncdisplaykeymap_win322xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_win322xtkbd code-map $(srcdir)/$(KEYMAP_CSV) win32 xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_win322xtkbd code-map $(KEYMAP_CSV) win32 xtkbd > $@ || rm $@
 
 vncdisplaykeymap_x112xtkbd.h:
-	$(AM_V_GEN)$(PYTHON) $(srcdir)/$(KEYMAP_GEN) --lang glib2 --varname keymap_x112xtkbd code-map $(srcdir)/$(KEYMAP_CSV) x11 xtkbd > $@ || rm $@
+	$(AM_V_GEN)$(PYTHON) $(KEYMAP_GEN) --lang glib2 --varname keymap_x112xtkbd code-map $(KEYMAP_CSV) x11 xtkbd > $@ || rm $@
 
 -include $(INTROSPECTION_MAKEFILE)
 

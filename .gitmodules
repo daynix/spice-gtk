@@ -1,6 +1,6 @@
 [submodule "spice-common"]
 	path = subprojects/spice-common
 	url = ../spice-common.git
-[submodule "src/keycodemapdb"]
-	path = src/keycodemapdb
+[submodule "keycodemapdb"]
+	path = subprojects/keycodemapdb
 	url = https://gitlab.com/keycodemap/keycodemapdb.git

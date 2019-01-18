@@ -38,11 +38,15 @@ spice_gtk_deps = []
 spice_acl_deps = []
 
 #
-# Spice common subproject
+# Set up subprojects
 #
 spice_common = subproject('spice-common', default_options : ['generate-code=client'])
 spice_gtk_config_data.merge_from(spice_common.get_variable('spice_common_config_data'))
 spice_glib_deps += spice_common.get_variable('spice_common_client_dep')
+
+subproject('keycodemapdb')
+keymapgen = files('subprojects/keycodemapdb/tools/keymap-gen')
+keymapcsv = files('subprojects/keycodemapdb/data/keymaps.csv')
 
 #
 # check for system headers

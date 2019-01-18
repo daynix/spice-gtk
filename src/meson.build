@@ -287,8 +287,6 @@ if spice_gtk_has_gtk
 
   # keymaps
   python = import('python').find_installation()
-  keymapgen = files('./keycodemapdb/tools/keymap-gen')
-  keymapcsv = files('./keycodemapdb/data/keymaps.csv')
   keymaps = ['xorgevdev',
              'xorgkbd',
              'xorgxquartz',
