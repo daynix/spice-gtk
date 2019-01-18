@@ -69,12 +69,102 @@
     <title>API Index</title>
     <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
   </index>
-  <!--
-      <index role="2.26">
-      <title>Index of new symbols in 2.26</title>
-      <xi:include href="xml/api-index-2.26.xml"><xi:fallback/></xi:include>
-      </index>
-  -->
+  <index role="0.6">
+      <title>Index of new symbols in 0.6</title>
+      <xi:include href="xml/api-index-0.6.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.7">
+      <title>Index of new symbols in 0.7</title>
+      <xi:include href="xml/api-index-0.7.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.8">
+      <title>Index of new symbols in 0.8</title>
+      <xi:include href="xml/api-index-0.8.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.9">
+      <title>Index of new symbols in 0.9</title>
+      <xi:include href="xml/api-index-0.9.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.10">
+      <title>Index of new symbols in 0.10</title>
+      <xi:include href="xml/api-index-0.10.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.11">
+      <title>Index of new symbols in 0.11</title>
+      <xi:include href="xml/api-index-0.11.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.13">
+      <title>Index of new symbols in 0.13</title>
+      <xi:include href="xml/api-index-0.13.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.14">
+      <title>Index of new symbols in 0.14</title>
+      <xi:include href="xml/api-index-0.14.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.15">
+      <title>Index of new symbols in 0.15</title>
+      <xi:include href="xml/api-index-0.15.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.17">
+      <title>Index of new symbols in 0.17</title>
+      <xi:include href="xml/api-index-0.17.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.20">
+      <title>Index of new symbols in 0.20</title>
+      <xi:include href="xml/api-index-0.20.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.21">
+      <title>Index of new symbols in 0.21</title>
+      <xi:include href="xml/api-index-0.21.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.22">
+      <title>Index of new symbols in 0.22</title>
+      <xi:include href="xml/api-index-0.22.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.24">
+      <title>Index of new symbols in 0.24</title>
+      <xi:include href="xml/api-index-0.24.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.27">
+      <title>Index of new symbols in 0.27</title>
+      <xi:include href="xml/api-index-0.27.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.28">
+      <title>Index of new symbols in 0.28</title>
+      <xi:include href="xml/api-index-0.28.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.29">
+      <title>Index of new symbols in 0.29</title>
+      <xi:include href="xml/api-index-0.29.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.30">
+      <title>Index of new symbols in 0.30</title>
+      <xi:include href="xml/api-index-0.30.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.31">
+      <title>Index of new symbols in 0.31</title>
+      <xi:include href="xml/api-index-0.31.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.32">
+      <title>Index of new symbols in 0.32</title>
+      <xi:include href="xml/api-index-0.32.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.33">
+      <title>Index of new symbols in 0.33</title>
+      <xi:include href="xml/api-index-0.33.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.34">
+      <title>Index of new symbols in 0.34</title>
+      <xi:include href="xml/api-index-0.34.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.35">
+      <title>Index of new symbols in 0.35</title>
+      <xi:include href="xml/api-index-0.35.xml"><xi:fallback/></xi:include>
+  </index>
+  <index role="0.36">
+      <title>Index of new symbols in 0.36</title>
+      <xi:include href="xml/api-index-0.36.xml"><xi:fallback/></xi:include>
+  </index>
   <index id="api-index-deprecated" role="deprecated">
     <title>Index of deprecated symbols</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
