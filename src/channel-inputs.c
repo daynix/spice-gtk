@@ -509,8 +509,8 @@ void spice_inputs_channel_button_release(SpiceInputsChannel *channel, gint butto
 /**
  * spice_inputs_key_press:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Press a key.
  *
@@ -524,8 +524,8 @@ void spice_inputs_key_press(SpiceInputsChannel *channel, guint scancode)
 /**
  * spice_inputs_channel_key_press:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Press a key.
  *
@@ -552,8 +552,8 @@ void spice_inputs_channel_key_press(SpiceInputsChannel *channel, guint scancode)
 /**
  * spice_inputs_key_release:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Release a key.
  *
@@ -567,8 +567,8 @@ void spice_inputs_key_release(SpiceInputsChannel *channel, guint scancode)
 /**
  * spice_inputs_channel_key_release:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Release a key.
  *
@@ -595,8 +595,8 @@ void spice_inputs_channel_key_release(SpiceInputsChannel *channel, guint scancod
 /**
  * spice_inputs_key_press_and_release:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Press and release a key event atomically (in the same message).
  *
@@ -612,8 +612,8 @@ void spice_inputs_key_press_and_release(SpiceInputsChannel *input_channel, guint
 /**
  * spice_inputs_channel_key_press_and_release:
  * @channel: a #SpiceInputsChannel
- * @scancode: a PC XT (set 1) key scancode.  For scancodes with an %0xe0
- *            prefix, drop the prefix and OR the scancode with %0x100.
+ * @scancode: a PC XT (set 1) key scancode.  For scancodes with an \%0xe0
+ *            prefix, drop the prefix and OR the scancode with \%0x100.
  *
  * Press and release a key event atomically (in the same message).
  *

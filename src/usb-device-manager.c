@@ -1786,13 +1786,13 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
  * g_free() when no longer needed.
  *
  * The @format positional parameters are the following:
- * - '%%1$s' manufacturer
- * - '%%2$s' product
- * - '%%3$s' descriptor (a [vendor_id:product_id] string)
- * - '%%4$d' bus
- * - '%%5$d' address
+ * 1. \%s manufacturer
+ * 2. \%s product
+ * 3. \%s descriptor (a [vendor_id:product_id] string)
+ * 4. \%d bus
+ * 5. \%d address
  *
- * (the default format string is "%%s %%s %%s at %%d-%%d")
+ * (the default format string is "\%s \%s \%s at \%d-\%d")
  *
  * Returns: a newly-allocated string holding the description, or %NULL if failed
  */
