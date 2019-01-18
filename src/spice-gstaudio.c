@@ -368,10 +368,13 @@ static void playback_volume_changed(GObject *object, GParamSpec *pspec, gpointer
     if (!e)
         e = g_object_ref(p->playback.sink);
 
-    if (GST_IS_STREAM_VOLUME(e))
+    if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_volume(GST_STREAM_VOLUME(e), GST_STREAM_VOLUME_FORMAT_CUBIC, vol);
-    else
+    } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "volume") != NULL) {
         g_object_set(e, "volume", vol, NULL);
+    } else {
+        g_warning("playback: ignoring volume change on %s", gst_element_get_name(e));
+    }
 
     g_object_unref(e);
 }
@@ -394,8 +397,13 @@ static void playback_mute_changed(GObject *object, GParamSpec *pspec, gpointer d
     if (!e)
         e = g_object_ref(p->playback.sink);
 
-    if (GST_IS_STREAM_VOLUME(e))
+    if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_mute(GST_STREAM_VOLUME(e), mute);
+    } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "mute") != NULL) {
+        g_object_set(e, "mute", mute, NULL);
+    } else {
+        g_warning("playback: ignoring mute change on %s", gst_element_get_name(e));
+    }
 
     g_object_unref(e);
 }
@@ -427,10 +435,13 @@ static void record_volume_changed(GObject *object, GParamSpec *pspec, gpointer d
     if (!e)
         e = g_object_ref(p->record.src);
 
-    if (GST_IS_STREAM_VOLUME(e))
+    if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_volume(GST_STREAM_VOLUME(e), GST_STREAM_VOLUME_FORMAT_CUBIC, vol);
-    else
-        g_warning("gst lacks volume capabilities on src");
+    } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "volume") != NULL) {
+        g_object_set(e, "volume", vol, NULL);
+    } else {
+        g_warning("record: ignoring volume change on %s", gst_element_get_name(e));
+    }
 
     g_object_unref(e);
 }
@@ -453,10 +464,13 @@ static void record_mute_changed(GObject *object, GParamSpec *pspec, gpointer dat
     if (!e)
         e = g_object_ref(p->record.src);
 
-    if (GST_IS_STREAM_VOLUME (e))
+    if (GST_IS_STREAM_VOLUME (e)) {
         gst_stream_volume_set_mute(GST_STREAM_VOLUME(e), mute);
-    else
-        g_warning("gst lacks mute capabilities on src: %d", mute);
+    } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "mute") != NULL) {
+        g_object_set(e, "mute", mute, NULL);
+    } else {
+        g_warning("record: ignoring mute change on %s", gst_element_get_name(e));
+    }
 
     g_object_unref(e);
 }
