@@ -45,10 +45,6 @@ struct SpiceFrame {
     uint8_t *data;
     uint32_t size;
     gpointer data_opaque;
-    void (*ref_data)(gpointer data_opaque);
-    void (*unref_data)(gpointer data_opaque);
-
-    void (*free)(SpiceFrame *frame);
 };
 
 typedef struct VideoDecoder VideoDecoder;
@@ -201,6 +197,7 @@ void stream_display_frame(display_stream *st, SpiceFrame *frame, uint32_t width,
 guintptr get_window_handle(display_stream *st);
 gboolean hand_pipeline_to_widget(display_stream *st,  GstPipeline *pipeline);
 
+void spice_frame_free(SpiceFrame *frame);
 
 G_END_DECLS
 

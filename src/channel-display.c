@@ -1656,10 +1656,19 @@ static SpiceFrame *spice_frame_new(display_stream *st,
     frame->data = data_ptr;
     frame->size = data_size;
     frame->data_opaque = in;
-    frame->ref_data = (void*)spice_msg_in_ref;
-    frame->unref_data = (void*)spice_msg_in_unref;
-    frame->free = (void*)g_free;
+    spice_msg_in_ref(in);
     return frame;
+}
+
+G_GNUC_INTERNAL
+void spice_frame_free(SpiceFrame *frame)
+{
+    if (frame == NULL) {
+        return;
+    }
+
+    spice_msg_in_unref(frame->data_opaque);
+    g_free(frame);
 }
 
 /* coroutine context */

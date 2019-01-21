@@ -75,15 +75,6 @@ static void mjpeg_src_term(struct jpeg_decompress_struct *cinfo)
 }
 
 
-/* ---------- A SpiceFrame helper ---------- */
-
-static void free_spice_frame(SpiceFrame *frame)
-{
-    frame->unref_data(frame->data_opaque);
-    frame->free(frame);
-}
-
-
 /* ---------- Decoder proper ---------- */
 
 static void mjpeg_decoder_schedule(MJpegDecoder *decoder);
@@ -168,8 +159,7 @@ static gboolean mjpeg_decoder_decode_frame(gpointer video_decoder)
     /* Display the frame and dispose of it */
     stream_display_frame(decoder->base.stream, decoder->cur_frame,
                          width, height, SPICE_UNKNOWN_STRIDE, decoder->out_frame);
-    free_spice_frame(decoder->cur_frame);
-    decoder->cur_frame = NULL;
+    g_clear_pointer(&decoder->cur_frame, spice_frame_free);
     decoder->timer_id = 0;
 
     /* Schedule the next frame */
@@ -202,7 +192,7 @@ static void mjpeg_decoder_schedule(MJpegDecoder *decoder)
                         __FUNCTION__, time - frame->mm_time,
                         frame->mm_time, time);
             stream_dropped_frame_on_playback(decoder->base.stream);
-            free_spice_frame(frame);
+            spice_frame_free(frame);
         }
         frame = g_queue_pop_head(decoder->msgq);
     } while (frame);
@@ -210,9 +200,9 @@ static void mjpeg_decoder_schedule(MJpegDecoder *decoder)
 
 
 /* mjpeg_decoder_drop_queue() helper */
-static void _msg_in_unref_func(gpointer data, gpointer user_data)
+static void spice_frame_unref_func(gpointer data, gpointer user_data)
 {
-    free_spice_frame((SpiceFrame*)data);
+    spice_frame_free(data);
 }
 
 static void mjpeg_decoder_drop_queue(MJpegDecoder *decoder)
@@ -221,11 +211,8 @@ static void mjpeg_decoder_drop_queue(MJpegDecoder *decoder)
         g_source_remove(decoder->timer_id);
         decoder->timer_id = 0;
     }
-    if (decoder->cur_frame) {
-        free_spice_frame(decoder->cur_frame);
-        decoder->cur_frame = NULL;
-    }
-    g_queue_foreach(decoder->msgq, _msg_in_unref_func, NULL);
+    g_clear_pointer(&decoder->cur_frame, spice_frame_free);
+    g_queue_foreach(decoder->msgq, spice_frame_unref_func, NULL);
     g_queue_clear(decoder->msgq);
 }
 
@@ -254,11 +241,10 @@ static gboolean mjpeg_decoder_queue_frame(VideoDecoder *video_decoder,
      */
     if (latency < 0) {
         SPICE_DEBUG("dropping a late MJPEG frame");
-        frame->free(frame);
+        spice_frame_free(frame);
         return TRUE;
     }
 
-    frame->ref_data(frame->data_opaque);
     g_queue_push_tail(decoder->msgq, frame);
     mjpeg_decoder_schedule(decoder);
     return TRUE;

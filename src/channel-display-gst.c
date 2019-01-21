@@ -79,6 +79,7 @@ typedef enum {
 
 struct SpiceGstFrame {
     GstClockTime timestamp;
+    GstBuffer *buffer;
     SpiceFrame *frame;
     GstSample *sample;
 };
@@ -87,6 +88,7 @@ static SpiceGstFrame *create_gst_frame(GstBuffer *buffer, SpiceFrame *frame)
 {
     SpiceGstFrame *gstframe = g_new(SpiceGstFrame, 1);
     gstframe->timestamp = GST_BUFFER_PTS(buffer);
+    gstframe->buffer = gst_buffer_ref(buffer);
     gstframe->frame = frame;
     gstframe->sample = NULL;
     return gstframe;
@@ -94,10 +96,9 @@ static SpiceGstFrame *create_gst_frame(GstBuffer *buffer, SpiceFrame *frame)
 
 static void free_gst_frame(SpiceGstFrame *gstframe)
 {
-    gstframe->frame->free(gstframe->frame);
-    if (gstframe->sample) {
-        gst_sample_unref(gstframe->sample);
-    }
+    gst_buffer_unref(gstframe->buffer);
+    // frame was owned by the buffer, don't release it
+    g_clear_pointer(&gstframe->sample, gst_sample_unref);
     g_free(gstframe);
 }
 
@@ -590,7 +591,7 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
 
     if (frame->size == 0) {
         SPICE_DEBUG("got an empty frame buffer!");
-        frame->free(frame);
+        spice_frame_free(frame);
         return TRUE;
     }
 
@@ -608,14 +609,14 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
          * saves CPU so do it.
          */
         SPICE_DEBUG("dropping a late MJPEG frame");
-        frame->free(frame);
+        spice_frame_free(frame);
         return TRUE;
     }
 
     if (decoder->pipeline == NULL) {
         /* An error occurred, causing the GStreamer pipeline to be freed */
         spice_warning("An error occurred, stopping the video stream");
-        frame->free(frame);
+        spice_frame_free(frame);
         return FALSE;
     }
 
@@ -623,16 +624,15 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
     if (decoder->appsrc == NULL) {
         spice_warning("Error: Playbin has not yet initialized the Appsrc element");
         stream_dropped_frame_on_playback(decoder->base.stream);
-        frame->free(frame);
+        spice_frame_free(frame);
         return TRUE;
     }
 #endif
 
-    /* ref() the frame data for the buffer */
-    frame->ref_data(frame->data_opaque);
+    /* frame ownership is moved to the buffer */
     GstBuffer *buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_PHYSICALLY_CONTIGUOUS,
                                                     frame->data, frame->size, 0, frame->size,
-                                                    frame->data_opaque, frame->unref_data);
+                                                    frame, (GDestroyNotify) spice_frame_free);
 
     GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
     GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
@@ -643,9 +643,6 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
         g_mutex_lock(&decoder->queues_mutex);
         g_queue_push_tail(decoder->decoding_queue, gst_frame);
         g_mutex_unlock(&decoder->queues_mutex);
-    } else {
-        frame->free(frame);
-        frame = NULL;
     }
 
     if (gst_app_src_push_buffer(decoder->appsrc, buffer) != GST_FLOW_OK) {
