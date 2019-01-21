@@ -79,26 +79,26 @@ typedef enum {
 
 struct SpiceGstFrame {
     GstClockTime timestamp;
-    GstBuffer *buffer;
-    SpiceFrame *frame;
-    GstSample *sample;
+    GstBuffer *encoded_buffer;
+    SpiceFrame *encoded_frame;
+    GstSample *decoded_sample;
 };
 
 static SpiceGstFrame *create_gst_frame(GstBuffer *buffer, SpiceFrame *frame)
 {
     SpiceGstFrame *gstframe = g_new(SpiceGstFrame, 1);
     gstframe->timestamp = GST_BUFFER_PTS(buffer);
-    gstframe->buffer = gst_buffer_ref(buffer);
-    gstframe->frame = frame;
-    gstframe->sample = NULL;
+    gstframe->encoded_buffer = gst_buffer_ref(buffer);
+    gstframe->encoded_frame = frame;
+    gstframe->decoded_sample = NULL;
     return gstframe;
 }
 
 static void free_gst_frame(SpiceGstFrame *gstframe)
 {
-    gst_buffer_unref(gstframe->buffer);
-    // frame was owned by the buffer, don't release it
-    g_clear_pointer(&gstframe->sample, gst_sample_unref);
+    gst_buffer_unref(gstframe->encoded_buffer);
+    // encoded_frame was owned by encoded_buffer, don't release it
+    g_clear_pointer(&gstframe->decoded_sample, gst_sample_unref);
     g_free(gstframe);
 }
 
@@ -133,12 +133,12 @@ static gboolean display_frame(gpointer video_decoder)
     /* If the queue is empty we don't even need to reschedule */
     g_return_val_if_fail(gstframe, G_SOURCE_REMOVE);
 
-    if (!gstframe->sample) {
+    if (!gstframe->decoded_sample) {
         spice_warning("got a frame without a sample!");
         goto error;
     }
 
-    caps = gst_sample_get_caps(gstframe->sample);
+    caps = gst_sample_get_caps(gstframe->decoded_sample);
     if (!caps) {
         spice_warning("GStreamer error: could not get the caps of the sample");
         goto error;
@@ -151,13 +151,13 @@ static gboolean display_frame(gpointer video_decoder)
         goto error;
     }
 
-    buffer = gst_sample_get_buffer(gstframe->sample);
+    buffer = gst_sample_get_buffer(gstframe->decoded_sample);
     if (!gst_buffer_map(buffer, &mapinfo, GST_MAP_READ)) {
         spice_warning("GStreamer error: could not map the buffer");
         goto error;
     }
 
-    stream_display_frame(decoder->base.stream, gstframe->frame,
+    stream_display_frame(decoder->base.stream, gstframe->encoded_frame,
                          width, height, spice_gst_buffer_get_stride(buffer), mapinfo.data);
     gst_buffer_unmap(buffer, &mapinfo);
 
@@ -183,8 +183,8 @@ static void schedule_frame(SpiceGstDecoder *decoder)
             break;
         }
 
-        if (spice_mmtime_diff(now, gstframe->frame->mm_time) < 0) {
-            decoder->timer_id = g_timeout_add(gstframe->frame->mm_time - now,
+        if (spice_mmtime_diff(now, gstframe->encoded_frame->mm_time) < 0) {
+            decoder->timer_id = g_timeout_add(gstframe->encoded_frame->mm_time - now,
                                               display_frame, decoder);
         } else if (decoder->display_frame && !decoder->pending_samples) {
             /* Still attempt to display the least out of date frame so the
@@ -193,8 +193,8 @@ static void schedule_frame(SpiceGstDecoder *decoder)
             decoder->timer_id = g_timeout_add(0, display_frame, decoder);
         } else {
             SPICE_DEBUG("%s: rendering too late by %u ms (ts: %u, mmtime: %u), dropping",
-                        __FUNCTION__, now - gstframe->frame->mm_time,
-                        gstframe->frame->mm_time, now);
+                        __FUNCTION__, now - gstframe->encoded_frame->mm_time,
+                        gstframe->encoded_frame->mm_time, now);
             stream_dropped_frame_on_playback(decoder->base.stream);
             decoder->display_frame = NULL;
             free_gst_frame(gstframe);
@@ -227,7 +227,7 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
             gstframe = l->data;
             if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
                 /* The frame is now ready for display */
-                gstframe->sample = sample;
+                gstframe->decoded_sample = sample;
                 decoder->display_frame = gstframe;
 
                 /* Now that we know there is a match, remove it and the older
