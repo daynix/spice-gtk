@@ -107,6 +107,7 @@ static void free_gst_frame(SpiceGstFrame *gstframe)
 
 static void schedule_frame(SpiceGstDecoder *decoder);
 static void fetch_pending_sample(SpiceGstDecoder *decoder);
+static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer);
 
 static int spice_gst_buffer_get_stride(GstBuffer *buffer)
 {
@@ -204,6 +205,52 @@ static void schedule_frame(SpiceGstDecoder *decoder)
     g_mutex_unlock(&decoder->queues_mutex);
 }
 
+/* Get the decoded frame relative to buffer or NULL if not found.
+ * Dequeue the frame from decoding_queue and return it, caller
+ * is responsible to free the pointer.
+ * queues_mutex must be held.
+ */
+static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer)
+{
+    guint num_frames_dropped = 0;
+
+    /* Gstreamer sometimes returns the same buffer twice
+     * or buffers that have a modified, and thus unrecognizable, PTS.
+     * Blindly removing frames from the decoding_queue until we find a
+     * match would only empty the queue, resulting in later buffers not
+     * finding a match either, etc. So check the buffer has a matching
+     * frame first.
+     */
+    SpiceGstFrame *gstframe = NULL;
+    GList *l = g_queue_peek_head_link(decoder->decoding_queue);
+    while (l) {
+        gstframe = l->data;
+        if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
+
+            /* Now that we know there is a match, remove it and the older
+             * frames from the decoding queue.
+             */
+            while ((gstframe = g_queue_pop_head(decoder->decoding_queue))) {
+                if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
+                    break;
+                }
+                /* The GStreamer pipeline dropped the corresponding
+                 * buffer.
+                 */
+                num_frames_dropped++;
+                free_gst_frame(gstframe);
+            }
+            break;
+        }
+        gstframe = NULL;
+        l = l->next;
+    }
+    if (num_frames_dropped != 0) {
+        SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
+    }
+    return gstframe;
+}
+
 static void fetch_pending_sample(SpiceGstDecoder *decoder)
 {
     GstSample *sample = gst_app_sink_pull_sample(decoder->appsink);
@@ -212,7 +259,6 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
         decoder->pending_samples--;
 
         GstBuffer *buffer = gst_sample_get_buffer(sample);
-        guint num_frames_dropped = 0;
 
         /* gst_app_sink_pull_sample() sometimes returns the same buffer twice
          * or buffers that have a modified, and thus unrecognizable, PTS.
@@ -221,36 +267,12 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
          * finding a match either, etc. So check the buffer has a matching
          * frame first.
          */
-        SpiceGstFrame *gstframe;
-        GList *l = g_queue_peek_head_link(decoder->decoding_queue);
-        while (l) {
-            gstframe = l->data;
-            if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
-                /* The frame is now ready for display */
-                gstframe->decoded_sample = sample;
-                decoder->display_frame = gstframe;
-
-                /* Now that we know there is a match, remove it and the older
-                 * frames from the decoding queue.
-                 */
-                while ((gstframe = g_queue_pop_head(decoder->decoding_queue))) {
-                    if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
-                        break;
-                    }
-                    /* The GStreamer pipeline dropped the corresponding
-                     * buffer.
-                     */
-                    num_frames_dropped++;
-                    free_gst_frame(gstframe);
-                }
-                break;
-            }
-            l = l->next;
-        }
-        if (num_frames_dropped != 0) {
-            SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
-        }
-        if (!l) {
+        SpiceGstFrame *gstframe = get_decoded_frame(decoder, buffer);
+        if (gstframe) {
+            /* The frame is now ready for display */
+            gstframe->decoded_sample = sample;
+            decoder->display_frame = gstframe;
+        } else {
             spice_warning("got an unexpected decoded buffer!");
             gst_sample_unref(sample);
         }
