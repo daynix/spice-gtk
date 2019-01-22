@@ -2,12 +2,14 @@
 # project definition
 #
 project('spice-gtk', 'c',
-         version : '0.36',
+         version : run_command('build-aux/git-version-gen', '@0@/.tarball-version'.format(meson.source_root()), check : true).stdout().strip(),
          license : 'LGPLv2.1',
          meson_version : '>= 0.49')
 
 message('Updating submodules')
 run_command('build-aux/meson/check-spice-common', check : true)
+
+meson.add_dist_script('sh', '-c', 'echo @0@>"$MESON_DIST_ROOT/.tarball-version"'.format(meson.project_version()))
 
 #
 # global C defines
