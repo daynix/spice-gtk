@@ -245,6 +245,13 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
         if (num_frames_dropped != 0) {
             SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
         }
+
+        const SpiceFrame *frame = gstframe->encoded_frame;
+        int64_t duration = g_get_monotonic_time() - frame->creation_time;
+        SPICE_DEBUG("frame mm_time %u size %u creation time %" G_GINT64_FORMAT
+                    " decoded time %" G_GINT64_FORMAT " queue %u",
+                    frame->mm_time, frame->size, frame->creation_time,
+                    duration, decoder->decoding_queue->length);
     }
     return gstframe;
 }
@@ -387,6 +394,37 @@ static void app_source_setup(GstElement *pipeline G_GNUC_UNUSED,
     decoder->appsrc = GST_APP_SRC(gst_object_ref(source));
 }
 
+static GstPadProbeReturn
+sink_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer data)
+{
+    SpiceGstDecoder *decoder = (SpiceGstDecoder*)data;
+
+    if (info->type & GST_PAD_PROBE_TYPE_BUFFER) { // Buffer arrived
+        GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+        g_mutex_lock(&decoder->queues_mutex);
+        SpiceGstFrame *gstframe = get_decoded_frame(decoder, buffer);
+        if (gstframe) {
+            free_gst_frame(gstframe);
+        }
+        g_mutex_unlock(&decoder->queues_mutex);
+    }
+    return GST_PAD_PROBE_OK;
+}
+
+/* This function is called to used to set a probe on the sink */
+static void
+deep_element_added_cb(GstBin *pipeline, GstBin *bin, GstElement *element,
+                      SpiceGstDecoder *decoder)
+{
+    /* attach a probe to the sink in case we don't have appsink (that
+     * is the frames does not go to new_sample */
+    if (GST_IS_BASE_SINK(element) && decoder->appsink == NULL) {
+        GstPad *pad = gst_element_get_static_pad(element, "sink");
+        gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, sink_event_probe, decoder, NULL);
+        gst_object_unref(pad);
+    }
+}
+
 static gboolean create_pipeline(SpiceGstDecoder *decoder)
 {
     GstBus *bus;
@@ -448,6 +486,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
 #endif
     }
 
+    g_signal_connect(playbin, "deep-element-added", G_CALLBACK(deep_element_added_cb), decoder);
     g_signal_connect(playbin, "source-setup", G_CALLBACK(app_source_setup), decoder);
 
     g_object_set(playbin,
@@ -622,12 +661,10 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
     GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
     GST_BUFFER_PTS(buffer) = gst_clock_get_time(decoder->clock) - gst_element_get_base_time(decoder->pipeline) + ((uint64_t)MAX(0, latency)) * 1000 * 1000;
 
-    if (decoder->appsink != NULL) {
-        SpiceGstFrame *gst_frame = create_gst_frame(buffer, frame);
-        g_mutex_lock(&decoder->queues_mutex);
-        g_queue_push_tail(decoder->decoding_queue, gst_frame);
-        g_mutex_unlock(&decoder->queues_mutex);
-    }
+    SpiceGstFrame *gst_frame = create_gst_frame(buffer, frame);
+    g_mutex_lock(&decoder->queues_mutex);
+    g_queue_push_tail(decoder->decoding_queue, gst_frame);
+    g_mutex_unlock(&decoder->queues_mutex);
 
     if (gst_app_src_push_buffer(decoder->appsrc, buffer) != GST_FLOW_OK) {
         SPICE_DEBUG("GStreamer error: unable to push frame");

@@ -1657,6 +1657,7 @@ static SpiceFrame *spice_frame_new(display_stream *st,
     frame->size = data_size;
     frame->data_opaque = in;
     spice_msg_in_ref(in);
+    frame->creation_time = g_get_monotonic_time();
     return frame;
 }
 
