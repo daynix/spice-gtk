@@ -368,6 +368,9 @@ static void playback_volume_changed(GObject *object, GParamSpec *pspec, gpointer
     if (!e)
         e = g_object_ref(p->playback.sink);
 
+    /* Double check to make compiler happy */
+    g_return_if_fail(e != NULL);
+
     if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_volume(GST_STREAM_VOLUME(e), GST_STREAM_VOLUME_FORMAT_CUBIC, vol);
     } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "volume") != NULL) {
@@ -396,6 +399,9 @@ static void playback_mute_changed(GObject *object, GParamSpec *pspec, gpointer d
         e = gst_bin_get_by_interface(GST_BIN(p->playback.sink), GST_TYPE_STREAM_VOLUME);
     if (!e)
         e = g_object_ref(p->playback.sink);
+
+    /* Double check to make compiler happy */
+    g_return_if_fail(e != NULL);
 
     if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_mute(GST_STREAM_VOLUME(e), mute);
@@ -435,6 +441,9 @@ static void record_volume_changed(GObject *object, GParamSpec *pspec, gpointer d
     if (!e)
         e = g_object_ref(p->record.src);
 
+    /* Double check to make compiler happy */
+    g_return_if_fail(e != NULL);
+
     if (GST_IS_STREAM_VOLUME(e)) {
         gst_stream_volume_set_volume(GST_STREAM_VOLUME(e), GST_STREAM_VOLUME_FORMAT_CUBIC, vol);
     } else if (g_object_class_find_property(G_OBJECT_GET_CLASS (e), "volume") != NULL) {
@@ -463,6 +472,9 @@ static void record_mute_changed(GObject *object, GParamSpec *pspec, gpointer dat
         e = gst_bin_get_by_interface(GST_BIN(p->record.src), GST_TYPE_STREAM_VOLUME);
     if (!e)
         e = g_object_ref(p->record.src);
+
+    /* Double check to make compiler happy */
+    g_return_if_fail(e != NULL);
 
     if (GST_IS_STREAM_VOLUME (e)) {
         gst_stream_volume_set_mute(GST_STREAM_VOLUME(e), mute);
