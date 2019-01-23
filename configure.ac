@@ -215,8 +215,9 @@ AS_IF([test "x$enable_pulse" != "xno"],
 ])
 AM_CONDITIONAL([HAVE_PULSE], [test "x$enable_pulse" = "xyes"])
 
+GST_REQ="1.10"
 SPICE_CHECK_GSTREAMER(GSTAUDIO, 1.0,
-    [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-audio-1.0],
+    [gstreamer-1.0 >= $GST_REQ gstreamer-base-1.0 >= $GST_REQ gstreamer-app-1.0 >= $GST_REQ gstreamer-audio-1.0 >= $GST_REQ],
     [SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
          [gst-plugins-base 1.0], [audioconvert audioresample appsink])
      SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
@@ -224,10 +225,10 @@ SPICE_CHECK_GSTREAMER(GSTAUDIO, 1.0,
      AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
          SPICE_WARNING([The GStreamer 1.0 audio backend can be built but may not work.]))
     ],
-    [AC_MSG_ERROR([Required GStreamer packages missing])])
+    [AC_MSG_ERROR([Required GStreamer packages missing or system version is below $GST_REQ])])
 
 SPICE_CHECK_GSTREAMER(GSTVIDEO, 1.0,
-    [gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-video-1.0],
+    [gstreamer-1.0 >= $GST_REQ gstreamer-base-1.0 >= $GST_REQ gstreamer-app-1.0 >= $GST_REQ gstreamer-video-1.0 >= $GST_REQ],
     [missing_gstreamer_elements=""
      SPICE_CHECK_GSTREAMER_ELEMENTS($GST_INSPECT_1_0,
          [gst-plugins-base 1.0], [appsrc videoconvert appsink])
@@ -240,7 +241,7 @@ SPICE_CHECK_GSTREAMER(GSTVIDEO, 1.0,
      AS_IF([test x"$missing_gstreamer_elements" = "xyes"],
          SPICE_WARNING([The GStreamer video decoder can be built but may not work.]))
     ],
-    [AC_MSG_ERROR([Required GStreamer packages missing])])
+    [AC_MSG_ERROR([Required GStreamer packages missing or system version is below $GST_REQ])])
 
 AC_ARG_ENABLE([builtin-mjpeg],
   AS_HELP_STRING([--enable-builtin-mjpeg], [Enable the builtin mjpeg video decoder @<:@default=yes@:>@]),

@@ -166,9 +166,11 @@ if d.found()
   spice_gtk_has_pulse = true
 endif
 
+gstreamer_version = '1.10'
+gstreamer_version_info = '>= @0@'.format(gstreamer_version)
 deps = ['gstreamer-1.0', 'gstreamer-base-1.0', 'gstreamer-app-1.0', 'gstreamer-audio-1.0', 'gstreamer-video-1.0']
 foreach dep : deps
-  spice_glib_deps += dependency(dep)
+  spice_glib_deps += dependency(dep, version: gstreamer_version_info)
 endforeach
 
 # builtin-mjpeg
