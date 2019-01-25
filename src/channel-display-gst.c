@@ -212,8 +212,6 @@ static void schedule_frame(SpiceGstDecoder *decoder)
  */
 static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer)
 {
-    guint num_frames_dropped = 0;
-
     /* Gstreamer sometimes returns the same buffer twice
      * or buffers that have a modified, and thus unrecognizable, PTS.
      * Blindly removing frames from the decoding_queue until we find a
@@ -226,27 +224,27 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
     while (l) {
         gstframe = l->data;
         if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
-
-            /* Now that we know there is a match, remove it and the older
-             * frames from the decoding queue.
-             */
-            while ((gstframe = g_queue_pop_head(decoder->decoding_queue))) {
-                if (gstframe->timestamp == GST_BUFFER_PTS(buffer)) {
-                    break;
-                }
-                /* The GStreamer pipeline dropped the corresponding
-                 * buffer.
-                 */
-                num_frames_dropped++;
-                free_gst_frame(gstframe);
-            }
             break;
         }
         gstframe = NULL;
         l = l->next;
     }
-    if (num_frames_dropped != 0) {
-        SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
+
+    if (gstframe != NULL) {
+        /* Now that we know there is a match, remove it and the older
+         * frames from the decoding queue */
+        SpiceGstFrame *late_frame;
+        guint num_frames_dropped = 0;
+
+        /* The GStreamer pipeline dropped the corresponding buffer. */
+        while ((late_frame = g_queue_pop_head(decoder->decoding_queue)) != gstframe) {
+            num_frames_dropped++;
+            free_gst_frame(late_frame);
+        }
+
+        if (num_frames_dropped != 0) {
+            SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
+        }
     }
     return gstframe;
 }
