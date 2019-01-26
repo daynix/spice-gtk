@@ -20,6 +20,7 @@
 #include "spice-client.h"
 #include "spice-common.h"
 #include "spice-channel-priv.h"
+#include "common/recorder.h"
 
 #include "channel-display-priv.h"
 
@@ -108,6 +109,8 @@ static void free_gst_frame(SpiceGstFrame *gstframe)
 static void schedule_frame(SpiceGstDecoder *decoder);
 static void fetch_pending_sample(SpiceGstDecoder *decoder);
 static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer);
+
+RECORDER(frames_stats, 64, "Frames statistics");
 
 static int spice_gst_buffer_get_stride(GstBuffer *buffer)
 {
@@ -248,10 +251,11 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
 
         const SpiceFrame *frame = gstframe->encoded_frame;
         int64_t duration = g_get_monotonic_time() - frame->creation_time;
-        SPICE_DEBUG("frame mm_time %u size %u creation time %" G_GINT64_FORMAT
-                    " decoded time %" G_GINT64_FORMAT " queue %u",
-                    frame->mm_time, frame->size, frame->creation_time,
-                    duration, decoder->decoding_queue->length);
+        record(frames_stats,
+               "frame mm_time %u size %u creation time %" PRId64
+               " decoded time %" PRId64 " queue %u",
+               frame->mm_time, frame->size, frame->creation_time,
+               duration, decoder->decoding_queue->length);
     }
     return gstframe;
 }
