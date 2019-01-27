@@ -674,6 +674,14 @@ static void clipboard_owner_change(GtkClipboard        *clipboard,
     }
 
     s->clipboard_by_guest[selection] = FALSE;
+
+#ifdef GDK_WINDOWING_X11
+    if (!event->owner && GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+        s->clip_hasdata[selection] = FALSE;
+        return;
+    }
+#endif
+
     s->clip_hasdata[selection] = TRUE;
     if (s->auto_clipboard_enable && !read_only(self))
         gtk_clipboard_request_targets(clipboard, clipboard_get_targets,
