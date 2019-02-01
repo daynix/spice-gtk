@@ -1854,8 +1854,21 @@ static gboolean leave_event(GtkWidget *widget, GdkEventCrossing *crossing G_GNUC
 
     DISPLAY_DEBUG(display, "%s", __FUNCTION__);
 
-    if (d->mouse_grab_active)
+    if (d->mouse_grab_active) {
+#ifdef GDK_WINDOWING_WAYLAND
+        /* On Wayland, there is no active pointer grab, so once the pointer
+         * has left the window, the events are routed to the window with
+         * pointer focus instead of ours, in which case we should just
+         * ungrab to avoid nasty side effects. */
+        if (GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())) {
+            GdkWindow *window = gtk_widget_get_window(widget);
+
+            if (window == crossing->window)
+                try_mouse_ungrab(display);
+        }
+#endif
         return true;
+    }
 
     d->mouse_have_pointer = false;
     spice_gtk_session_set_mouse_has_pointer(d->gtk_session, false);
