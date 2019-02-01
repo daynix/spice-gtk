@@ -299,25 +299,20 @@ if d.found()
 endif
 
 # lz4
-spice_gtk_has_lz4 = false
 d = dependency('liblz4', required : get_option('lz4'))
 if d.found()
   spice_glib_deps += d
   spice_gtk_config_data.set('USE_LZ4', '1')
-  spice_gtk_has_lz4 = true
 endif
 
 # sasl
-spice_gtk_has_sasl = false
 d = dependency('libsasl2', required : get_option('sasl'))
 if d.found()
   spice_glib_deps += d
   spice_gtk_config_data.set('HAVE_SASL', '1')
-  spice_gtk_has_sasl = true
 endif
 
 # smartcard check
-spice_gtk_has_smartcard = false
 d = dependency('libcacard', version : '>= 2.5.1', required : get_option('smartcard'))
 if d.found()
   spice_glib_deps += d
