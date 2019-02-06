@@ -32,6 +32,9 @@
 #include <va/va_x11.h>
 #endif
 #endif
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
 #ifdef G_OS_WIN32
 #include <windows.h>
 #include <dinput.h>
@@ -887,12 +890,46 @@ static void try_keyboard_grab(SpiceDisplay *display)
     }
 }
 
-static void ungrab_keyboard(G_GNUC_UNUSED SpiceDisplay *display)
+static void ungrab_keyboard(SpiceDisplay *display)
 {
+    GdkSeat *seat = spice_display_get_default_seat(display);
+    GdkDevice *keyboard = gdk_seat_get_keyboard(seat);
+
+#ifdef GDK_WINDOWING_WAYLAND
+    /* On Wayland, use the GdkSeat API alone.
+     * We simply issue a gdk_seat_ungrab() followed immediately by another
+     * gdk_seat_grab() on the pointer if the pointer grab is to be kept.
+     */
+    if (GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())) {
+        SpiceDisplayPrivate *d = display->priv;
+
+        gdk_seat_ungrab(seat);
+
+        if (d->mouse_grab_active) {
+            GdkGrabStatus status;
+            GdkCursor *blank = spice_display_get_blank_cursor(display);
+
+            status = gdk_seat_grab(seat,
+                                   gtk_widget_get_window(GTK_WIDGET(display)),
+                                   GDK_SEAT_CAPABILITY_ALL_POINTING,
+                                   TRUE,
+                                   blank,
+                                   NULL,
+                                   NULL,
+                                   NULL);
+            if (status != GDK_GRAB_SUCCESS) {
+                g_warning("pointer grab failed %u", status);
+                d->mouse_grab_active = false;
+            }
+        }
+
+        return;
+    }
+#endif
+
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS
     /* we want to ungrab just the keyboard - it is not possible using gdk_seat_ungrab().
        See also https://bugzilla.gnome.org/show_bug.cgi?id=780133 */
-    GdkDevice *keyboard = gdk_seat_get_keyboard(spice_display_get_default_seat(display));
     gdk_device_ungrab(keyboard, GDK_CURRENT_TIME);
     G_GNUC_END_IGNORE_DEPRECATIONS
 }
@@ -1148,12 +1185,49 @@ static void mouse_wrap(SpiceDisplay *display, GdkEventMotion *motion)
 
 }
 
-static void ungrab_pointer(G_GNUC_UNUSED SpiceDisplay *display)
+static void ungrab_pointer(SpiceDisplay *display)
 {
+    GdkSeat *seat = spice_display_get_default_seat(display);
+    GdkDevice *pointer = gdk_seat_get_pointer(seat);
+
+#ifdef GDK_WINDOWING_WAYLAND
+    /* On Wayland, mixing the GdkSeat and the GdkDevice APIs leave the
+     * cursor unchanged because the GDK Wayland backend keeps a reference
+     * of the cursor set previously using gdk_seat_grab() attached to the
+     * GdkSeat.
+     * To avoid that issue, we simply issue a gdk_seat_ungrab() followed
+     * immediately by another gdk_seat_grab() on the keyboard if the
+     * keyboard grab is to be kept.
+     */
+    if (GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())) {
+        SpiceDisplayPrivate *d = display->priv;
+
+        gdk_seat_ungrab(seat);
+
+        if (d->keyboard_grab_active) {
+            GdkGrabStatus status;
+
+            status = gdk_seat_grab(seat,
+                                   gtk_widget_get_window(GTK_WIDGET(display)),
+                                   GDK_SEAT_CAPABILITY_KEYBOARD,
+                                   FALSE,
+                                   NULL,
+                                   NULL,
+                                   NULL,
+                                   NULL);
+            if (status != GDK_GRAB_SUCCESS) {
+                g_warning("keyboard grab failed %u", status);
+                d->keyboard_grab_active = false;
+            }
+        }
+
+        return;
+    }
+#endif
+
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS
     /* we want to ungrab just the pointer - it is not possible using gdk_seat_ungrab().
        See also https://bugzilla.gnome.org/show_bug.cgi?id=780133 */
-    GdkDevice *pointer = gdk_seat_get_pointer(spice_display_get_default_seat(display));
     gdk_device_ungrab(pointer, GDK_CURRENT_TIME);
     G_GNUC_END_IGNORE_DEPRECATIONS
 }
