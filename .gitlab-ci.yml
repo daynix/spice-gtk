@@ -79,3 +79,24 @@ windows-autotools:
     - NOCONFIGURE=yes ./autogen.sh
     - PYTHON=python3 mingw64-configure --enable-static
     - make -j4
+
+windows-meson:
+  artifacts:
+    paths:
+      - build-win64/meson-logs/*.txt
+      - spice-protocol/build-spice-protocol/meson-logs/*.txt
+    when: always
+    expire_in: 1 week
+
+  before_script:
+    - dnf install -y $DEPS_COMMON $DEPS_MINGW
+    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
+    - mkdir spice-protocol/build-spice-protocol && cd spice-protocol/build-spice-protocol
+    - mingw64-meson --prefix=/usr
+    - ninja install
+
+  script:
+    - cd $CI_PROJECT_DIR
+    - mkdir build-win64 && cd build-win64
+    - mingw64-meson -Dgtk_doc=disabled
+    - ninja install
