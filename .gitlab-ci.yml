@@ -1,18 +1,24 @@
 image: fedora:latest
 
 variables:
-  DEPS: git libtool make python3 python3-six redhat-rpm-config
-        python3-pyparsing meson ninja-build zlib-devel openssl-devel
-        intltool gtk3-devel gtk-doc gobject-introspection-devel
-        cyrus-sasl-devel pulseaudio-libs-devel libjpeg-turbo-devel
-        libacl-devel gstreamer1-devel gstreamer1-plugins-base-devel
-        polkit-devel vala lz4-devel opus-devel
-        pixman-devel libcacard-devel celt051-devel libphodav-devel
-        usbutils usbredir-devel libusbx-devel libsoup-devel
-        json-glib-devel
+  DEPS_COMMON: git libtool make python3 python3-six redhat-rpm-config
+               python3-pyparsing meson ninja-build gtk-doc glib2-devel
+               gettext gettext-devel
+
+  DEPS_FEDORA: zlib-devel openssl-devel intltool gtk3-devel
+               gobject-introspection-devel cyrus-sasl-devel
+               pulseaudio-libs-devel libjpeg-turbo-devel
+               libacl-devel gstreamer1-devel gstreamer1-plugins-base-devel
+               polkit-devel vala lz4-devel opus-devel pixman-devel
+               libcacard-devel celt051-devel libphodav-devel usbutils
+               usbredir-devel libusbx-devel libsoup-devel json-glib-devel
+
+  DEPS_MINGW: mingw64-gcc mingw64-pkg-config mingw64-pixman mingw64-openssl
+              mingw64-gtk3 mingw64-json-glib mingw64-opus
+              mingw64-gstreamer1-plugins-base mingw64-gstreamer1-plugins-good
 
 before_script:
-  - dnf install -y $DEPS
+  - dnf install -y $DEPS_COMMON $DEPS_FEDORA
   - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
   - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
 
@@ -47,7 +53,7 @@ fedora-meson:
 
 windows-autotools:
   script:
-    - dnf install -y mingw64-gcc mingw64-pkg-config mingw64-pixman mingw64-openssl mingw64-gtk3 mingw64-json-glib mingw64-opus mingw64-gstreamer1-plugins-base mingw64-gstreamer1-plugins-good
+    - dnf install -y $DEPS_COMMON $DEPS_MINGW
     - (cd spice-protocol && make clean && mingw64-configure --prefix=/usr && make install)
     - NOCONFIGURE=yes ./autogen.sh
     - PYTHON=python3 mingw64-configure --enable-static
