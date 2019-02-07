@@ -17,12 +17,12 @@ variables:
               mingw64-gtk3 mingw64-json-glib mingw64-opus
               mingw64-gstreamer1-plugins-base mingw64-gstreamer1-plugins-good
 
-before_script:
-  - dnf install -y $DEPS_COMMON $DEPS_FEDORA
-  - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
-  - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
-
 fedora-autotools:
+  before_script:
+    - dnf install -y $DEPS_COMMON $DEPS_FEDORA
+    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
+    - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
+
   script:
     # Run with default options
     - ./autogen.sh --enable-static
@@ -42,6 +42,12 @@ fedora-autotools:
     - make check
 
 fedora-meson:
+  before_script:
+    - dnf install -y $DEPS_COMMON $DEPS_FEDORA
+    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
+    - meson spice-protocol build-spice-protocol --prefix=/usr
+    - ninja -C build-spice-protocol install
+
   script:
     - meson build-default || (cat build-default/meson-logs/meson-log.txt && exit 1)
     - ninja -C build-default
@@ -52,9 +58,12 @@ fedora-meson:
     - ninja -C build-feat-disabled test || (cat build-feat-disabled/meson-logs/testlog.txt && exit 1)
 
 windows-autotools:
-  script:
+  before_script:
     - dnf install -y $DEPS_COMMON $DEPS_MINGW
-    - (cd spice-protocol && make clean && mingw64-configure --prefix=/usr && make install)
+    - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
+    - (cd spice-protocol && autoreconf -if && mingw64-configure --prefix=/usr && make install)
+
+  script:
     - NOCONFIGURE=yes ./autogen.sh
     - PYTHON=python3 mingw64-configure --enable-static
     - make -j4
