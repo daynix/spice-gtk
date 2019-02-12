@@ -1166,6 +1166,11 @@ static void mouse_wrap(SpiceDisplay *display, GdkEventMotion *motion)
     GdkWindow *gdk_window = gtk_widget_get_window(GTK_WIDGET(display));
     GdkDisplay *gdk_display = gdk_window_get_display(gdk_window);
     GdkMonitor *monitor = gdk_display_get_primary_monitor(gdk_display);
+    if (monitor == NULL) {
+        /* No primary monitor set, using last mouse coordinates */
+        monitor = gdk_display_get_monitor_at_point(gdk_display, d->mouse_last_x, d->mouse_last_y);
+    }
+    g_return_if_fail(monitor != NULL);
     gdk_monitor_get_geometry(monitor, &geom);
 
     xr = geom.width / 2;
