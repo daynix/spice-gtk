@@ -38,6 +38,9 @@ struct _SpiceDesktopIntegrationPrivate {
 #ifdef WITH_GNOME
     GDBusProxy *gnome_session_proxy;
     guint gnome_automount_inhibit_cookie;
+#else
+    /* private structures cannot be empty in GLib */
+    int dummy;
 #endif
 };
 
