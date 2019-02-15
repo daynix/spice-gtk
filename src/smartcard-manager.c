@@ -389,6 +389,24 @@ typedef struct {
     GError *err;
 } SmartcardManagerInitArgs;
 
+
+static void smartcard_reader_free(gpointer data)
+{
+    g_boxed_free(SPICE_TYPE_SMARTCARD_READER, data);
+}
+
+/* spice-server only supports one smartcard reader being in use */
+static void smartcard_check_reader_count(void)
+{
+    GList *readers;
+
+    readers = spice_smartcard_manager_get_readers(spice_smartcard_manager_get());
+    if (g_list_length(readers) > 1) {
+        g_warning("Multiple smartcard readers are plugged in, only the first one will be shared with the VM");
+    }
+    g_list_free_full(readers, smartcard_reader_free);
+}
+
 static gboolean smartcard_manager_init(SmartcardManagerInitArgs *args)
 {
     gchar *emul_args = NULL;
@@ -442,6 +460,7 @@ init:
                                 "Failed to initialize smartcard");
         goto end;
     }
+    smartcard_check_reader_count();
 
     retval = TRUE;
 
