@@ -340,6 +340,25 @@ add_project_arguments(compiler.get_supported_arguments(spice_gtk_global_cflags),
                       language : 'c')
 
 #
+# write config.h
+#
+proj_version = meson.project_version()
+proj_name = meson.project_name()
+config_data = {'VERSION' : proj_version,
+               'PACKAGE_VERSION' : proj_version,
+               'GETTEXT_PACKAGE' : proj_name,
+               'LOCALE_DIR' : spice_gtk_localedir,
+               'PACKAGE_STRING' : '@0@ @1@'.format(proj_name, proj_version),
+               'PACKAGE_BUGREPORT' : 'spice-devel@lists.freedesktop.org'}
+foreach key, value : config_data
+  spice_gtk_config_data.set_quoted(key, value)
+endforeach
+
+configure_file(output : 'config.h',
+               install : false,
+               configuration : spice_gtk_config_data)
+
+#
 # Subdirectories
 #
 subdir('src')
@@ -358,25 +377,6 @@ subdir('data')
 subdir('man')
 subdir('po')
 subdir('vapi')
-
-#
-# write config.h
-#
-proj_version = meson.project_version()
-proj_name = meson.project_name()
-config_data = {'VERSION' : proj_version,
-               'PACKAGE_VERSION' : proj_version,
-               'GETTEXT_PACKAGE' : proj_name,
-               'LOCALE_DIR' : spice_gtk_localedir,
-               'PACKAGE_STRING' : '@0@ @1@'.format(proj_name, proj_version),
-               'PACKAGE_BUGREPORT' : 'spice-devel@lists.freedesktop.org'}
-foreach key, value : config_data
-  spice_gtk_config_data.set_quoted(key, value)
-endforeach
-
-configure_file(output : 'config.h',
-               install : false,
-               configuration : spice_gtk_config_data)
 
 #
 # write spice-client-glib.pc
