@@ -2301,16 +2301,7 @@ static gboolean migrate_connect(gpointer data)
     sport = info->sport;
     host = (char*)info->host_data;
 
-    if (c->peer_hdr.major_version == 2 && c->peer_hdr.minor_version < 1) {
-        GByteArray *pubkey = g_byte_array_new();
-
-        g_byte_array_append(pubkey, info->pub_key_data, info->pub_key_size);
-        g_object_set(mig->session,
-                     "pubkey", pubkey,
-                     "verify", SPICE_SESSION_VERIFY_PUBKEY,
-                     NULL);
-        g_byte_array_unref(pubkey);
-    } else if (info->cert_subject_size == 0 ||
+    if (info->cert_subject_size == 0 ||
                strlen((const char*)info->cert_subject_data) == 0) {
         /* only verify hostname if no cert subject */
         g_object_set(mig->session, "verify", SPICE_SESSION_VERIFY_HOSTNAME, NULL);
