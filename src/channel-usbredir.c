@@ -94,9 +94,7 @@ static void usbredir_log(void *user_data, int level, const char *msg);
 static int usbredir_read_callback(void *user_data, uint8_t *data, int count);
 static int usbredir_write_callback(void *user_data, uint8_t *data, int count);
 static void usbredir_write_flush_callback(void *user_data);
-#if USBREDIR_VERSION >= 0x000701
 static uint64_t usbredir_buffered_output_size_callback(void *user_data);
-#endif
 
 static void *usbredir_alloc_lock(void);
 static void usbredir_lock_lock(void *user_data);
@@ -286,9 +284,7 @@ void spice_usbredir_channel_set_context(SpiceUsbredirChannel *channel,
     if (!priv->host)
         g_error("Out of memory allocating usbredirhost");
 
-#if USBREDIR_VERSION >= 0x000701
     usbredirhost_set_buffered_output_size_cb(priv->host, usbredir_buffered_output_size_callback);
-#endif
 #ifdef USE_LZ4
     spice_channel_set_capability(channel, SPICE_SPICEVMC_CAP_DATA_COMPRESS_LZ4);
 #endif
@@ -589,13 +585,11 @@ void spice_usbredir_channel_get_guest_filter(
 /* ------------------------------------------------------------------ */
 /* callbacks (any context)                                            */
 
-#if USBREDIR_VERSION >= 0x000701
 static uint64_t usbredir_buffered_output_size_callback(void *user_data)
 {
     g_return_val_if_fail(SPICE_IS_USBREDIR_CHANNEL(user_data), 0);
     return spice_channel_get_queue_size(SPICE_CHANNEL(user_data));
 }
-#endif
 
 /* Note that this function must be re-entrant safe, as it can get called
    from both the main thread as well as from the usb event handling thread */
