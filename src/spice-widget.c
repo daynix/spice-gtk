@@ -1382,7 +1382,8 @@ static void set_egl_enabled(SpiceDisplay *display, bool enabled)
     }
 
     if (enabled && d->egl.context_ready) {
-        spice_egl_resize_display(display, d->ww, d->wh);
+        gint scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+        spice_egl_resize_display(display, d->ww * scale_factor, d->wh * scale_factor);
     }
 
     d->egl.enabled = enabled;
@@ -1978,11 +1979,14 @@ static void transform_input(SpiceDisplay *display,
     SpiceDisplayPrivate *d = display->priv;
     int display_x, display_y, display_w, display_h;
     double is;
+    gint scale_factor = 1;
 
     spice_display_get_scaling(display, NULL,
                               &display_x, &display_y,
                               &display_w, &display_h);
-
+    if (egl_enabled(d)) {
+        scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+    }
     /* For input we need a different scaling factor in order to
        be able to reach the full width of a display. For instance, consider
        a display of 100 pixels showing in a window 10 pixels wide. The normal
@@ -1998,7 +2002,7 @@ static void transform_input(SpiceDisplay *display,
        coordinates in the inverse direction (window -> display) as the fb size
        (display -> window).
     */
-    is = (double)(d->area.width-1) / (double)(display_w-1);
+    is = ((double)(d->area.width-1) / (double)(display_w-1)) * scale_factor;
 
     window_x -= display_x;
     window_y -= display_y;
@@ -2183,8 +2187,10 @@ static void size_allocate(GtkWidget *widget, GtkAllocation *conf, gpointer data)
         d->wh = conf->height;
         recalc_geometry(widget);
 #if HAVE_EGL
-        if (egl_enabled(d))
-            spice_egl_resize_display(display, conf->width, conf->height);
+        if (egl_enabled(d)) {
+            gint scale_factor = gtk_widget_get_scale_factor(widget);
+            spice_egl_resize_display(display, conf->width * scale_factor, conf->height * scale_factor);
+        }
 #endif
     }
 
@@ -2942,10 +2948,14 @@ void spice_display_get_scaling(SpiceDisplay *display,
     int ww, wh;
     int x, y, w, h;
     double s;
+    gint scale_factor = 1;
 
     if (gtk_widget_get_realized (GTK_WIDGET(display))) {
-        ww = gtk_widget_get_allocated_width(GTK_WIDGET(display));
-        wh = gtk_widget_get_allocated_height(GTK_WIDGET(display));
+        if (egl_enabled(d)) {
+            scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+        }
+        ww = gtk_widget_get_allocated_width(GTK_WIDGET(display)) * scale_factor;
+        wh = gtk_widget_get_allocated_height(GTK_WIDGET(display)) * scale_factor;
     } else {
         ww = fbw;
         wh = fbh;
@@ -3091,7 +3101,8 @@ void spice_display_widget_gl_scanout(SpiceDisplay *display)
             g_clear_error(&err);
         }
 
-        spice_egl_resize_display(display, d->ww, d->wh);
+        gint scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+        spice_egl_resize_display(display, d->ww * scale_factor, d->wh * scale_factor);
     }
 #endif
 

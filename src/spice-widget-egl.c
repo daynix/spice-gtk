@@ -360,9 +360,9 @@ gboolean spice_egl_realize_display(SpiceDisplay *display, GdkWindow *win, GError
     DISPLAY_DEBUG(display, "egl realize");
     if (!spice_widget_init_egl_win(display, win, err))
         return FALSE;
-
-    spice_egl_resize_display(display, gdk_window_get_width(win),
-                             gdk_window_get_height(win));
+    gint scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+    spice_egl_resize_display(display, gdk_window_get_width(win) * scale_factor,
+                             gdk_window_get_height(win) * scale_factor);
 
     return TRUE;
 }
@@ -426,6 +426,7 @@ void spice_egl_unrealize_display(SpiceDisplay *display)
 #endif
 }
 
+/* w and h should be adjusted to gdk scaling */
 G_GNUC_INTERNAL
 void spice_egl_resize_display(SpiceDisplay *display, int w, int h)
 {
