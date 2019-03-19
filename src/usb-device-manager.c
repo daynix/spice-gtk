@@ -29,11 +29,7 @@
 
 #ifdef G_OS_WIN32
 #include "usbdk_api.h"
-#endif
-
-#if defined(G_OS_WIN32)
 #include "win-usb-dev.h"
-#define USE_GUDEV /* win-usb-dev.h provides a fake gudev interface */
 #endif
 
 #include "channel-usbredir-priv.h"
@@ -106,7 +102,7 @@ struct _SpiceUsbDeviceManagerPrivate {
     struct usbredirfilter_rule *redirect_on_connect_rules;
     int auto_conn_filter_rules_count;
     int redirect_on_connect_rules_count;
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     GUdevClient *udev;
     libusb_device **coldplug_list; /* Avoid needless reprobing during init */
 #else
@@ -156,7 +152,7 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
                             gpointer user_data);
 static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data);
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
                                                const gchar     *action,
                                                GUdevDevice     *udevice,
@@ -210,7 +206,7 @@ G_DEFINE_BOXED_TYPE(SpiceUsbDevice, spice_usb_device,
 static void
 _set_redirecting(SpiceUsbDeviceManager *self, gboolean is_redirecting)
 {
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     g_object_set(self->priv->udev, "redirecting", is_redirecting, NULL);
 #else
     self->priv->redirecting = is_redirecting;
@@ -235,7 +231,7 @@ gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self)
 {
 #ifdef USE_USBREDIR
 
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     gboolean redirecting;
     g_object_get(self->priv->udev, "redirecting", &redirecting, NULL);
     return redirecting;
@@ -287,7 +283,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     GList *list;
     GList *it;
     int rc;
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     const gchar *const subsystems[] = {"usb", NULL};
 #endif
 
@@ -308,7 +304,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
 #endif
 
     /* Start listening for usb devices plug / unplug */
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     priv->udev = g_udev_client_new(subsystems);
     if (priv->udev == NULL) {
         g_warning("Error initializing GUdevClient");
@@ -366,7 +362,7 @@ static void spice_usb_device_manager_dispose(GObject *gobject)
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(gobject);
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
 
-#ifndef USE_GUDEV
+#ifndef G_OS_WIN32
     if (priv->hp_handle) {
         spice_usb_device_manager_stop_event_listening(self);
         if (g_atomic_int_get(&priv->event_thread_run)) {
@@ -405,7 +401,7 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
         g_ptr_array_unref(priv->devices);
 
 #ifdef USE_USBREDIR
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
     g_clear_object(&priv->udev);
 #endif
     g_return_if_fail(priv->event_thread == NULL);
@@ -737,7 +733,7 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
 /* ------------------------------------------------------------------ */
 /* gudev / libusb Helper functions                                    */
 
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
 static gboolean spice_usb_device_manager_get_udev_bus_n_address(
     SpiceUsbDeviceManager *manager, GUdevDevice *udev,
     int *bus, int *address)
@@ -927,7 +923,7 @@ spice_usb_device_manager_device_match(SpiceUsbDeviceManager *self, SpiceUsbDevic
             spice_usb_device_get_devaddr(device) == address);
 }
 
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
 static gboolean
 spice_usb_device_manager_libdev_match(SpiceUsbDeviceManager *self, libusb_device *libdev,
                                       const int bus, const int address)
@@ -1027,7 +1023,7 @@ static void spice_usb_device_manager_remove_dev(SpiceUsbDeviceManager *self,
     spice_usb_device_unref(device);
 }
 
-#ifdef USE_GUDEV
+#ifdef G_OS_WIN32
 static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
                                               GUdevDevice            *udev)
 {
