@@ -95,7 +95,7 @@ static void g_udev_device_print_list(GList *l, const gchar *msg);
 #else
 static void g_udev_device_print_list(GList *l, const gchar *msg) {}
 #endif
-static void g_udev_device_print(GUdevDevice *udev, const gchar *msg);
+static void g_udev_device_print(libusb_device *dev, const gchar *msg);
 
 static gboolean g_udev_skip_search(libusb_device *dev);
 
@@ -129,8 +129,6 @@ g_udev_client_list_devices(GUdevClient *self, GList **devs,
     gssize rc;
     libusb_device **lusb_list, **dev;
     GUdevClientPrivate *priv;
-    GUdevDeviceInfo *udevinfo;
-    GUdevDevice *udevice;
     ssize_t n;
 
     g_return_val_if_fail(G_UDEV_IS_CLIENT(self), -1);
@@ -155,10 +153,7 @@ g_udev_client_list_devices(GUdevClient *self, GList **devs,
         if (g_udev_skip_search(*dev)) {
             continue;
         }
-        udevinfo = g_new0(GUdevDeviceInfo, 1);
-        get_usb_dev_info(*dev, udevinfo);
-        udevice = g_udev_device_new(udevinfo);
-        *devs = g_list_prepend(*devs, udevice);
+        *devs = g_list_prepend(*devs, libusb_ref_device(*dev));
         n++;
     }
     libusb_free_device_list(lusb_list, 1);
@@ -166,11 +161,20 @@ g_udev_client_list_devices(GUdevClient *self, GList **devs,
     return n;
 }
 
+static void unreference_libusb_device(gpointer data)
+{
+    libusb_unref_device((libusb_device *)data);
+}
+
 static void g_udev_client_free_device_list(GList **devs)
 {
     g_return_if_fail(devs != NULL);
     if (*devs) {
-        g_list_free_full(*devs, g_object_unref);
+        /* the unreference_libusb_device method is required as
+         * libusb_unref_device calling convention differs from glib's
+         * see 558c967ec
+         */
+        g_list_free_full(*devs, unreference_libusb_device);
         *devs = NULL;
     }
 }
@@ -246,9 +250,22 @@ static void g_udev_client_initable_iface_init(GInitableIface *iface)
     iface->init = g_udev_client_initable_init;
 }
 
+static void g_udev_notify_device(GUdevClient *self, libusb_device *dev, gboolean add)
+{
+    GUdevDeviceInfo *udevinfo;
+    GUdevDevice *udevice;
+    udevinfo = g_new0(GUdevDeviceInfo, 1);
+    if (get_usb_dev_info(dev, udevinfo)) {
+        udevice = g_udev_device_new(udevinfo);
+        g_signal_emit(self, signals[UEVENT_SIGNAL], 0, udevice, add);
+    } else {
+        g_free(udevinfo);
+    }
+}
+
 static void report_one_device(gpointer data, gpointer self)
 {
-    g_signal_emit(self, signals[UEVENT_SIGNAL], 0, data, TRUE);
+    g_udev_notify_device(self, data, TRUE);
 }
 
 void g_udev_client_report_devices(GUdevClient *self)
@@ -388,18 +405,20 @@ static gboolean get_usb_dev_info(libusb_device *dev, GUdevDeviceInfo *udevinfo)
 }
 
 /* comparing bus:addr and vid:pid */
-static gint gudev_devices_differ(gconstpointer a, gconstpointer b)
+static gint compare_libusb_devices(gconstpointer a, gconstpointer b)
 {
-    GUdevDeviceInfo *ai, *bi;
+    libusb_device *a_dev = (libusb_device *)a;
+    libusb_device *b_dev = (libusb_device *)b;
+    struct libusb_device_descriptor a_desc, b_desc;
     gboolean same_bus, same_addr, same_vid, same_pid;
 
-    ai = G_UDEV_DEVICE(a)->priv->udevinfo;
-    bi = G_UDEV_DEVICE(b)->priv->udevinfo;
+    libusb_get_device_descriptor(a_dev, &a_desc);
+    libusb_get_device_descriptor(b_dev, &b_desc);
 
-    same_bus = (ai->bus == bi->bus);
-    same_addr = (ai->addr == bi->addr);
-    same_vid = (ai->vid == bi->vid);
-    same_pid = (ai->pid == bi->pid);
+    same_bus = (libusb_get_bus_number(a_dev) == libusb_get_bus_number(b_dev));
+    same_addr = (libusb_get_device_address(a_dev) == libusb_get_device_address(b_dev));
+    same_vid = (a_desc.idVendor == b_desc.idVendor);
+    same_pid = (a_desc.idProduct == b_desc.idProduct);
 
     return (same_bus && same_addr && same_vid && same_pid) ? 0 : -1;
 }
@@ -412,10 +431,10 @@ static void notify_dev_state_change(GUdevClient *self,
     GList *dev;
 
     for (dev = g_list_first(old_list); dev != NULL; dev = g_list_next(dev)) {
-        if (g_list_find_custom(new_list, dev->data, gudev_devices_differ) == NULL) {
-            /* Found a device that changed its state */
+        GList *found = g_list_find_custom(new_list, dev->data, compare_libusb_devices);
+        if (found == NULL) {
             g_udev_device_print(dev->data, add ? "add" : "remove");
-            g_signal_emit(self, signals[UEVENT_SIGNAL], 0, dev->data, add);
+            g_udev_notify_device(self, dev->data, add);
         }
     }
 }
@@ -534,18 +553,16 @@ static void g_udev_device_print_list(GList *l, const gchar *msg)
 }
 #endif
 
-static void g_udev_device_print(GUdevDevice *udev, const gchar *msg)
+static void g_udev_device_print(libusb_device *dev, const gchar *msg)
 {
-    GUdevDeviceInfo* udevinfo;
+    struct libusb_device_descriptor desc;
 
-    g_return_if_fail(G_UDEV_DEVICE(udev));
-
-    udevinfo = udev->priv->udevinfo;
-    g_return_if_fail(udevinfo != NULL);
+    libusb_get_device_descriptor(dev, &desc);
 
     SPICE_DEBUG("%s: %d.%d 0x%04x:0x%04x class %d", msg,
-                udevinfo->bus, udevinfo->addr,
-                udevinfo->vid, udevinfo->pid, udevinfo->class);
+                libusb_get_bus_number(dev),
+                libusb_get_device_address(dev),
+                desc.idVendor, desc.idProduct, desc.bDeviceClass);
 }
 
 static gboolean g_udev_skip_search(libusb_device *dev)
