@@ -962,6 +962,17 @@ static void spice_usb_device_manager_add_dev(SpiceUsbDeviceManager  *self,
     if (desc.bDeviceClass == LIBUSB_CLASS_HUB)
         return;
 
+    if (spice_usb_device_manager_find_device(self,
+                                             libusb_get_bus_number(libdev),
+                                             libusb_get_device_address(libdev))) {
+        SPICE_DEBUG("device not added %d:%d %04x:%04x",
+                    libusb_get_bus_number(libdev),
+                    libusb_get_device_address(libdev),
+                    desc.idVendor,
+                    desc.idProduct);
+        return;
+    }
+
     device = (SpiceUsbDevice*)spice_usb_device_new(libdev);
     if (!device)
         return;
@@ -1025,7 +1036,6 @@ static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
 {
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
     libusb_device *libdev = NULL, **dev_list = NULL;
-    SpiceUsbDevice *device;
     const gchar *devtype;
     int i, bus, address;
 
@@ -1036,16 +1046,6 @@ static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
 
     if (!spice_usb_device_manager_get_udev_bus_n_address(self, udev, &bus, &address)) {
         g_warning("USB device without bus number or device address");
-        return;
-    }
-
-    device = spice_usb_device_manager_find_device(self, bus, address);
-    if (device) {
-        SPICE_DEBUG("USB device 0x%04x:0x%04x at %d.%d already exists, ignored",
-                    spice_usb_device_get_vid(device),
-                    spice_usb_device_get_pid(device),
-                    spice_usb_device_get_busnum(device),
-                    spice_usb_device_get_devaddr(device));
         return;
     }
 
