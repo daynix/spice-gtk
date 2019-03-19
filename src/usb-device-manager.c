@@ -153,8 +153,8 @@ static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data);
 #ifdef G_OS_WIN32
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               const gchar     *action,
                                                GUdevDevice     *udevice,
+                                               gboolean         add,
                                                gpointer         user_data);
 static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
                                               GUdevDevice            *udev);
@@ -1070,15 +1070,15 @@ static void spice_usb_device_manager_remove_udev(SpiceUsbDeviceManager  *self,
 }
 
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               const gchar     *action,
                                                GUdevDevice     *udevice,
+                                               gboolean         add,
                                                gpointer         user_data)
 {
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(user_data);
 
-    if (g_str_equal(action, "add"))
+    if (add)
         spice_usb_device_manager_add_udev(self, udevice);
-    else if (g_str_equal (action, "remove"))
+    else
         spice_usb_device_manager_remove_udev(self, udevice);
 }
 #else

@@ -249,7 +249,7 @@ static void g_udev_client_initable_iface_init(GInitableIface *iface)
 
 static void report_one_device(gpointer data, gpointer self)
 {
-    g_signal_emit(self, signals[UEVENT_SIGNAL], 0, "add", data);
+    g_signal_emit(self, signals[UEVENT_SIGNAL], 0, data, TRUE);
 }
 
 void g_udev_client_report_devices(GUdevClient *self)
@@ -342,11 +342,11 @@ static void g_udev_client_class_init(GUdevClientClass *klass)
                      G_SIGNAL_RUN_FIRST,
                      G_STRUCT_OFFSET(GUdevClientClass, uevent),
                      NULL, NULL,
-                     g_cclosure_user_marshal_VOID__BOXED_BOXED,
+                     g_cclosure_user_marshal_VOID__POINTER_BOOLEAN,
                      G_TYPE_NONE,
                      2,
-                     G_TYPE_STRING,
-                     G_UDEV_TYPE_DEVICE);
+                     G_TYPE_POINTER,
+                     G_TYPE_BOOLEAN);
 
     /**
     * GUdevClient::redirecting:
@@ -408,15 +408,15 @@ static gint gudev_devices_differ(gconstpointer a, gconstpointer b)
 static void notify_dev_state_change(GUdevClient *self,
                                     GList *old_list,
                                     GList *new_list,
-                                    const gchar *action)
+                                    gboolean add)
 {
     GList *dev;
 
     for (dev = g_list_first(old_list); dev != NULL; dev = g_list_next(dev)) {
         if (g_list_find_custom(new_list, dev->data, gudev_devices_differ) == NULL) {
             /* Found a device that changed its state */
-            g_udev_device_print(dev->data, action);
-            g_signal_emit(self, signals[UEVENT_SIGNAL], 0, action, dev->data);
+            g_udev_device_print(dev->data, add ? "add" : "remove");
+            g_signal_emit(self, signals[UEVENT_SIGNAL], 0, dev->data, add);
         }
     }
 }
@@ -445,10 +445,10 @@ static void handle_dev_change(GUdevClient *self)
     g_udev_device_print_list(priv->udev_list, "handle_dev_change: previous list:");
 
     /* Unregister devices that are not present anymore */
-    notify_dev_state_change(self, priv->udev_list, now_devs, "remove");
+    notify_dev_state_change(self, priv->udev_list, now_devs, FALSE);
 
     /* Register newly inserted devices */
-    notify_dev_state_change(self, now_devs, priv->udev_list, "add");
+    notify_dev_state_change(self, now_devs, priv->udev_list, TRUE);
 
     /* keep most recent info: free previous list, and keep current list */
     g_udev_client_free_device_list(&priv->udev_list);
