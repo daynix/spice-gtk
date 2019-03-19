@@ -104,7 +104,6 @@ struct _SpiceUsbDeviceManagerPrivate {
     int redirect_on_connect_rules_count;
 #ifdef G_OS_WIN32
     GUdevClient *udev;
-    libusb_device **coldplug_list; /* Avoid needless reprobing during init */
 #else
     gboolean redirecting; /* Handled by GUdevClient in the gudev case */
     libusb_hotplug_callback_handle hp_handle;
@@ -307,15 +306,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     g_signal_connect(G_OBJECT(priv->udev), "uevent",
                      G_CALLBACK(spice_usb_device_manager_uevent_cb), self);
     /* Do coldplug (detection of already connected devices) */
-    libusb_get_device_list(priv->context, &priv->coldplug_list);
-    list = g_udev_client_query_by_subsystem(priv->udev, "usb");
-    for (it = g_list_first(list); it; it = g_list_next(it)) {
-        spice_usb_device_manager_add_udev(self, it->data);
-        g_object_unref(it->data);
-    }
-    g_list_free(list);
-    libusb_free_device_list(priv->coldplug_list, 1);
-    priv->coldplug_list = NULL;
+    g_udev_client_report_devices(priv->udev);
 #else
     rc = libusb_hotplug_register_callback(priv->context,
         LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
@@ -1049,10 +1040,7 @@ static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
         return;
     }
 
-    if (priv->coldplug_list)
-        dev_list = priv->coldplug_list;
-    else
-        libusb_get_device_list(priv->context, &dev_list);
+    libusb_get_device_list(priv->context, &dev_list);
 
     for (i = 0; dev_list && dev_list[i]; i++) {
         if (spice_usb_device_manager_libdev_match(self, dev_list[i], bus, address)) {
@@ -1067,8 +1055,7 @@ static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
         g_warning("Could not find USB device to add " DEV_ID_FMT,
                   (guint) bus, (guint) address);
 
-    if (!priv->coldplug_list)
-        libusb_free_device_list(dev_list, 1);
+    libusb_free_device_list(dev_list, 1);
 }
 
 static void spice_usb_device_manager_remove_udev(SpiceUsbDeviceManager  *self,

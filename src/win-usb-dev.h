@@ -81,7 +81,7 @@ struct _GUdevClientClass
 GType g_udev_client_get_type(void) G_GNUC_CONST;
 GUdevClient *g_udev_client_new(void);
 libusb_context *g_udev_client_get_context(GUdevClient *client);
-GList *g_udev_client_query_by_subsystem(GUdevClient *client, const gchar *subsystem);
+void g_udev_client_report_devices(GUdevClient *client);
 
 GType g_udev_device_get_type(void) G_GNUC_CONST;
 const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property);

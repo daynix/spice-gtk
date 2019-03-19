@@ -247,11 +247,14 @@ static void g_udev_client_initable_iface_init(GInitableIface *iface)
     iface->init = g_udev_client_initable_init;
 }
 
-GList *g_udev_client_query_by_subsystem(GUdevClient *self, const gchar *subsystem)
+static void report_one_device(gpointer data, gpointer self)
 {
-    GList *l = g_list_copy(self->priv->udev_list);
-    g_list_foreach(l, (GFunc)g_object_ref, NULL);
-    return l;
+    g_signal_emit(self, signals[UEVENT_SIGNAL], 0, "add", data);
+}
+
+void g_udev_client_report_devices(GUdevClient *self)
+{
+    g_list_foreach(self->priv->udev_list, report_one_device, self);
 }
 
 static void g_udev_client_init(GUdevClient *self)
