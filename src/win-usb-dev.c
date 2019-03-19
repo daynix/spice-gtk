@@ -49,31 +49,6 @@ G_DEFINE_TYPE_WITH_CODE(GUdevClient, g_udev_client, G_TYPE_OBJECT,
                         G_ADD_PRIVATE(GUdevClient)
                         G_IMPLEMENT_INTERFACE(G_TYPE_INITABLE, g_udev_client_initable_iface_init))
 
-
-typedef struct _GUdevDeviceInfo GUdevDeviceInfo;
-
-struct _GUdevDeviceInfo {
-    guint16 bus;
-    guint16 addr;
-    guint16 vid;
-    guint16 pid;
-    guint16 class;
-    gchar sclass[4];
-    gchar sbus[4];
-    gchar saddr[4];
-    gchar svid[8];
-    gchar spid[8];
-};
-
-struct _GUdevDevicePrivate
-{
-    /* FixMe: move above fields to this structure and access them directly */
-    GUdevDeviceInfo *udevinfo;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GUdevDevice, g_udev_device, G_TYPE_OBJECT)
-
-
 enum
 {
     UEVENT_SIGNAL,
@@ -459,55 +434,6 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         handle_dev_change(singleton);
     }
     return DefWindowProc(hwnd, message, wparam, lparam);
-}
-
-/*** GUdevDevice ***/
-
-static void g_udev_device_finalize(GObject *object)
-{
-    GUdevDevice *device =  G_UDEV_DEVICE(object);
-
-    g_free(device->priv->udevinfo);
-    if (G_OBJECT_CLASS(g_udev_device_parent_class)->finalize != NULL)
-        (* G_OBJECT_CLASS(g_udev_device_parent_class)->finalize)(object);
-}
-
-static void g_udev_device_class_init(GUdevDeviceClass *klass)
-{
-    GObjectClass *gobject_class = (GObjectClass *) klass;
-
-    gobject_class->finalize = g_udev_device_finalize;
-}
-
-static void g_udev_device_init(GUdevDevice *device)
-{
-    device->priv = g_udev_device_get_instance_private(device);
-}
-
-const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property)
-{
-    GUdevDeviceInfo* udevinfo;
-
-    g_return_val_if_fail(G_UDEV_DEVICE(udev), NULL);
-    g_return_val_if_fail(property != NULL, NULL);
-
-    udevinfo = udev->priv->udevinfo;
-    g_return_val_if_fail(udevinfo != NULL, NULL);
-
-    if (g_strcmp0(property, "BUSNUM") == 0) {
-        return udevinfo->sbus;
-    } else if (g_strcmp0(property, "DEVNUM") == 0) {
-        return udevinfo->saddr;
-    } else if (g_strcmp0(property, "DEVTYPE") == 0) {
-        return "usb_device";
-    } else if (g_strcmp0(property, "VID") == 0) {
-        return udevinfo->svid;
-    } else if (g_strcmp0(property, "PID") == 0) {
-        return udevinfo->spid;
-    }
-
-    g_warn_if_reached();
-    return NULL;
 }
 
 #ifdef DEBUG_GUDEV_DEVICE_LISTS

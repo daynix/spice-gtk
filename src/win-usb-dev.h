@@ -26,30 +26,6 @@
 
 G_BEGIN_DECLS
 
-/* GUdevDevice */
-
-#define G_UDEV_TYPE_DEVICE         (g_udev_device_get_type())
-#define G_UDEV_DEVICE(o)           (G_TYPE_CHECK_INSTANCE_CAST((o), G_UDEV_TYPE_DEVICE, GUdevDevice))
-#define G_UDEV_DEVICE_CLASS(k)     (G_TYPE_CHECK_CLASS_CAST((k), G_UDEV_TYPE_DEVICE, GUdevDeviceClass))
-#define G_UDEV_IS_DEVICE(o)        (G_TYPE_CHECK_INSTANCE_TYPE ((o), G_UDEV_TYPE_DEVICE))
-#define G_UDEV_IS_DEVICE_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE((k), G_UDEV_TYPE_DEVICE))
-#define G_UDEV_DEVICE_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS((o), G_UDEV_TYPE_DEVICE, GUdevDeviceClass))
-
-typedef struct _GUdevDevice GUdevDevice;
-typedef struct _GUdevDeviceClass GUdevDeviceClass;
-typedef struct _GUdevDevicePrivate GUdevDevicePrivate;
-
-struct _GUdevDevice
-{
-  GObject parent;
-  GUdevDevicePrivate *priv;
-};
-
-struct _GUdevDeviceClass
-{
-  GObjectClass parent_class;
-};
-
 /* GUdevClient */
 
 #define G_UDEV_TYPE_CLIENT         (g_udev_client_get_type())
@@ -82,9 +58,6 @@ GType g_udev_client_get_type(void) G_GNUC_CONST;
 GUdevClient *g_udev_client_new(void);
 libusb_context *g_udev_client_get_context(GUdevClient *client);
 void g_udev_client_report_devices(GUdevClient *client);
-
-GType g_udev_device_get_type(void) G_GNUC_CONST;
-const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property);
 
 GQuark g_udev_client_error_quark(void);
 #define G_UDEV_CLIENT_ERROR g_udev_client_error_quark()
