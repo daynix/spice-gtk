@@ -136,11 +136,7 @@ typedef struct _SpiceUsbDeviceInfo {
     guint16 vid;
     guint16 pid;
     gboolean isochronous;
-#ifdef G_OS_WIN32
-    guint8  state;
-#else
     libusb_device *libdev;
-#endif
     gint    ref;
 } SpiceUsbDeviceInfo;
 
@@ -758,13 +754,11 @@ gconstpointer
 spice_usb_device_get_libusb_device(const SpiceUsbDevice *device G_GNUC_UNUSED)
 {
 #ifdef USE_USBREDIR
-#ifndef G_OS_WIN32
     const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
 
     g_return_val_if_fail(info != NULL, FALSE);
 
     return info->libdev;
-#endif
 #endif
     return NULL;
 }
@@ -885,17 +879,6 @@ spice_usb_device_manager_device_match(SpiceUsbDeviceManager *self, SpiceUsbDevic
     return (spice_usb_device_get_busnum(device) == bus &&
             spice_usb_device_get_devaddr(device) == address);
 }
-
-#ifdef G_OS_WIN32
-static gboolean
-spice_usb_device_manager_libdev_match(SpiceUsbDeviceManager *self, libusb_device *libdev,
-                                      const int bus, const int address)
-{
-    /* match functions for Linux/UsbDk -- match by bus.addr */
-    return (libusb_get_bus_number(libdev) == bus &&
-            libusb_get_device_address(libdev) == address);
-}
-#endif
 
 static SpiceUsbDevice*
 spice_usb_device_manager_find_device(SpiceUsbDeviceManager *self,
@@ -1150,10 +1133,6 @@ static void spice_usb_device_manager_check_redir_on_connect(
             continue;
 
         libdev = spice_usb_device_manager_device_to_libdev(self, device);
-#ifdef G_OS_WIN32
-        if (libdev == NULL)
-            continue;
-#endif
         if (usbredirhost_check_device_filter(
                             priv->redirect_on_connect_rules,
                             priv->redirect_on_connect_rules_count,
@@ -1258,10 +1237,6 @@ GPtrArray* spice_usb_device_manager_get_devices_with_filter(
         if (rules) {
             libusb_device *libdev =
                 spice_usb_device_manager_device_to_libdev(self, device);
-#ifdef G_OS_WIN32
-            if (libdev == NULL)
-                continue;
-#endif
             if (usbredirhost_check_device_filter(rules, count, libdev, 0) != 0)
                 continue;
         }
@@ -1353,24 +1328,6 @@ _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *self,
             continue; /* Skip already used channels */
 
         libdev = spice_usb_device_manager_device_to_libdev(self, device);
-#ifdef G_OS_WIN32
-        if (libdev == NULL) {
-            /* Most likely, the device was plugged out at driver installation
-             * time, and its remove-device event was ignored.
-             * So remove the device now
-             */
-            SPICE_DEBUG("libdev does not exist for %p -- removing", device);
-            spice_usb_device_ref(device);
-            g_ptr_array_remove(priv->devices, device);
-            g_signal_emit(self, signals[DEVICE_REMOVED], 0, device);
-            spice_usb_device_unref(device);
-            g_task_return_new_error(task,
-                                    SPICE_CLIENT_ERROR,
-                                    SPICE_CLIENT_ERROR_FAILED,
-                                    _("Device was not found"));
-            goto done;
-        }
-#endif
         spice_usbredir_channel_connect_device_async(channel,
                                  libdev,
                                  device,
@@ -1642,13 +1599,6 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
         libusb_device *libdev;
 
         libdev = spice_usb_device_manager_device_to_libdev(self, device);
-#ifdef G_OS_WIN32
-        if (libdev == NULL) {
-            g_set_error_literal(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
-                                _("Some USB devices were not found"));
-            return FALSE;
-        }
-#endif
         filter_ok = (usbredirhost_check_device_filter(
                             guest_filter_rules, guest_filter_rules_count,
                             libdev, 0) == 0);
@@ -1799,9 +1749,7 @@ static SpiceUsbDeviceInfo *spice_usb_device_new(libusb_device *libdev)
     info->pid = pid;
     info->ref = 1;
     info->isochronous = probe_isochronous_endpoint(libdev);
-#ifndef G_OS_WIN32
     info->libdev = libusb_ref_device(libdev);
-#endif
 
     return info;
 }
@@ -1937,14 +1885,11 @@ static void spice_usb_device_unref(SpiceUsbDevice *device)
 
     ref_count_is_0 = g_atomic_int_dec_and_test(&info->ref);
     if (ref_count_is_0) {
-#ifndef G_OS_WIN32
         libusb_unref_device(info->libdev);
-#endif
         g_free(info);
     }
 }
 
-#ifndef G_OS_WIN32 /* Linux -- directly compare libdev */
 static gboolean
 spice_usb_manager_device_equal_libdev(SpiceUsbDeviceManager *manager,
                                       SpiceUsbDevice *device,
@@ -1957,23 +1902,6 @@ spice_usb_manager_device_equal_libdev(SpiceUsbDeviceManager *manager,
 
     return info->libdev == libdev;
 }
-#else /* Windows -- compare vid:pid of device and libdev */
-static gboolean
-spice_usb_manager_device_equal_libdev(SpiceUsbDeviceManager *manager,
-                                      SpiceUsbDevice *device,
-                                      libusb_device  *libdev)
-{
-    int busnum, devaddr;
-
-    if ((device == NULL) || (libdev == NULL))
-        return FALSE;
-
-    busnum = spice_usb_device_get_busnum(device);
-    devaddr = spice_usb_device_get_devaddr(device);
-    return spice_usb_device_manager_libdev_match(manager, libdev,
-                                                 busnum, devaddr);
-}
-#endif
 
 /*
  * Caller must libusb_unref_device the libusb_device returned by this function.
@@ -1983,42 +1911,9 @@ static libusb_device *
 spice_usb_device_manager_device_to_libdev(SpiceUsbDeviceManager *self,
                                           SpiceUsbDevice *device)
 {
-#ifdef G_OS_WIN32
-    /*
-     * On win32 we need to do this the hard and slow way, by asking libusb to
-     * re-enumerate all devices and then finding a matching device.
-     * We cannot cache the libusb_device like we do under Linux since the
-     * driver swap we do under windows invalidates the cached libdev.
-     */
-
-    libusb_device *d, **devlist;
-    int i;
-
-    g_return_val_if_fail(SPICE_IS_USB_DEVICE_MANAGER(self), NULL);
-    g_return_val_if_fail(device != NULL, NULL);
-    g_return_val_if_fail(self->priv != NULL, NULL);
-    g_return_val_if_fail(self->priv->context != NULL, NULL);
-
-    libusb_get_device_list(self->priv->context, &devlist);
-    if (!devlist)
-        return NULL;
-
-    for (i = 0; (d = devlist[i]) != NULL; i++) {
-        if (spice_usb_manager_device_equal_libdev(self, device, d)) {
-            libusb_ref_device(d);
-            break;
-        }
-    }
-
-    libusb_free_device_list(devlist, 1);
-
-    return d;
-
-#else
     /* Simply return a ref to the cached libdev */
     SpiceUsbDeviceInfo *info = (SpiceUsbDeviceInfo *)device;
 
     return libusb_ref_device(info->libdev);
-#endif
 }
 #endif /* USE_USBREDIR */
