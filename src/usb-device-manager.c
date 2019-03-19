@@ -282,8 +282,9 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
     GList *list;
     GList *it;
-    int rc;
 
+#ifndef G_OS_WIN32
+    int rc;
     /* Initialize libusb */
     rc = libusb_init(&priv->context);
     if (rc < 0) {
@@ -293,11 +294,6 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
                     "Error initializing USB support: %s [%i]", desc, rc);
         return FALSE;
     }
-
-#ifdef G_OS_WIN32
-#if LIBUSB_API_VERSION >= 0x01000106
-    libusb_set_option(priv->context, LIBUSB_OPTION_USE_USBDK);
-#endif
 #endif
 
     /* Start listening for usb devices plug / unplug */
@@ -307,6 +303,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
         g_warning("Error initializing GUdevClient");
         return FALSE;
     }
+    priv->context = g_udev_client_get_context(priv->udev);
     g_signal_connect(G_OBJECT(priv->udev), "uevent",
                      G_CALLBACK(spice_usb_device_manager_uevent_cb), self);
     /* Do coldplug (detection of already connected devices) */
@@ -402,8 +399,10 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
     g_clear_object(&priv->udev);
 #endif
     g_return_if_fail(priv->event_thread == NULL);
+#ifndef G_OS_WIN32
     if (priv->context)
         libusb_exit(priv->context);
+#endif
     free(priv->auto_conn_filter_rules);
     free(priv->redirect_on_connect_rules);
 #ifdef G_OS_WIN32

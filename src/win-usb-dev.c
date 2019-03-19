@@ -113,6 +113,10 @@ GUdevClient *g_udev_client_new(void)
     return singleton;
 }
 
+libusb_context *g_udev_client_get_context(GUdevClient *client)
+{
+    return client->priv->ctx;
+}
 
 /*
  * devs [in,out] an empty devs list in, full devs list out
