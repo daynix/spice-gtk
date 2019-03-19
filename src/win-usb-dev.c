@@ -83,9 +83,7 @@ enum
 static guint signals[LAST_SIGNAL] = { 0, };
 static GUdevClient *singleton = NULL;
 
-static GUdevDevice *g_udev_device_new(GUdevDeviceInfo *udevinfo);
 static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
-static gboolean get_usb_dev_info(libusb_device *dev, GUdevDeviceInfo *udevinfo);
 
 //uncomment to debug gudev device lists.
 //#define DEBUG_GUDEV_DEVICE_LISTS
@@ -250,22 +248,9 @@ static void g_udev_client_initable_iface_init(GInitableIface *iface)
     iface->init = g_udev_client_initable_init;
 }
 
-static void g_udev_notify_device(GUdevClient *self, libusb_device *dev, gboolean add)
-{
-    GUdevDeviceInfo *udevinfo;
-    GUdevDevice *udevice;
-    udevinfo = g_new0(GUdevDeviceInfo, 1);
-    if (get_usb_dev_info(dev, udevinfo)) {
-        udevice = g_udev_device_new(udevinfo);
-        g_signal_emit(self, signals[UEVENT_SIGNAL], 0, udevice, add);
-    } else {
-        g_free(udevinfo);
-    }
-}
-
 static void report_one_device(gpointer data, gpointer self)
 {
-    g_udev_notify_device(self, data, TRUE);
+    g_signal_emit(self, signals[UEVENT_SIGNAL], 0, data, TRUE);
 }
 
 void g_udev_client_report_devices(GUdevClient *self)
@@ -379,31 +364,6 @@ static void g_udev_client_class_init(GUdevClientClass *klass)
     g_object_class_install_property(gobject_class, PROP_REDIRECTING, pspec);
 }
 
-static gboolean get_usb_dev_info(libusb_device *dev, GUdevDeviceInfo *udevinfo)
-{
-    struct libusb_device_descriptor desc;
-
-    g_return_val_if_fail(dev, FALSE);
-    g_return_val_if_fail(udevinfo, FALSE);
-
-    if (libusb_get_device_descriptor(dev, &desc) < 0) {
-        g_warning("cannot get device descriptor %p", dev);
-        return FALSE;
-    }
-
-    udevinfo->bus   = libusb_get_bus_number(dev);
-    udevinfo->addr  = libusb_get_device_address(dev);
-    udevinfo->class = desc.bDeviceClass;
-    udevinfo->vid   = desc.idVendor;
-    udevinfo->pid   = desc.idProduct;
-    g_snprintf(udevinfo->sclass, sizeof(udevinfo->sclass), "%d", udevinfo->class);
-    g_snprintf(udevinfo->sbus,   sizeof(udevinfo->sbus),   "%d", udevinfo->bus);
-    g_snprintf(udevinfo->saddr,  sizeof(udevinfo->saddr),  "%d", udevinfo->addr);
-    g_snprintf(udevinfo->svid,   sizeof(udevinfo->svid),   "%d", udevinfo->vid);
-    g_snprintf(udevinfo->spid,   sizeof(udevinfo->spid),   "%d", udevinfo->pid);
-    return TRUE;
-}
-
 /* comparing bus:addr and vid:pid */
 static gint compare_libusb_devices(gconstpointer a, gconstpointer b)
 {
@@ -454,7 +414,7 @@ static void notify_dev_state_change(GUdevClient *self,
         GList *found = g_list_find_custom(new_list, dev->data, compare_libusb_devices);
         if (found == NULL) {
             g_udev_device_print(dev->data, add ? "add" : "remove");
-            g_udev_notify_device(self, dev->data, add);
+            g_signal_emit(self, signals[UEVENT_SIGNAL], 0, dev->data, add);
         }
     }
 }
@@ -522,17 +482,6 @@ static void g_udev_device_class_init(GUdevDeviceClass *klass)
 static void g_udev_device_init(GUdevDevice *device)
 {
     device->priv = g_udev_device_get_instance_private(device);
-}
-
-static GUdevDevice *g_udev_device_new(GUdevDeviceInfo *udevinfo)
-{
-    GUdevDevice *device;
-
-    g_return_val_if_fail(udevinfo != NULL, NULL);
-
-    device =  G_UDEV_DEVICE(g_object_new(G_UDEV_TYPE_DEVICE, NULL));
-    device->priv->udevinfo = udevinfo;
-    return device;
 }
 
 const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property)

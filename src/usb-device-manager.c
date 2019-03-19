@@ -153,11 +153,9 @@ static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data);
 #ifdef G_OS_WIN32
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               GUdevDevice     *udevice,
+                                               libusb_device   *udevice,
                                                gboolean         add,
                                                gpointer         user_data);
-static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
-                                              GUdevDevice            *udev);
 #else
 static int spice_usb_device_manager_hotplug_cb(libusb_context       *ctx,
                                                libusb_device        *device,
@@ -720,28 +718,6 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
 /* ------------------------------------------------------------------ */
 /* gudev / libusb Helper functions                                    */
 
-#ifdef G_OS_WIN32
-static gboolean spice_usb_device_manager_get_udev_bus_n_address(
-    SpiceUsbDeviceManager *manager, GUdevDevice *udev,
-    int *bus, int *address)
-{
-    const gchar *bus_str, *address_str;
-
-    *bus = *address = 0;
-
-   /* Linux or UsbDk backend on Windows*/
-    bus_str = g_udev_device_get_property(udev, "BUSNUM");
-    address_str = g_udev_device_get_property(udev, "DEVNUM");
-
-    if (bus_str)
-        *bus = atoi(bus_str);
-    if (address_str)
-        *address = atoi(address_str);
-
-    return *bus && *address;
-}
-#endif
-
 static gboolean spice_usb_device_manager_get_device_descriptor(
     libusb_device *libdev,
     struct libusb_device_descriptor *desc)
@@ -1022,64 +998,19 @@ static void spice_usb_device_manager_remove_dev(SpiceUsbDeviceManager *self,
 }
 
 #ifdef G_OS_WIN32
-static void spice_usb_device_manager_add_udev(SpiceUsbDeviceManager  *self,
-                                              GUdevDevice            *udev)
-{
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-    libusb_device *libdev = NULL, **dev_list = NULL;
-    const gchar *devtype;
-    int i, bus, address;
-
-    devtype = g_udev_device_get_property(udev, "DEVTYPE");
-    /* Check if this is a usb device (and not an interface) */
-    if (!devtype || strcmp(devtype, "usb_device"))
-        return;
-
-    if (!spice_usb_device_manager_get_udev_bus_n_address(self, udev, &bus, &address)) {
-        g_warning("USB device without bus number or device address");
-        return;
-    }
-
-    libusb_get_device_list(priv->context, &dev_list);
-
-    for (i = 0; dev_list && dev_list[i]; i++) {
-        if (spice_usb_device_manager_libdev_match(self, dev_list[i], bus, address)) {
-            libdev = dev_list[i];
-            break;
-        }
-    }
-
-    if (libdev)
-        spice_usb_device_manager_add_dev(self, libdev);
-    else
-        g_warning("Could not find USB device to add " DEV_ID_FMT,
-                  (guint) bus, (guint) address);
-
-    libusb_free_device_list(dev_list, 1);
-}
-
-static void spice_usb_device_manager_remove_udev(SpiceUsbDeviceManager  *self,
-                                                 GUdevDevice            *udev)
-{
-    int bus, address;
-
-    if (!spice_usb_device_manager_get_udev_bus_n_address(self, udev, &bus, &address))
-        return;
-
-    spice_usb_device_manager_remove_dev(self, bus, address);
-}
-
 static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               GUdevDevice     *udevice,
+                                               libusb_device   *dev,
                                                gboolean         add,
                                                gpointer         user_data)
 {
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(user_data);
 
     if (add)
-        spice_usb_device_manager_add_udev(self, udevice);
+        spice_usb_device_manager_add_dev(self, dev);
     else
-        spice_usb_device_manager_remove_udev(self, udevice);
+        spice_usb_device_manager_remove_dev(self,
+                                            libusb_get_bus_number(dev),
+                                            libusb_get_device_address(dev));
 }
 #else
 struct hotplug_idle_cb_args {

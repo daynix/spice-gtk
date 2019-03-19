@@ -75,7 +75,7 @@ struct _GUdevClientClass
     GObjectClass parent_class;
 
     /* signals */
-    void (*uevent)(GUdevClient *client, GUdevDevice  *device, gboolean add);
+    void (*uevent)(GUdevClient *client, libusb_device *device, gboolean add);
 };
 
 GType g_udev_client_get_type(void) G_GNUC_CONST;
