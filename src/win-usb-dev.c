@@ -521,24 +521,6 @@ const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property
     return NULL;
 }
 
-const gchar *g_udev_device_get_sysfs_attr(GUdevDevice *udev, const gchar *attr)
-{
-    GUdevDeviceInfo* udevinfo;
-
-    g_return_val_if_fail(G_UDEV_DEVICE(udev), NULL);
-    g_return_val_if_fail(attr != NULL, NULL);
-
-    udevinfo = udev->priv->udevinfo;
-    g_return_val_if_fail(udevinfo != NULL, NULL);
-
-
-    if (g_strcmp0(attr, "bDeviceClass") == 0) {
-        return udevinfo->sclass;
-    }
-    g_warn_if_reached();
-    return NULL;
-}
-
 #ifdef DEBUG_GUDEV_DEVICE_LISTS
 static void g_udev_device_print_list(GList *l, const gchar *msg)
 {

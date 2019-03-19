@@ -85,7 +85,6 @@ GList *g_udev_client_query_by_subsystem(GUdevClient *client, const gchar *subsys
 
 GType g_udev_device_get_type(void) G_GNUC_CONST;
 const gchar *g_udev_device_get_property(GUdevDevice *udev, const gchar *property);
-const gchar *g_udev_device_get_sysfs_attr(GUdevDevice *udev, const gchar *attr);
 
 GQuark g_udev_client_error_quark(void);
 #define G_UDEV_CLIENT_ERROR g_udev_client_error_quark()
