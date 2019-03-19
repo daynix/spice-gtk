@@ -283,9 +283,6 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     GList *list;
     GList *it;
     int rc;
-#ifdef G_OS_WIN32
-    const gchar *const subsystems[] = {"usb", NULL};
-#endif
 
     /* Initialize libusb */
     rc = libusb_init(&priv->context);
@@ -305,7 +302,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
 
     /* Start listening for usb devices plug / unplug */
 #ifdef G_OS_WIN32
-    priv->udev = g_udev_client_new(subsystems);
+    priv->udev = g_udev_client_new();
     if (priv->udev == NULL) {
         g_warning("Error initializing GUdevClient");
         return FALSE;

@@ -104,7 +104,7 @@ GQuark g_udev_client_error_quark(void)
     return g_quark_from_static_string("win-gudev-client-error-quark");
 }
 
-GUdevClient *g_udev_client_new(const gchar* const *subsystems)
+GUdevClient *g_udev_client_new(void)
 {
     if (singleton != NULL)
         return g_object_ref(singleton);
