@@ -423,6 +423,26 @@ static gint compare_libusb_devices(gconstpointer a, gconstpointer b)
     return (same_bus && same_addr && same_vid && same_pid) ? 0 : -1;
 }
 
+static void update_device_list(GUdevClient *self, GList *new_device_list)
+{
+    GList *dev;
+
+    for (dev = g_list_first(new_device_list); dev != NULL; dev = g_list_next(dev)) {
+        GList *found = g_list_find_custom(self->priv->udev_list, dev->data, compare_libusb_devices);
+        if (found != NULL) {
+            /* keep old existing libusb_device in the new list, when
+               usb-dev-manager will maintain its own list of libusb_device,
+               these lists will be completely consistent */
+            libusb_device *temp = found->data;
+            found->data = dev->data;
+            dev->data = temp;
+        }
+    }
+
+    g_udev_client_free_device_list(&self->priv->udev_list);
+    self->priv->udev_list = new_device_list;
+}
+
 static void notify_dev_state_change(GUdevClient *self,
                                     GList *old_list,
                                     GList *new_list,
@@ -469,8 +489,7 @@ static void handle_dev_change(GUdevClient *self)
     notify_dev_state_change(self, now_devs, priv->udev_list, TRUE);
 
     /* keep most recent info: free previous list, and keep current list */
-    g_udev_client_free_device_list(&priv->udev_list);
-    priv->udev_list = now_devs;
+    update_device_list(self, now_devs);
 }
 
 static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
