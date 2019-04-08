@@ -15,7 +15,7 @@ v0.36
 - Fix build for newer LibreSSL 2.7
 - Fix a crash on Windows with libusb 1.0.22 when UsbDk is not installed
 - Require GStreamer >= 1.0 (no longer optional)
-- Require spice-protocol >= 1.12.15
+- Require spice-protocol >= 0.12.15
 - Require json-glib >= 1.0
 - Require Gtk+ >= 3.22 (optional)
 - Require usbredir >= 0.5 (optional)
