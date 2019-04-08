@@ -163,6 +163,14 @@ static void keymap_modifiers_changed(GdkKeymap *keymap, gpointer data)
 {
     SpiceGtkSession *self = data;
 
+    /* set_key_locks() is inherently racy, but no need to sync modifiers
+     * if we have focus as the regular keypress/keyrelease will have set
+     * the expected modifiers state in the guest.
+     */
+    if (self->priv->keyboard_has_focus) {
+        return;
+    }
+
     spice_gtk_session_sync_keyboard_modifiers(self);
 }
 
