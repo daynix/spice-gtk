@@ -16,6 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Poedit 1.8.8\n"
 
 #: src/channel-main.c:1868
@@ -286,15 +287,12 @@ msgstr "%s %s %s a %d-%d"
 msgid "Select USB devices to redirect"
 msgstr "Selezionare dispositivo USB da redirigere"
 
-#: src/usb-device-widget.c:420
+#: src/usb-device-widget.c:393
 #, c-format
 msgid "Select USB devices to redirect (%d free channel)"
-msgstr "Selezionare dispositivo USB da redirigere (%d canale libero)"
-
-#: src/usb-device-widget.c:421
-#, c-format
-msgid "Select USB devices to redirect (%d free channels)"
-msgstr "Selezionare dispositivo USB da redirigere (%d canali liberi)"
+msgid_plural "Select USB devices to redirect (%d free channels)"
+msgstr[0] "Selezionare dispositivo USB da redirigere (%d canale libero)"
+msgstr[1] "Selezionare dispositivo USB da redirigere (%d canali liberi)"
 
 #: src/usb-device-widget.c:439
 msgid "Redirecting USB Device..."

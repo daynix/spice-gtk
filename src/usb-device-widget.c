@@ -390,9 +390,10 @@ static gboolean spice_usb_device_widget_update_status(gpointer user_data)
     redirecting = spice_usb_device_manager_is_redirecting(priv->manager);
 
     g_object_get(priv->manager, "free-channels", &free_channels, NULL);
-    free_channels_str = ngettext(_("Select USB devices to redirect (%d free channel)"),
-                                 _("Select USB devices to redirect (%d free channels)"),
-                                 free_channels);
+    free_channels_str = g_dngettext(GETTEXT_PACKAGE,
+                                    "Select USB devices to redirect (%d free channel)",
+                                    "Select USB devices to redirect (%d free channels)",
+                                    free_channels);
     str = g_strdup_printf(free_channels_str, free_channels);
     markup_str = g_strdup_printf("<b>%s</b>", str);
     gtk_label_set_markup(GTK_LABEL (priv->label), markup_str);

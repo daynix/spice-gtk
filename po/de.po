@@ -288,12 +288,9 @@ msgstr "Auswahl des USB-Geräts zum Weiterleiten"
 #: src/usb-device-widget.c:393
 #, c-format
 msgid "Select USB devices to redirect (%d free channel)"
-msgstr "Auswahl des USB-Geräts zum Weiterleiten (%d freier Kanal)"
-
-#: src/usb-device-widget.c:394
-#, c-format
-msgid "Select USB devices to redirect (%d free channels)"
-msgstr "Auswahl des USB-Geräts zum Weiterleiten (%d freie Kanäle)"
+msgid_plural "Select USB devices to redirect (%d free channels)"
+msgstr[0] "Auswahl des USB-Geräts zum Weiterleiten (%d freier Kanal)"
+msgstr[1] "Auswahl des USB-Geräts zum Weiterleiten (%d freie Kanäle)"
 
 #: src/usb-device-widget.c:411
 msgid "Redirecting USB Device..."
