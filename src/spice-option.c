@@ -207,6 +207,7 @@ GOptionGroup* spice_get_option_group(void)
 
     grp = g_option_group_new("spice", _("Spice Options:"), _("Show Spice Options"), NULL, NULL);
     g_option_group_add_entries(grp, entries);
+    g_option_group_set_translation_domain(grp, GETTEXT_PACKAGE);
 
     return grp;
 }
