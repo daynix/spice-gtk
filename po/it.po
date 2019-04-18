@@ -285,14 +285,14 @@ msgstr "%s %s %s a %d-%d"
 
 #: src/usb-device-widget.c:207
 msgid "Select USB devices to redirect"
-msgstr "Selezionare dispositivo USB da redirigere"
+msgstr "Selezionare dispositivi USB da redirigere"
 
 #: src/usb-device-widget.c:393
 #, c-format
 msgid "Select USB devices to redirect (%d free channel)"
 msgid_plural "Select USB devices to redirect (%d free channels)"
-msgstr[0] "Selezionare dispositivo USB da redirigere (%d canale libero)"
-msgstr[1] "Selezionare dispositivo USB da redirigere (%d canali liberi)"
+msgstr[0] "Selezionare dispositivi USB da redirigere (un canale libero)"
+msgstr[1] "Selezionare dispositivi USB da redirigere (%d canali liberi)"
 
 #: src/usb-device-widget.c:439
 msgid "Redirecting USB Device..."
