@@ -25,7 +25,6 @@ EXTRA_DIST =					\
 	meson_options.txt			\
 	po/meson.build				\
 	build-aux/git-version-gen		\
-	build-aux/meson/check-spice-common	\
 	gtk-doc.make				\
 	.version				\
 	$(NULL)
