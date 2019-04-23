@@ -39,6 +39,7 @@ fedora-autotools:
     - cd ..
     # Run without features
     - git clean -xfd
+    - git submodule foreach --recursive git clean -xfd
     - ./autogen.sh --enable-static
           --enable-lz4=no
           --enable-webdav=no
