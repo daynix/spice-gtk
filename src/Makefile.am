@@ -80,7 +80,7 @@ SPICE_COMMON_CPPFLAGS =						\
 	$(GIO_CFLAGS)						\
 	$(GOBJECT2_CFLAGS)					\
 	$(JSON_CFLAGS)						\
-	$(SSL_CFLAGS)						\
+	$(OPENSSL_CFLAGS)					\
 	$(SASL_CFLAGS)						\
 	$(GSTAUDIO_CFLAGS)					\
 	$(GSTVIDEO_CFLAGS)					\
@@ -192,7 +192,7 @@ libspice_client_glib_impl_la_LIBADD =					\
 	$(Z_LIBS)							\
 	$(LZ4_LIBS)							\
 	$(PIXMAN_LIBS)							\
-	$(SSL_LIBS)							\
+	$(OPENSSL_LIBS)							\
 	$(PULSE_LIBS)							\
 	$(GSTAUDIO_LIBS)						\
 	$(GSTVIDEO_LIBS)						\
