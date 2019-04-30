@@ -17,6 +17,8 @@
 */
 #include "config.h"
 
+/* include first, on Windows will override winsock definitions */
+#include <gio/gnetworking.h>
 #include <gio/gio.h>
 #include <glib.h>
 #ifdef G_OS_UNIX
@@ -32,6 +34,13 @@
 #include "spice-uri-priv.h"
 #include "channel-playback-priv.h"
 #include "spice-audio-priv.h"
+
+#if !defined(SOL_TCP) && defined(IPPROTO_TCP)
+#define SOL_TCP IPPROTO_TCP
+#endif
+#if !defined(TCP_KEEPIDLE) && defined(TCP_KEEPALIVE) && defined(__APPLE__)
+#define TCP_KEEPIDLE TCP_KEEPALIVE
+#endif
 
 #define IMAGES_CACHE_SIZE_DEFAULT (1024 * 1024 * 80)
 #define MIN_GLZ_WINDOW_SIZE_DEFAULT (1024 * 1024 * 12)
@@ -2254,6 +2263,23 @@ GSocketConnection* spice_session_channel_open_host(SpiceSession *session, SpiceC
         g_socket_set_timeout(socket, 0);
         g_socket_set_blocking(socket, FALSE);
         g_socket_set_keepalive(socket, TRUE);
+
+        /* Make client timeouts a bit more responsive */
+#if defined(_WIN32)
+        /*  Windows does not support setting count */
+        struct tcp_keepalive keepalive = {
+            TRUE,
+            30 * 1000,
+            5 * 1000
+        };
+        DWORD written;
+        WSAIoctl(g_socket_get_fd(socket), SIO_KEEPALIVE_VALS, &keepalive, sizeof(keepalive),
+                 NULL, 0, &written, NULL, NULL);
+#elif defined(TCP_KEEPIDLE) && defined(TCP_KEEPINTVL)
+        g_socket_set_option(socket, SOL_TCP, TCP_KEEPIDLE, 30, NULL);
+        g_socket_set_option(socket, SOL_TCP, TCP_KEEPINTVL, 15, NULL);
+        g_socket_set_option(socket, SOL_TCP, TCP_KEEPCNT, 3, NULL);
+#endif
     }
 
     g_clear_object(&open_host.client);
