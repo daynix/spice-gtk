@@ -71,7 +71,7 @@ esac
 AC_MSG_RESULT([$os_mac])
 AM_CONDITIONAL([OS_MAC],[test "$os_mac" = "yes"])
 
-AC_CHECK_HEADERS([sys/socket.h netinet/in.h arpa/inet.h])
+AC_CHECK_HEADERS([sys/socket.h sys/types.h netinet/in.h arpa/inet.h])
 AC_CHECK_HEADERS([termios.h])
 AC_CHECK_HEADERS([epoxy/egl.h],
                  [have_egl=yes],

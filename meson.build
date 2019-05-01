@@ -48,8 +48,14 @@ keymapcsv = files('subprojects/keycodemapdb/data/keymaps.csv')
 #
 # check for system headers
 #
-headers = ['termios.h',
-           'X11/XKBlib.h']
+headers = [
+  'termios.h',
+  'X11/XKBlib.h',
+  'sys/socket.h',
+  'sys/types.h',
+  'netinet/in.h',
+  'arpa/inet.h',
+]
 
 foreach header : headers
   if compiler.has_header(header)
