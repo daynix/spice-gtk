@@ -101,12 +101,11 @@ static void usbredir_lock_lock(void *user_data);
 static void usbredir_unlock_lock(void *user_data);
 static void usbredir_free_lock(void *user_data);
 
+G_DEFINE_TYPE_WITH_PRIVATE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
 #else
-struct _SpiceUsbredirChannelPrivate {
-};
+G_DEFINE_TYPE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
 #endif
 
-G_DEFINE_TYPE_WITH_PRIVATE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
 
 /* ------------------------------------------------------------------ */
 
