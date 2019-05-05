@@ -103,12 +103,10 @@ struct _SpiceUsbDeviceManagerPrivate {
     int redirect_on_connect_rules_count;
 #ifdef G_OS_WIN32
     GUdevClient *udev;
+    usbdk_api_wrapper *usbdk_api;
+    HANDLE usbdk_hider_handle;
 #else
     gboolean redirecting; /* Handled by GUdevClient in the gudev case */
-#endif
-#ifdef G_OS_WIN32
-    usbdk_api_wrapper     *usbdk_api;
-    HANDLE                 usbdk_hider_handle;
 #endif
 #endif
     GPtrArray *devices;
