@@ -222,7 +222,7 @@ static void spice_usb_device_manager_init(SpiceUsbDeviceManager *self)
     if (usbdk_is_driver_installed()) {
         priv->usbdk_api = usbdk_api_load();
     } else {
-        spice_debug("UsbDk driver is not installed");
+        g_warning("UsbDk driver is not installed");
     }
 #endif
 #ifdef USE_USBREDIR
@@ -1547,7 +1547,9 @@ gboolean _usbdk_hider_prepare(SpiceUsbDeviceManager *manager)
 {
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
 
-    g_return_val_if_fail(priv->usbdk_api != NULL, FALSE);
+    if (priv->usbdk_api == NULL) {
+        return FALSE;
+    }
 
     if (priv->usbdk_hider_handle == NULL) {
         priv->usbdk_hider_handle = usbdk_create_hider_handle(priv->usbdk_api);
@@ -1565,7 +1567,9 @@ void _usbdk_hider_clear(SpiceUsbDeviceManager *manager)
 {
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
 
-    g_return_if_fail(priv->usbdk_api != NULL);
+    if (priv->usbdk_api == NULL) {
+        return;
+    }
 
     if (priv->usbdk_hider_handle != NULL) {
         usbdk_clear_hide_rules(priv->usbdk_api, priv->usbdk_hider_handle);
@@ -1579,7 +1583,9 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
 {
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
 
-    g_return_if_fail(priv->usbdk_api != NULL);
+    if (priv->usbdk_api == NULL) {
+        return;
+    }
 
     if (priv->auto_connect_filter == NULL) {
         SPICE_DEBUG("No autoredirect rules, no hider setup needed");
