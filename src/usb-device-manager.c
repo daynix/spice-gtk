@@ -267,14 +267,6 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     GList *list;
     GList *it;
 
-#ifndef G_OS_WIN32
-    /* Initialize libusb */
-    priv->context = spice_usb_backend_new(err);
-    if (!priv->context) {
-        return FALSE;
-    }
-#endif
-
     /* Start listening for usb devices plug / unplug */
 #ifdef G_OS_WIN32
     priv->udev = g_udev_client_new();
@@ -288,6 +280,12 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     /* Do coldplug (detection of already connected devices) */
     g_udev_client_report_devices(priv->udev);
 #else
+    /* Initialize libusb */
+    priv->context = spice_usb_backend_new(err);
+    if (!priv->context) {
+        return FALSE;
+    }
+
     if (!spice_usb_backend_register_hotplug(priv->context, self,
                                             spice_usb_device_manager_hotplug_cb)) {
         return FALSE;
