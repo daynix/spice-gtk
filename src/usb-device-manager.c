@@ -1716,7 +1716,7 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
         return;
     }
 
-    if(_usbdk_hider_prepare(manager)) {
+    if (_usbdk_hider_prepare(manager)) {
         usbdk_api_set_hide_rules(priv->usbdk_api,
                                  priv->usbdk_hider_handle,
                                  priv->auto_connect_filter);
