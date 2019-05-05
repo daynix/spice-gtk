@@ -213,18 +213,14 @@ G_DEFINE_BOXED_TYPE(SpiceUsbDevice, spice_usb_device, g_object_ref, g_object_unr
  */
 gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self)
 {
-#ifdef USE_USBREDIR
-
-#ifdef G_OS_WIN32
+#ifndef USE_USBREDIR
+    return FALSE;
+#elif defined(G_OS_WIN32)
     gboolean redirecting;
     g_object_get(self->priv->udev, "redirecting", &redirecting, NULL);
     return redirecting;
 #else
     return self->priv->redirecting;
-#endif
-
-#else
-    return FALSE;
 #endif
 }
 
@@ -261,7 +257,11 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
                                                        GCancellable  *cancellable,
                                                        GError        **err)
 {
-#ifdef USE_USBREDIR
+#ifndef USE_USBREDIR
+    g_set_error_literal(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                        _("USB redirection support not compiled in"));
+    return FALSE;
+#else
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(initable);
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
     GList *list;
@@ -306,10 +306,6 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     g_list_free(list);
 
     return TRUE;
-#else
-    g_set_error_literal(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
-                        _("USB redirection support not compiled in"));
-    return FALSE;
 #endif
 }
 
