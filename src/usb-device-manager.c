@@ -108,9 +108,9 @@ struct _SpiceUsbDeviceManagerPrivate {
 #else
     gboolean redirecting; /* Handled by GUdevClient in the gudev case */
 #endif
-#endif
     GPtrArray *devices;
     GPtrArray *channels;
+#endif
 };
 
 enum {
@@ -246,8 +246,8 @@ static void spice_usb_device_manager_init(SpiceUsbDeviceManager *self)
         spice_debug("UsbDk driver is not installed");
     }
 #endif
-    priv->channels = g_ptr_array_new();
 #ifdef USE_USBREDIR
+    priv->channels = g_ptr_array_new();
     priv->devices  = g_ptr_array_new_with_free_func((GDestroyNotify)
                                                     spice_usb_device_unref);
 #endif
@@ -343,11 +343,11 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(gobject);
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
 
-    g_ptr_array_unref(priv->channels);
-    if (priv->devices)
-        g_ptr_array_unref(priv->devices);
-
 #ifdef USE_USBREDIR
+    g_ptr_array_unref(priv->channels);
+    if (priv->devices) {
+        g_ptr_array_unref(priv->devices);
+    }
 #ifdef G_OS_WIN32
     g_clear_object(&priv->udev);
 #endif
