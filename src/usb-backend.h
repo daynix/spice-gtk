@@ -65,6 +65,7 @@ after it finishes list processing
 SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *backend);
 void spice_usb_backend_free_device_list(SpiceUsbBackendDevice **devlist);
 gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be);
+void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be);
 gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                                             void *user_data,
                                             usb_hot_plug_callback proc);

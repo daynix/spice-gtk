@@ -328,6 +328,8 @@ static void spice_usb_device_manager_dispose(GObject *gobject)
 #endif
     if (priv->event_thread) {
         g_warn_if_fail(g_atomic_int_get(&priv->event_thread_run) == FALSE);
+        g_atomic_int_set(&priv->event_thread_run, FALSE);
+        spice_usb_backend_interrupt_event_handler(priv->context);
         g_thread_join(priv->event_thread);
         priv->event_thread = NULL;
     }
@@ -988,6 +990,8 @@ gboolean spice_usb_device_manager_start_event_listening(
        libusb_handle_events call in the thread won't exit until the
        libusb_close call for the device is made from usbredirhost_close. */
     if (priv->event_thread) {
+        g_atomic_int_set(&priv->event_thread_run, FALSE);
+        spice_usb_backend_interrupt_event_handler(priv->context);
          g_thread_join(priv->event_thread);
          priv->event_thread = NULL;
     }

@@ -230,6 +230,13 @@ gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be)
     return ok;
 }
 
+void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be)
+{
+    if (be->libusb_context) {
+        libusb_interrupt_event_handler(be->libusb_context);
+    }
+}
+
 static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
                                         libusb_device *device,
                                         libusb_hotplug_event event,
