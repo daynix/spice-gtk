@@ -602,8 +602,10 @@ static void spice_webdav_handle_msg(SpiceChannel *channel, SpiceMsgIn *msg)
 
     parent_class = SPICE_CHANNEL_CLASS(spice_webdav_channel_parent_class);
 
-    if (type == SPICE_MSG_SPICEVMC_DATA)
+    if (type == SPICE_MSG_SPICEVMC_DATA) {
         webdav_handle_data_msg(channel, msg);
+        return;
+    }
 
     /* The only message that we need to handle ourselves is SPICE_MSG_SPICEVMC_DATA
      * as we want to read it with spice_vmc_input/output_stream to handle
