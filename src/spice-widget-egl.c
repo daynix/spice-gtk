@@ -129,7 +129,7 @@ static gboolean spice_egl_init_shaders(SpiceDisplay *display, GError **err)
     glLinkProgram(d->egl.prog);
     glGetProgramiv(d->egl.prog, GL_LINK_STATUS, &status);
     if (!status) {
-        glGetProgramInfoLog(d->egl.prog, 1000, &len, log);
+        glGetProgramInfoLog(d->egl.prog, sizeof(log), &len, log);
         g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                     "error linking shaders: %s", log);
         goto end;
