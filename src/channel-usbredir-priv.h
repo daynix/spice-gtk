@@ -21,6 +21,8 @@
 #ifndef __SPICE_CLIENT_USBREDIR_CHANNEL_PRIV_H__
 #define __SPICE_CLIENT_USBREDIR_CHANNEL_PRIV_H__
 
+#ifdef USE_USBREDIR
+
 #include <libusb.h>
 #include <usbredirfilter.h>
 #include "spice-client.h"
@@ -70,5 +72,7 @@ void spice_usbredir_channel_get_guest_filter(
                           int                                *rules_count_ret);
 
 G_END_DECLS
+
+#endif /* USE_USBREDIR */
 
 #endif /* __SPICE_CLIENT_USBREDIR_CHANNEL_PRIV_H__ */

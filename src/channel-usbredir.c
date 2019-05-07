@@ -33,7 +33,6 @@
 #include "channel-usbredir-priv.h"
 #include "usb-device-manager-priv.h"
 #include "usbutil.h"
-#endif
 
 #include "common/log.h"
 #include "spice-client.h"
@@ -52,8 +51,6 @@
  * The Spice protocol defines a set of messages to redirect USB devices
  * from the Spice client to the VM. This channel handles these messages.
  */
-
-#ifdef USE_USBREDIR
 
 #define COMPRESS_THRESHOLD 1000
 enum SpiceUsbredirChannelState {
@@ -102,22 +99,15 @@ static void usbredir_unlock_lock(void *user_data);
 static void usbredir_free_lock(void *user_data);
 
 G_DEFINE_TYPE_WITH_PRIVATE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
-#else
-G_DEFINE_TYPE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
-#endif
 
 
 /* ------------------------------------------------------------------ */
 
 static void spice_usbredir_channel_init(SpiceUsbredirChannel *channel)
 {
-#ifdef USE_USBREDIR
     channel->priv = spice_usbredir_channel_get_instance_private(channel);
     g_mutex_init(&channel->priv->device_connect_mutex);
-#endif
 }
-
-#ifdef USE_USBREDIR
 
 static void _channel_reset_finish(SpiceUsbredirChannel *channel, gboolean migrating)
 {
@@ -176,11 +166,9 @@ static void spice_usbredir_channel_reset(SpiceChannel *c, gboolean migrating)
 
     _channel_reset_finish(channel, migrating);
 }
-#endif
 
 static void spice_usbredir_channel_class_init(SpiceUsbredirChannelClass *klass)
 {
-#ifdef USE_USBREDIR
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     SpiceChannelClass *channel_class = SPICE_CHANNEL_CLASS(klass);
 
@@ -190,10 +178,8 @@ static void spice_usbredir_channel_class_init(SpiceUsbredirChannelClass *klass)
     channel_class->channel_reset = spice_usbredir_channel_reset;
 
     channel_set_handlers(SPICE_CHANNEL_CLASS(klass));
-#endif
 }
 
-#ifdef USE_USBREDIR
 static void spice_usbredir_channel_dispose(GObject *obj)
 {
     SpiceUsbredirChannel *channel = SPICE_USBREDIR_CHANNEL(obj);
@@ -236,9 +222,7 @@ static void spice_usbredir_channel_finalize(GObject *obj)
 
     if (channel->priv->host)
         usbredirhost_close(channel->priv->host);
-#ifdef USE_USBREDIR
     g_mutex_clear(&channel->priv->device_connect_mutex);
-#endif
 
     /* Chain up to the parent class */
     if (G_OBJECT_CLASS(spice_usbredir_channel_parent_class)->finalize)
@@ -944,6 +928,19 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
     } else {
         spice_usbredir_channel_unlock(channel);
     }
+}
+
+#else
+#include "spice-client.h"
+
+G_DEFINE_TYPE(SpiceUsbredirChannel, spice_usbredir_channel, SPICE_TYPE_CHANNEL)
+
+static void spice_usbredir_channel_init(SpiceUsbredirChannel *channel)
+{
+}
+
+static void spice_usbredir_channel_class_init(SpiceUsbredirChannelClass *klass)
+{
 }
 
 #endif /* USE_USBREDIR */
