@@ -1473,7 +1473,7 @@ static void display_update_stream_report(SpiceDisplayChannel *channel, uint32_t 
         if (spice_session_is_playback_active(session)) {
             report.audio_delay = spice_session_get_playback_latency(session);
         } else {
-            report.audio_delay = UINT_MAX;
+            report.audio_delay = UINT32_MAX;
         }
 
         msg = spice_msg_out_new(SPICE_CHANNEL(channel), SPICE_MSGC_DISPLAY_STREAM_REPORT);
