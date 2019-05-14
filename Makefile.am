@@ -21,6 +21,7 @@ endif
 DISTCLEANFILES = $(pkgconfig_DATA)
 
 EXTRA_DIST =					\
+	README.md				\
 	meson.build				\
 	meson_options.txt			\
 	po/meson.build				\
