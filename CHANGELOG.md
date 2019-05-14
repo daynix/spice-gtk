@@ -240,7 +240,6 @@ v0.24
 - fix a few memory leaks with SASL
 - fix spice_display_get_pixbuf() with offset area
 - build-sys improvements
-
 - note: until now, providing an invalid plain-port didn't error, and
   was falling back silently on tls-port. With this release, an error
   will be reported if the port can't be opened.
