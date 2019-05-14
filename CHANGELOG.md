@@ -1,3 +1,32 @@
+v0.37
+=====
+
+- Deprecated: SpiceMainChannel:color-depth and SpiceSession::color-depth see
+  ([rhbz#1543538] and [rhbz#1350853]).
+- Fix race condition on keyboard modifiers
+- Fix cursor on Wayland: Fixes hidden cursor #83
+- Fix clipboard on X11: avoid request client clipboard data when is known that
+  there is no data.
+- Improve code around usb redirection feature
+- Fix on usb redirection: Don't add same device twice
+- Fix on smartcard: Warn if multiple readers are detected
+- Add instrumentation for frame and queue statistics of SpiceDisplay using
+  [Recorder] library
+- Fix Warnings with GStreamer >= 1.14 on video decoding due setting buffer's PTS
+- Fix some Critical warnings when build without GNOME desktop integration
+- Fix Criticals when no primary monitor is set
+- Documentation fixes
+- Added optional dependency: [Recorder]
+- Require GStreamer >= 1.10 (optional)
+- Require usbredir >= 0.7.1 (optional)
+- Translations:
+  - Added Czech
+  - Fix Italian
+
+[Recorder]: https://github.com/c3d/recorder
+[rhbz#1543538]: https://bugzilla.redhat.com/show_bug.cgi?id=1543538
+[rhbz#1350853]: https://bugzilla.redhat.com/show_bug.cgi?id=1350853
+
 v0.36
 =====
 
