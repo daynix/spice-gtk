@@ -30,6 +30,8 @@ fedora-autotools:
     - (cd spice-protocol && ./autogen.sh --prefix=/usr && make install)
 
   script:
+    - git clean -xfd
+    - git submodule foreach --recursive git clean -xfd
     # Run with default options + out-of-tree
     - mkdir build
     - cd build
