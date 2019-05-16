@@ -21,11 +21,11 @@ msgstr ""
 
 #: src/channel-main.c:1868
 msgid "The spice agent cancelled the file transfer"
-msgstr ""
+msgstr "L'agente di SPICE ha cancellato il trasferimento file"
 
 #: src/channel-main.c:1872
 msgid "The spice agent reported an error during the file transfer"
-msgstr ""
+msgstr "L'agente di SPICE ha riportato un errore durante il trasferimento file"
 
 #: src/channel-main.c:1879
 #, c-format
@@ -33,25 +33,28 @@ msgid ""
 "File transfer failed due to lack of free space on remote machine (%s free, "
 "%s to transfer)"
 msgstr ""
+"Trasferimento file fallito per mancanza spazio libero nella macchina remota "
+"(%s liberi, %s da trasferire)"
 
 #: src/channel-main.c:1887
 msgid ""
 "User's session is locked and cannot transfer files, unlock it and try again."
 msgstr ""
+"La sessione utente è bloccata e non è possibile trasferire file, sbloccala e "
+"riprova."
 
 #: src/channel-main.c:1892
 msgid "Session agent not connected."
-msgstr ""
+msgstr "Agente per la sessione non connesso."
 
 #: src/channel-main.c:1896
-#, fuzzy
 msgid "File transfer is disabled."
-msgstr "Redirezione USB disabilitata"
+msgstr "Trasferimento file disabilitato"
 
 #: src/channel-main.c:3133
-#, fuzzy, c-format
+#, c-format
 msgid "The file transfer is disabled"
-msgstr "Redirezione USB disabilitata"
+msgstr "Trasferimento file disabilitato"
 
 #: src/desktop-integration.c:104
 msgid "Automounting has been inhibited for USB auto-redirecting"
@@ -59,22 +62,22 @@ msgstr ""
 "L'automontatura è stata disabilitata per consentire l'autoredirezione USB"
 
 #: src/spice-channel.c:1183
-#, fuzzy
 msgid "Authentication failed"
-msgstr "Autenticazione fallita: note utente necessario"
+msgstr "Autenticazione fallita"
 
 #: src/spice-channel.c:1201
 msgid "Authentication failed: password is too long"
 msgstr "Autenticazione fallita: password troppo lunga"
 
 #: src/spice-channel.c:1206
-#, fuzzy
 msgid "Authentication failed: wrong password?"
-msgstr "Autenticazione fallita: password necessaria"
+msgstr "Autenticazione fallita: password errata?"
 
 #: src/spice-option.c:60
 msgid "--spice-color-depth is deprecated. Use guest's display settings instead"
 msgstr ""
+"--spice-color-depth è obsoleta. Usare le impostazioni video del sistema "
+"ospite"
 
 #: src/spice-option.c:101
 #, c-format
@@ -104,9 +107,8 @@ msgid "Disable guest display effects"
 msgstr "Disabilita effetti grafici guest"
 
 #: src/spice-option.c:199
-#, fuzzy
 msgid "Guest display color depth (deprecated)"
-msgstr "Profondità di colore guest"
+msgstr "Profondità di colore guest (obsoleta)"
 
 #: src/spice-option.c:201
 msgid "Truststore file for secure connections"
@@ -178,18 +180,16 @@ msgstr ""
 "connessione"
 
 #: src/spice-option.c:222
-#, fuzzy
 msgid "Image cache size (deprecated)"
-msgstr "Dimensione cache immagini"
+msgstr "Dimensione cache immagini (obsoleta)"
 
 #: src/spice-option.c:222 src/spice-option.c:224
 msgid "<bytes>"
 msgstr "<byte>"
 
 #: src/spice-option.c:224
-#, fuzzy
 msgid "Glz compression history size (deprecated)"
-msgstr "Dimensione finestra di compressione glz"
+msgstr "Dimensione finestra di compressione glz (obsoleta)"
 
 #: src/spice-option.c:226
 msgid "Shared directory"
@@ -251,7 +251,7 @@ msgstr "Selezionare dispositivi USB da redirigere"
 #: src/usb-device-widget.c:385
 #, c-format
 msgid "Can't redirect: %s"
-msgstr ""
+msgstr "Non posso redirigere: %s"
 
 #: src/usb-device-widget.c:406
 #, c-format
