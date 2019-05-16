@@ -30,6 +30,7 @@ EXTRA_DIST =					\
 	$(KEYMAPS)				\
 	$(KEYMAP_CSV)				\
 	$(KEYMAP_GEN)				\
+	$(KEYMAP_DIST)				\
 	map-file				\
 	spice-glib-sym-file			\
 	spice-gtk-sym-file			\
@@ -65,6 +66,7 @@ endif
 
 KEYMAP_GEN = $(top_srcdir)/subprojects/keycodemapdb/tools/keymap-gen
 KEYMAP_CSV = $(top_srcdir)/subprojects/keycodemapdb/data/keymaps.csv
+KEYMAP_DIST = $(top_srcdir)/subprojects/keycodemapdb/meson.build
 
 SPICE_COMMON_CPPFLAGS =						\
 	-DSPICE_COMPILATION					\
