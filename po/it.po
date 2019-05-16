@@ -49,29 +49,9 @@ msgid "File transfer is disabled."
 msgstr "Redirezione USB disabilitata"
 
 #: src/channel-main.c:3133
-#, fuzzy
+#, fuzzy, c-format
 msgid "The file transfer is disabled"
 msgstr "Redirezione USB disabilitata"
-
-#: src/channel-usbredir.c:906
-#, c-format
-msgid "usbredir protocol parse error for %s"
-msgstr "errore di formato nel protocollo usbredir per %s"
-
-#: src/channel-usbredir.c:911
-#, c-format
-msgid "%s rejected by host"
-msgstr "%s rifiutato dall'host"
-
-#: src/channel-usbredir.c:916
-#, c-format
-msgid "%s disconnected (fatal IO error)"
-msgstr "%s disconnesso (errore I/O fatale)"
-
-#: src/channel-usbredir.c:920
-#, c-format
-msgid "Unknown error (%d) for %s"
-msgstr "Errore sconosciuto (%d) per %s"
 
 #: src/desktop-integration.c:104
 msgid "Automounting has been inhibited for USB auto-redirecting"
@@ -92,15 +72,9 @@ msgstr "Autenticazione fallita: password troppo lunga"
 msgid "Authentication failed: wrong password?"
 msgstr "Autenticazione fallita: password necessaria"
 
-#: src/spice-option.c:65
-#, c-format
-msgid "missing color depth, must be 16 or 32"
-msgstr "profondità colore assente, deve essere 16 o 32"
-
-#: src/spice-option.c:81
-#, c-format
-msgid "invalid color depth (%s), must be 16 or 32"
-msgstr "profondità di colore invalida (%s), deve essere 16 o 32"
+#: src/spice-option.c:60
+msgid "--spice-color-depth is deprecated. Use guest's display settings instead"
+msgstr ""
 
 #: src/spice-option.c:101
 #, c-format
@@ -249,10 +223,6 @@ msgstr "Mostra opzioni Spice"
 msgid "USB redirection support not compiled in"
 msgstr "Supporto redirezione USB non compilato"
 
-#: src/usb-device-manager.c:1434
-msgid "Device was not found"
-msgstr "Dispositivo non trovato"
-
 #: src/usb-device-manager.c:1450
 msgid "No free USB channel"
 msgstr "Nessun canale USB libero"
@@ -266,10 +236,6 @@ msgid "The connected VM is not configured for USB redirection"
 msgstr ""
 "La macchina a cui siete connessi non è configurata per la redirezione USB"
 
-#: src/usb-device-manager.c:1712
-msgid "Some USB devices were not found"
-msgstr "Qualche dispositivo USB non è stato trovato"
-
 #: src/usb-device-manager.c:1722
 msgid "Some USB devices are blocked by host policy"
 msgstr "Qualche dispositivo USB è bloccato da una politica host"
@@ -278,16 +244,16 @@ msgstr "Qualche dispositivo USB è bloccato da una politica host"
 msgid "There are no free USB channels"
 msgstr "Non ci sono canali USB liberi"
 
-#: src/usb-device-manager.c:1796
-#, c-format
-msgid "%s %s %s at %d-%d"
-msgstr "%s %s %s a %d-%d"
-
 #: src/usb-device-widget.c:207
 msgid "Select USB devices to redirect"
 msgstr "Selezionare dispositivi USB da redirigere"
 
-#: src/usb-device-widget.c:393
+#: src/usb-device-widget.c:385
+#, c-format
+msgid "Can't redirect: %s"
+msgstr ""
+
+#: src/usb-device-widget.c:406
 #, c-format
 msgid "Select USB devices to redirect (%d free channel)"
 msgid_plural "Select USB devices to redirect (%d free channels)"
@@ -353,6 +319,33 @@ msgstr "Opzioni connessione Spice:"
 #: tools/spice-cmdline.c:77
 msgid "Show Spice options"
 msgstr "Mostra opzioni Spice"
+
+#~ msgid "usbredir protocol parse error for %s"
+#~ msgstr "errore di formato nel protocollo usbredir per %s"
+
+#~ msgid "%s rejected by host"
+#~ msgstr "%s rifiutato dall'host"
+
+#~ msgid "%s disconnected (fatal IO error)"
+#~ msgstr "%s disconnesso (errore I/O fatale)"
+
+#~ msgid "Unknown error (%d) for %s"
+#~ msgstr "Errore sconosciuto (%d) per %s"
+
+#~ msgid "%s %s %s at %d-%d"
+#~ msgstr "%s %s %s a %d-%d"
+
+#~ msgid "missing color depth, must be 16 or 32"
+#~ msgstr "profondità colore assente, deve essere 16 o 32"
+
+#~ msgid "invalid color depth (%s), must be 16 or 32"
+#~ msgstr "profondità di colore invalida (%s), deve essere 16 o 32"
+
+#~ msgid "Device was not found"
+#~ msgstr "Dispositivo non trovato"
+
+#~ msgid "Some USB devices were not found"
+#~ msgstr "Qualche dispositivo USB non è stato trovato"
 
 #~ msgid "Authentication failed: password and username are required"
 #~ msgstr "Autenticazione fallita: note utente e password sono necessari"
