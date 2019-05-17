@@ -6,7 +6,7 @@ project('spice-gtk', 'c',
          license : 'LGPLv2.1',
          meson_version : '>= 0.49')
 
-meson.add_dist_script('sh', '-c', 'echo @0@>"$MESON_DIST_ROOT/.tarball-version"'.format(meson.project_version()))
+meson.add_dist_script('build-aux/meson-dist', meson.project_version(), meson.source_root())
 
 #
 # global C defines

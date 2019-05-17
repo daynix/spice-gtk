@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+if test "$1" = ""; then
+    echo "Version not provided" >&2
+    exit 1
+fi
+if ! test -d "$2"; then
+    echo "Source directory not provided" >&2
+    exit 1
+fi
+
+# generate tarball version
+echo "$1" > "$MESON_DIST_ROOT/.tarball-version"
+
+# add missing recorder files
+(cd "$2" && ls -1 subprojects/spice-common/common/recorder/recorder.[ch] \
+    subprojects/spice-common/common/recorder/recorder_ring.[ch] | \
+    tar cf - -T -) | (cd "$MESON_DIST_ROOT" && exec tar xf -)
+
+# generate THANKS file
+{
+	  echo "The spice-gtk team would like to thank the following contributors:"
+	  echo
+	  (cd "$2" && exec git log --format='%aN <%aE>') | sort -u
+} > "$MESON_DIST_ROOT/THANKS"

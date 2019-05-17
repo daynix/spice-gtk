@@ -27,6 +27,7 @@ EXTRA_DIST =					\
 	meson_options.txt			\
 	po/meson.build				\
 	build-aux/git-version-gen		\
+	build-aux/meson-dist			\
 	gtk-doc.make				\
 	.version				\
 	$(NULL)
