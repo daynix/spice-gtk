@@ -12,6 +12,7 @@ variables:
                polkit-devel vala lz4-devel opus-devel pixman-devel
                libcacard-devel celt051-devel libphodav-devel usbutils
                usbredir-devel libusbx-devel libsoup-devel json-glib-devel
+               bzip2
 
   DEPS_MINGW: mingw64-gcc mingw64-pkg-config mingw64-pixman mingw64-openssl
               mingw64-gtk3 mingw64-json-glib mingw64-opus
@@ -39,6 +40,19 @@ fedora-autotools:
     - make -j4
     - make check
     - cd ..
+    # Run dist, check we don't have -dirty in the build
+    - git clean -xfd
+    - git submodule foreach --recursive git clean -xfd
+    - git reset --hard HEAD
+    - ./autogen.sh --disable-dependency-tracking --enable-celt051
+    - make gitignore
+    - (cd subprojects/spice-common && make gitignore)
+    - ./autogen.sh --disable-dependency-tracking --enable-celt051
+    - if grep -q 'VERSION=.*-dirty' configure; then echo 'Version is dirty!'; false; fi
+    - make -j4
+    - make dist
+    - test -e spice-gtk-*.tar.bz2
+    - test \! -e spice-gtk-*-dirty.tar.bz2
     # Run without features
     - git clean -xfd
     - git submodule foreach --recursive git clean -xfd
