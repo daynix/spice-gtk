@@ -82,6 +82,12 @@ fedora-meson:
 
   script:
     - meson --buildtype=release build-default
+    # Meson does not update submodules recursively
+    - git submodule update --init --recursive
+    # this fix an issue with Meson dist
+    - if ! test -r ../spice-common.git; then DIR=`basename "$PWD"`; ln -s "$DIR/.git/modules/spice-common" ../spice-common.git; fi
+    - rm -rf meson-dist
+    - ninja -C build-default dist
     - ninja -C build-default
     - ninja -C build-default test
 
