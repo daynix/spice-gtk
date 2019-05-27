@@ -63,6 +63,8 @@ AC_MSG_CHECKING([for native macOS])
 case "$host_os" in
      *darwin*)
         os_mac=yes
+        # Workaround gtk+ exposing Objective C: https://gitlab.gnome.org/GNOME/gtk/issues/1737
+        CFLAGS="${CFLAGS} -ObjC"
         ;;
      *)
         os_mac=no
