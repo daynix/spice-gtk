@@ -341,6 +341,11 @@ if spice_gtk_has_gtk
                               '-DGDK_VERSION_MAX_ALLOWED=@0@'.format(gtk_encoded_version)]
 endif
 
+# Workaround gtk+ exposing Objective C: https://gitlab.gnome.org/GNOME/gtk/issues/1737
+if host_machine.system() == 'darwin'
+  spice_gtk_global_cflags += ['-ObjC']
+endif
+
 add_project_arguments(compiler.get_supported_arguments(spice_gtk_global_cflags),
                       language : 'c')
 
