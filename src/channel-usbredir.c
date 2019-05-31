@@ -292,7 +292,7 @@ static gboolean spice_usbredir_channel_open_device(
     if (rc != 0) {
         g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                     "Could not open usb device: %s [%i]",
-                    spice_usbutil_libusb_strerror(rc), rc);
+                    libusb_strerror(rc), rc);
         return FALSE;
     }
 

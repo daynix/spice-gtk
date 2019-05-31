@@ -281,7 +281,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     /* Initialize libusb */
     rc = libusb_init(&priv->context);
     if (rc < 0) {
-        const char *desc = spice_usbutil_libusb_strerror(rc);
+        const char *desc = libusb_strerror(rc);
         g_warning("Error initializing USB support: %s [%i]", desc, rc);
         g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                     "Error initializing USB support: %s [%i]", desc, rc);
@@ -308,7 +308,7 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
         LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY,
         spice_usb_device_manager_hotplug_cb, self, &priv->hp_handle);
     if (rc < 0) {
-        const char *desc = spice_usbutil_libusb_strerror(rc);
+        const char *desc = libusb_strerror(rc);
         g_warning("Error initializing USB hotplug support: %s [%i]", desc, rc);
         g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                   "Error initializing USB hotplug support: %s [%i]", desc, rc);
@@ -730,7 +730,7 @@ static gboolean spice_usb_device_manager_get_device_descriptor(
 
         bus = libusb_get_bus_number(libdev);
         addr = libusb_get_device_address(libdev);
-        errstr = spice_usbutil_libusb_strerror(errcode);
+        errstr = libusb_strerror(errcode);
         g_warning("cannot get device descriptor for (%p) %d.%d -- %s(%d)",
                   libdev, bus, addr, errstr, errcode);
         return FALSE;
@@ -1068,7 +1068,7 @@ static gpointer spice_usb_device_manager_usb_ev_thread(gpointer user_data)
     while (g_atomic_int_get(&priv->event_thread_run)) {
         rc = libusb_handle_events(priv->context);
         if (rc && rc != LIBUSB_ERROR_INTERRUPTED) {
-            const char *desc = spice_usbutil_libusb_strerror(rc);
+            const char *desc = libusb_strerror(rc);
             g_warning("Error handling USB events: %s [%i]", desc, rc);
             break;
         }
