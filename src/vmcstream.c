@@ -142,17 +142,16 @@ spice_vmc_input_stream_co_data(SpiceVmcInputStream *self,
 
         g_return_if_fail(self->task != NULL);
 
-        gsize min = MIN(self->count, size);
-        memcpy(self->buffer, data, min);
+        gsize min = MIN(self->count - self->pos, size);
+        memcpy(self->buffer + self->pos, data, min);
 
         size -= min;
         data += min;
 
-        SPICE_DEBUG("spicevmc co_data complete: %" G_GSIZE_FORMAT
-                    "/%" G_GSIZE_FORMAT, min, self->count);
-
         self->pos += min;
-        self->buffer += min;
+
+        SPICE_DEBUG("spicevmc co_data complete: %" G_GSIZE_FORMAT
+                    "/%" G_GSIZE_FORMAT, self->pos, self->count);
 
         if (self->all && min > 0 && self->pos != self->count)
             continue;
