@@ -724,6 +724,7 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
         if (try_handle_compressed_msg(compressed_data_msg, &buf, &size)) {
             /* uncompressed ok*/
         } else {
+            buf = NULL;
             r = USB_REDIR_ERROR_READ_PARSE;
         }
     } else { /* Regular SPICE_MSG_SPICEVMC_DATA msg */
@@ -733,16 +734,11 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
     spice_usbredir_channel_lock(channel);
     if (r == 0)
         r = spice_usb_backend_read_guest_data(priv->host, buf, size);
-    if (r != 0) {
+    if (r != 0 && priv->spice_device != NULL) {
         SpiceUsbDevice *spice_device = priv->spice_device;
         device_error_data err_data;
         gchar *desc;
         GError *err;
-
-        if (spice_device == NULL) {
-            spice_usbredir_channel_unlock(channel);
-            return;
-        }
 
         desc = spice_usb_device_get_description(spice_device, NULL);
         err = spice_usb_backend_get_error_details(r, desc);
@@ -763,6 +759,9 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
         g_error_free(err);
     } else {
         spice_usbredir_channel_unlock(channel);
+    }
+    if (spice_msg_in_type(in) == SPICE_MSG_SPICEVMC_COMPRESSED_DATA) {
+        g_free(buf);
     }
 }
 
