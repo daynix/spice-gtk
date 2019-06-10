@@ -740,6 +740,7 @@ VideoDecoder* create_gstreamer_decoder(int codec_type, display_stream *stream)
         decoder->base.queue_frame = spice_gst_decoder_queue_frame;
         decoder->base.codec_type = codec_type;
         decoder->base.stream = stream;
+        decoder->last_mm_time = stream_get_time(stream);
         g_mutex_init(&decoder->queues_mutex);
         decoder->decoding_queue = g_queue_new();
 
