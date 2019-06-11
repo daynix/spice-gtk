@@ -200,7 +200,7 @@ static void schedule_frame(SpiceGstDecoder *decoder)
             break;
         }
 
-        if (spice_mmtime_diff(now, gstframe->encoded_frame->mm_time) < 0) {
+        if (spice_mmtime_diff(gstframe->encoded_frame->mm_time, now) >= 0) {
             decoder->timer_id = g_timeout_add(gstframe->encoded_frame->mm_time - now,
                                               display_frame, decoder);
         } else if (decoder->display_frame && !decoder->pending_samples) {
