@@ -90,6 +90,7 @@ struct SpiceGstFrame {
     GstBuffer *encoded_buffer;
     SpiceFrame *encoded_frame;
     GstSample *decoded_sample;
+    guint queue_len;
 };
 
 static SpiceGstFrame *create_gst_frame(GstBuffer *buffer, SpiceFrame *frame)
@@ -440,11 +441,18 @@ sink_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer data)
             SpiceGstFrame *gstframe = l->data;
             const SpiceFrame *frame = gstframe->encoded_frame;
             int64_t duration = g_get_monotonic_time() - frame->creation_time;
+            /* Note that queue_len (the length of the queue prior to adding
+             * this frame) is crucial to correctly interpret the decoding time:
+             * - Less than MAX_DECODED_FRAMES means nothing blocked the
+             *   decoding of that frame.
+             * - More than MAX_DECODED_FRAMES means decoding was delayed by one
+             *   or more frame intervals.
+             */
             record(frames_stats,
                    "frame mm_time %u size %u creation time %" PRId64
-                   " decoded time %" PRId64 " queue %u",
+                   " decoded time %" PRId64 " queue %u before %u",
                    frame->mm_time, frame->size, frame->creation_time, duration,
-                   decoder->decoding_queue->length);
+                   decoder->decoding_queue->length, gstframe->queue_len);
 
             if (!decoder->appsink) {
                 /* The sink will display the frame directly so this
@@ -729,6 +737,7 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
 
     SpiceGstFrame *gst_frame = create_gst_frame(buffer, frame);
     g_mutex_lock(&decoder->queues_mutex);
+    gst_frame->queue_len = decoder->decoding_queue->length;
     g_queue_push_tail(decoder->decoding_queue, gst_frame);
     g_mutex_unlock(&decoder->queues_mutex);
 
