@@ -62,6 +62,9 @@ typedef struct SpiceGstDecoder {
 #define VALID_VIDEO_CODEC_TYPE(codec) \
     (codec > 0 && codec < G_N_ELEMENTS(gst_opts))
 
+/* Decoded frames are big so limit how many are queued by GStreamer */
+#define MAX_DECODED_FRAMES 2
+
 /* GstPlayFlags enum is in plugin's header which should not be exported.
  * https://bugzilla.gnome.org/show_bug.cgi?id=784279
  */
@@ -320,11 +323,14 @@ static void schedule_frame(SpiceGstDecoder *decoder)
 
 /* GStreamer thread
  *
- * We cannot use GStreamer's signals because they are not always run in
- * the main context. So use a callback (lower overhead) and have it pull
- * the sample to avoid a race with free_pipeline(). This means queuing the
- * decoded frames outside GStreamer. So while we're at it, also schedule
- * the frame display ourselves in schedule_frame().
+ * Decoded frames are big so we rely on GStreamer to limit how many are
+ * buffered (see MAX_DECODED_FRAMES). This means we must not pull the samples
+ * as soon as they become available. Instead just increment pending_samples so
+ * schedule_frame() knows whether it can pull a new sample when it needs one.
+ *
+ * Note that GStreamer's signals are not always run in the main context, hence
+ * the schedule_frame() + display_frame() mechanism. So we might as well use
+ * a callback here (lower overhead).
  */
 static GstFlowReturn new_sample(GstAppSink *gstappsink, gpointer video_decoder)
 {
@@ -535,7 +541,7 @@ static gboolean create_pipeline(SpiceGstDecoder *decoder)
         GstAppSinkCallbacks appsink_cbs = { NULL };
         appsink_cbs.new_sample = new_sample;
         gst_app_sink_set_callbacks(decoder->appsink, &appsink_cbs, decoder, NULL);
-        gst_app_sink_set_max_buffers(decoder->appsink, 2);
+        gst_app_sink_set_max_buffers(decoder->appsink, MAX_DECODED_FRAMES);
         gst_app_sink_set_drop(decoder->appsink, FALSE);
     }
     bus = gst_pipeline_get_bus(GST_PIPELINE(decoder->pipeline));
@@ -612,37 +618,44 @@ static void spice_gst_decoder_destroy(VideoDecoder *video_decoder)
  *
  * 1) frame->data, which contains the compressed frame data, is wrapped in a GstBuffer
  *    (encoded_buffer) which owns the SpiceFrame.
- * 2) A SpiceGstFrame is created to keep track of SpiceFrame (encoded_frame), and some
- *    additional metadata. The encoded_buffer is referenced and the SpiceGstFrame is then
- *    pushed into the decoding_queue.
+ * 2) A SpiceGstFrame is created to keep track of SpiceFrame (encoded_frame),
+ *    and additional metadata among which GStreamer's encoded_buffer the
+ *    refcount of which is incremented. The SpiceGstFrame is then pushed into
+ *    the decoding_queue.
  *
  * If GstVideoOverlay is used (window handle was obtained successfully at the widget):
  *   3) Decompressed frames will be rendered to widget directly from GStreamer's pipeline
  *      using some GStreamer sink plugin which implements the GstVideoOverlay interface
  *      (last step).
  *   4) As soon as GStreamer's pipeline no longer needs the compressed frame it will
- *      unref the encoded_buffer
- *   5) Once a decoded buffer arrives to the sink (notified by probe event) we will pop
+ *      unref the encoded_buffer.
+ *   5) Once a decoded buffer arrives to the sink sink_event_probe() will pop
  *      its matching SpiceGstFrame from the decoding_queue and free it using
- *      free_gst_frame, this will also unref the encoded_buffer which will allow
- *      GStreamer to call spice_frame_free and free its encoded_frame.
+ *      free_gst_frame(). This will also unref the encoded_buffer which will
+ *      allow GStreamer to call spice_frame_free() and free its encoded_frame.
  *
  * Otherwise appsink is used:
  *   3) Once the decompressed frame is available the GStreamer pipeline calls
  *      new_sample() in the GStreamer thread.
- *   4) new_sample() then matches the decompressed frame to a SpiceGstFrame from
- *      the decoding queue using the GStreamer timestamp information to deal with
- *      dropped frames. The SpiceGstFrame is popped from the decoding_queue.
- *   5) new_sample() then attaches the decompressed frame to the SpiceGstFrame,
- *      set into display_frame and calls schedule_frame().
- *   6) schedule_frame() then uses gstframe->encoded_frame->mm_time to arrange for
- *      display_frame() to be called, in the main thread, at the right time for
- *      the next frame.
- *   7) display_frame() uses SpiceGstFrame from display_frame and calls
+ *   4) new_sample() then increments the pending_samples count and calls
+ *      schedule_frame().
+ *   5) schedule_frame() is called whenever a new frame might need to be
+ *      displayed. If that is the case and pending_samples is non-zero it calls
+ *      fetch_pending_sample().
+ *   6) fetch_pending_sample() grabs GStreamer's latest sample and then calls
+ *      get_decoded_frame() which compares the GStreamer's buffer timestamp to
+ *      gstframe->encoded_frame->mm_time to match it with a decoding_queue
+ *      entry.
+ *   7) fetch_pending_sample() then attaches the sample to the SpiceGstFrame,
+ *      and sets display_frame.
+ *   8) schedule_frame() then uses display_frame->encoded_frame->mm_time to
+ *      arrange for display_frame() to be called, in the main thread, at the
+ *      right time.
+ *   9) display_frame() uses SpiceGstFrame from display_frame and calls
  *      stream_display_frame().
- *   8) display_frame() then calls to free_gst_frame to free the SpiceGstFrame and
- *      unref the encoded_buffer which allows GStreamer to call spice_frame_free
- *      and free its encoded_frame.
+ *  10) display_frame() then calls free_gst_frame() to free the SpiceGstFrame
+ *      and unref the encoded_buffer which allows GStreamer to call
+ *      spice_frame_free() and free its encoded_frame.
  */
 static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
                                               SpiceFrame *frame, int latency)
