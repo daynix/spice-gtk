@@ -1603,27 +1603,27 @@ static void display_stream_stats_debug(display_stream *st)
 
 
 static void display_stream_stats_save(display_stream *st,
-                                      guint32 server_mmtime,
-                                      guint32 client_mmtime)
+                                      guint32 frame_mmtime,
+                                      guint32 current_mmtime)
 {
-    gint32 margin = server_mmtime - client_mmtime;
+    gint32 margin = frame_mmtime - current_mmtime;
 
     if (!st->num_input_frames) {
-        st->first_frame_mm_time = server_mmtime;
+        st->first_frame_mm_time = frame_mmtime;
     }
     st->num_input_frames++;
 
     if (margin < 0) {
         CHANNEL_DEBUG(st->channel, "stream data too late by %u ms (ts: %u, mmtime: %u)",
-                      client_mmtime - server_mmtime, server_mmtime, client_mmtime);
-        st->arrive_late_time += client_mmtime - server_mmtime;
+                      current_mmtime - frame_mmtime, frame_mmtime, current_mmtime);
+        st->arrive_late_time += current_mmtime - frame_mmtime;
         st->arrive_late_count++;
 
         /* Late frames are counted as drops in the stats but aren't necessarily dropped - depends
          * on codec and decoder
          */
         if (!st->cur_drops_seq_stats.len) {
-            st->cur_drops_seq_stats.start_mm_time = server_mmtime;
+            st->cur_drops_seq_stats.start_mm_time = frame_mmtime;
         }
         st->cur_drops_seq_stats.len++;
         st->playback_sync_drops_seq_len++;
@@ -1632,7 +1632,7 @@ static void display_stream_stats_save(display_stream *st,
 
     CHANNEL_DEBUG(st->channel, "video margin: %d", margin);
     if (st->cur_drops_seq_stats.len) {
-        st->cur_drops_seq_stats.duration = server_mmtime -
+        st->cur_drops_seq_stats.duration = frame_mmtime -
                                            st->cur_drops_seq_stats.start_mm_time;
         g_array_append_val(st->drops_seqs_stats_arr, st->cur_drops_seq_stats);
         memset(&st->cur_drops_seq_stats, 0, sizeof(st->cur_drops_seq_stats));
@@ -1643,7 +1643,7 @@ static void display_stream_stats_save(display_stream *st,
 
 static SpiceFrame *spice_frame_new(display_stream *st,
                                    SpiceMsgIn *in,
-                                   guint32 server_mmtime)
+                                   guint32 frame_mmtime)
 {
     SpiceFrame *frame;
     guint8 *data_ptr;
@@ -1651,7 +1651,7 @@ static SpiceFrame *spice_frame_new(display_stream *st,
     guint32 data_size = spice_msg_in_frame_data(in, &data_ptr);
 
     frame = g_new(SpiceFrame, 1);
-    frame->mm_time = server_mmtime;
+    frame->mm_time = frame_mmtime;
     frame->dest = *dest_rect;
     frame->data = data_ptr;
     frame->size = data_size;
