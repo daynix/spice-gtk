@@ -120,8 +120,6 @@ static void free_gst_frame(SpiceGstFrame *gstframe)
 /* ---------- GStreamer pipeline ---------- */
 
 static void schedule_frame(SpiceGstDecoder *decoder);
-static void fetch_pending_sample(SpiceGstDecoder *decoder);
-static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer);
 
 RECORDER(frames_stats, 64, "Frames statistics");
 
@@ -184,46 +182,10 @@ static gboolean display_frame(gpointer video_decoder)
     return G_SOURCE_REMOVE;
 }
 
-/* main loop or GStreamer streaming thread */
-static void schedule_frame(SpiceGstDecoder *decoder)
-{
-    guint32 now = stream_get_time(decoder->base.stream);
-    g_mutex_lock(&decoder->queues_mutex);
-
-    while (!decoder->timer_id) {
-        while (decoder->display_frame == NULL && decoder->pending_samples) {
-            fetch_pending_sample(decoder);
-        }
-
-        SpiceGstFrame *gstframe = decoder->display_frame;
-        if (!gstframe) {
-            break;
-        }
-
-        if (spice_mmtime_diff(gstframe->encoded_frame->mm_time, now) >= 0) {
-            decoder->timer_id = g_timeout_add(gstframe->encoded_frame->mm_time - now,
-                                              display_frame, decoder);
-        } else if (decoder->display_frame && !decoder->pending_samples) {
-            /* Still attempt to display the least out of date frame so the
-             * video is not completely frozen for an extended period of time.
-             */
-            decoder->timer_id = g_timeout_add(0, display_frame, decoder);
-        } else {
-            SPICE_DEBUG("%s: rendering too late by %u ms (ts: %u, mmtime: %u), dropping",
-                        __FUNCTION__, now - gstframe->encoded_frame->mm_time,
-                        gstframe->encoded_frame->mm_time, now);
-            stream_dropped_frame_on_playback(decoder->base.stream);
-            decoder->display_frame = NULL;
-            free_gst_frame(gstframe);
-        }
-    }
-
-    g_mutex_unlock(&decoder->queues_mutex);
-}
-
 /* Get the decoded frame relative to buffer or NULL if not found.
  * Dequeue the frame from decoding_queue and return it, caller
  * is responsible to free the pointer.
+ *
  * queues_mutex must be held.
  */
 static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer)
@@ -283,6 +245,10 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
     return gstframe;
 }
 
+/* Helper for schedule_frame().
+ *
+ * queues_mutex must be held.
+ */
 static void fetch_pending_sample(SpiceGstDecoder *decoder)
 {
     GstSample *sample = gst_app_sink_pull_sample(decoder->appsink);
@@ -313,6 +279,43 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
         decoder->pending_samples = 0;
         spice_warning("GStreamer error: could not pull sample");
     }
+}
+
+/* main loop or GStreamer streaming thread */
+static void schedule_frame(SpiceGstDecoder *decoder)
+{
+    guint32 now = stream_get_time(decoder->base.stream);
+    g_mutex_lock(&decoder->queues_mutex);
+
+    while (!decoder->timer_id) {
+        while (decoder->display_frame == NULL && decoder->pending_samples) {
+            fetch_pending_sample(decoder);
+        }
+
+        SpiceGstFrame *gstframe = decoder->display_frame;
+        if (!gstframe) {
+            break;
+        }
+
+        if (spice_mmtime_diff(gstframe->encoded_frame->mm_time, now) >= 0) {
+            decoder->timer_id = g_timeout_add(gstframe->encoded_frame->mm_time - now,
+                                              display_frame, decoder);
+        } else if (decoder->display_frame && !decoder->pending_samples) {
+            /* Still attempt to display the least out of date frame so the
+             * video is not completely frozen for an extended period of time.
+             */
+            decoder->timer_id = g_timeout_add(0, display_frame, decoder);
+        } else {
+            SPICE_DEBUG("%s: rendering too late by %u ms (ts: %u, mmtime: %u), dropping",
+                        __FUNCTION__, now - gstframe->encoded_frame->mm_time,
+                        gstframe->encoded_frame->mm_time, now);
+            stream_dropped_frame_on_playback(decoder->base.stream);
+            decoder->display_frame = NULL;
+            free_gst_frame(gstframe);
+        }
+    }
+
+    g_mutex_unlock(&decoder->queues_mutex);
 }
 
 /* GStreamer thread
