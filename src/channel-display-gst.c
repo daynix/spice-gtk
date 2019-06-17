@@ -679,7 +679,7 @@ static void spice_gst_decoder_destroy(VideoDecoder *video_decoder)
  *      spice_frame_free() and free its encoded_frame.
  */
 static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
-                                              SpiceFrame *frame, int latency)
+                                              SpiceFrame *frame, int margin)
 {
     SpiceGstDecoder *decoder = (SpiceGstDecoder*)video_decoder;
 
@@ -697,7 +697,7 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
     }
     decoder->last_mm_time = frame->mm_time;
 
-    if (latency < 0 &&
+    if (margin < 0 &&
         decoder->base.codec_type == SPICE_VIDEO_CODEC_TYPE_MJPEG) {
         /* Dropping MJPEG frames has no impact on those that follow and
          * saves CPU so do it.
@@ -726,7 +726,7 @@ static gboolean spice_gst_decoder_queue_frame(VideoDecoder *video_decoder,
                                                     frame->data, frame->size, 0, frame->size,
                                                     frame, (GDestroyNotify) spice_frame_free);
 
-    GstClockTime pts = gst_clock_get_time(decoder->clock) - gst_element_get_base_time(decoder->pipeline) + ((uint64_t)MAX(0, latency)) * 1000 * 1000;
+    GstClockTime pts = gst_clock_get_time(decoder->clock) - gst_element_get_base_time(decoder->pipeline) + ((uint64_t)MAX(0, margin)) * 1000 * 1000;
     GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
     GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
     GST_BUFFER_PTS(buffer) = pts;

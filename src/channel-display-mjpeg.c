@@ -219,7 +219,7 @@ static void mjpeg_decoder_drop_queue(MJpegDecoder *decoder)
 /* ---------- VideoDecoder's public API ---------- */
 
 static gboolean mjpeg_decoder_queue_frame(VideoDecoder *video_decoder,
-                                          SpiceFrame *frame, int32_t latency)
+                                          SpiceFrame *frame, int32_t margin)
 {
     MJpegDecoder *decoder = (MJpegDecoder*)video_decoder;
     SpiceFrame *last_frame;
@@ -239,7 +239,7 @@ static gboolean mjpeg_decoder_queue_frame(VideoDecoder *video_decoder,
     /* Dropped MJPEG frames don't impact the ones that come after.
      * So drop late frames as early as possible to save on processing time.
      */
-    if (latency < 0) {
+    if (margin < 0) {
         SPICE_DEBUG("dropping a late MJPEG frame");
         spice_frame_free(frame);
         return TRUE;

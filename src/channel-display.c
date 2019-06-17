@@ -1432,7 +1432,7 @@ gboolean hand_pipeline_to_widget(display_stream *st, GstPipeline *pipeline)
 #define STREAM_REPORT_DROP_SEQ_LEN_LIMIT 3
 
 static void display_update_stream_report(SpiceDisplayChannel *channel, uint32_t stream_id,
-                                         uint32_t frame_time, int32_t latency)
+                                         uint32_t frame_time, int32_t margin)
 {
     display_stream *st = get_stream_by_id(SPICE_CHANNEL(channel), stream_id);
     guint64 now;
@@ -1449,7 +1449,7 @@ static void display_update_stream_report(SpiceDisplayChannel *channel, uint32_t 
     }
     st->report_num_frames++;
 
-    if (latency < 0) { // drop
+    if (margin < 0) { // drop
         st->report_num_drops++;
         st->report_drops_seq_len++;
     } else {
@@ -1469,7 +1469,7 @@ static void display_update_stream_report(SpiceDisplayChannel *channel, uint32_t 
         report.end_frame_mm_time = frame_time;
         report.num_frames = st->report_num_frames;
         report.num_drops = st-> report_num_drops;
-        report.last_frame_delay = latency;
+        report.last_frame_delay = margin;
         if (spice_session_is_playback_active(session)) {
             report.audio_delay = spice_session_get_playback_latency(session);
         } else {
@@ -1606,14 +1606,14 @@ static void display_stream_stats_save(display_stream *st,
                                       guint32 server_mmtime,
                                       guint32 client_mmtime)
 {
-    gint32 latency = server_mmtime - client_mmtime;
+    gint32 margin = server_mmtime - client_mmtime;
 
     if (!st->num_input_frames) {
         st->first_frame_mm_time = server_mmtime;
     }
     st->num_input_frames++;
 
-    if (latency < 0) {
+    if (margin < 0) {
         CHANNEL_DEBUG(st->channel, "stream data too late by %u ms (ts: %u, mmtime: %u)",
                       client_mmtime - server_mmtime, server_mmtime, client_mmtime);
         st->arrive_late_time += client_mmtime - server_mmtime;
@@ -1630,7 +1630,7 @@ static void display_stream_stats_save(display_stream *st,
         return;
     }
 
-    CHANNEL_DEBUG(st->channel, "video latency: %d", latency);
+    CHANNEL_DEBUG(st->channel, "video margin: %d", margin);
     if (st->cur_drops_seq_stats.len) {
         st->cur_drops_seq_stats.duration = server_mmtime -
                                            st->cur_drops_seq_stats.start_mm_time;
@@ -1679,7 +1679,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
     SpiceStreamDataHeader *op = spice_msg_in_parsed(in);
     display_stream *st = get_stream_by_id(channel, op->id);
     guint32 mmtime;
-    int32_t latency, latency_report;
+    int32_t margin, margin_report;
     SpiceFrame *frame;
 
     g_return_if_fail(st != NULL);
@@ -1694,13 +1694,13 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
         op->multi_media_time = mmtime + 100; /* workaround... */
     }
 
-    latency = latency_report = op->multi_media_time - mmtime;
-    if (latency > 0) {
+    margin = margin_report = op->multi_media_time - mmtime;
+    if (margin > 0) {
         SpiceSession *s = spice_channel_get_session(channel);
 
         if (st->surface->streaming_mode && !spice_session_is_playback_active(s)) {
-            CHANNEL_DEBUG(channel, "video latency: %d, set to 0 since there is no playback", latency);
-            latency = 0;
+            CHANNEL_DEBUG(channel, "video margin: %d, set to 0 since there is no playback", margin);
+            margin = 0;
         }
     }
     display_stream_stats_save(st, op->multi_media_time, mmtime);
@@ -1710,7 +1710,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
      * taking into account the impact on later frames.
      */
     frame = spice_frame_new(st, in, op->multi_media_time);
-    if (!st->video_decoder->queue_frame(st->video_decoder, frame, latency)) {
+    if (!st->video_decoder->queue_frame(st->video_decoder, frame, margin)) {
         destroy_stream(channel, op->id);
         report_invalid_stream(channel, op->id);
         return;
@@ -1718,7 +1718,7 @@ static void display_handle_stream_data(SpiceChannel *channel, SpiceMsgIn *in)
 
     if (c->enable_adaptive_streaming) {
         display_update_stream_report(SPICE_DISPLAY_CHANNEL(channel), op->id,
-                                     op->multi_media_time, latency_report);
+                                     op->multi_media_time, margin_report);
         if (st->playback_sync_drops_seq_len >= STREAM_PLAYBACK_SYNC_DROP_SEQ_LEN_LIMIT) {
             spice_session_sync_playback_latency(spice_channel_get_session(channel));
             st->playback_sync_drops_seq_len = 0;
