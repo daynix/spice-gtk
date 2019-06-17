@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
-   Copyright (C) 2015-2016 CodeWeavers, Inc
+   Copyright (C) 2015-2016, 2019 CodeWeavers, Inc
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
@@ -185,13 +185,16 @@ static gboolean display_frame(gpointer video_decoder)
     return G_SOURCE_REMOVE;
 }
 
-/* Get the decoded frame relative to buffer or NULL if not found.
- * Dequeue the frame from decoding_queue and return it, caller
- * is responsible to free the pointer.
+/* Returns the decoding queue entry that matches the specified GStreamer buffer.
+ *
+ * The entry is identified based on the buffer timestamp. However sometimes
+ * GStreamer returns the same buffer twice (and the second time the entry may
+ * have been removed already) or buffers that have a modified, and thus
+ * unrecognizable, timestamp. In such cases NULL is returned.
  *
  * queues_mutex must be held.
  */
-static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buffer)
+static GList *find_frame_entry(SpiceGstDecoder *decoder, GstBuffer *buffer)
 {
     GstClockTime buffer_ts = GST_BUFFER_PTS(buffer);
 #if GST_CHECK_VERSION(1,14,0)
@@ -203,49 +206,34 @@ static SpiceGstFrame *get_decoded_frame(SpiceGstDecoder *decoder, GstBuffer *buf
     }
 #endif
 
-    /* Gstreamer sometimes returns the same buffer twice
-     * or buffers that have a modified, and thus unrecognizable, PTS.
-     * Blindly removing frames from the decoding_queue until we find a
-     * match would only empty the queue, resulting in later buffers not
-     * finding a match either, etc. So check the buffer has a matching
-     * frame first.
-     */
-    SpiceGstFrame *gstframe = NULL;
     GList *l = g_queue_peek_head_link(decoder->decoding_queue);
     while (l) {
-        gstframe = l->data;
+        const SpiceGstFrame *gstframe = l->data;
         if (gstframe->timestamp == buffer_ts) {
-            break;
+            return l;
         }
-        gstframe = NULL;
         l = l->next;
     }
 
-    if (gstframe != NULL) {
-        /* Now that we know there is a match, remove it and the older
-         * frames from the decoding queue */
-        SpiceGstFrame *late_frame;
-        guint num_frames_dropped = 0;
+    return NULL;
+}
 
-        /* The GStreamer pipeline dropped the corresponding buffer. */
-        while ((late_frame = g_queue_pop_head(decoder->decoding_queue)) != gstframe) {
-            num_frames_dropped++;
-            free_gst_frame(late_frame);
-        }
+/* Pops the queued frames up to and including the specified frame.
+ * All frames are freed except that last frame which belongs to the caller.
+ * Returns the number of freed frames.
+ *
+ * queues_mutex must be held.
+ */
+static guint32 pop_up_to_frame(SpiceGstDecoder *decoder, const SpiceGstFrame *popframe)
+{
+    SpiceGstFrame *gstframe;
+    guint32 freed = 0;
 
-        if (num_frames_dropped != 0) {
-            SPICE_DEBUG("the GStreamer pipeline dropped %u frames", num_frames_dropped);
-        }
-
-        const SpiceFrame *frame = gstframe->encoded_frame;
-        int64_t duration = g_get_monotonic_time() - frame->creation_time;
-        record(frames_stats,
-               "frame mm_time %u size %u creation time %" PRId64
-               " decoded time %" PRId64 " queue %u",
-               frame->mm_time, frame->size, frame->creation_time,
-               duration, decoder->decoding_queue->length);
+    while ((gstframe = g_queue_pop_head(decoder->decoding_queue)) != popframe) {
+        free_gst_frame(gstframe);
+        freed++;
     }
-    return gstframe;
+    return freed;
 }
 
 /* Helper for schedule_frame().
@@ -268,8 +256,16 @@ static void fetch_pending_sample(SpiceGstDecoder *decoder)
          * finding a match either, etc. So check the buffer has a matching
          * frame first.
          */
-        SpiceGstFrame *gstframe = get_decoded_frame(decoder, buffer);
-        if (gstframe) {
+        GList *l = find_frame_entry(decoder, buffer);
+        if (l) {
+            SpiceGstFrame *gstframe = l->data;
+
+            /* Dequeue this and any dropped frames */
+            guint32 dropped = pop_up_to_frame(decoder, gstframe);
+            if (dropped) {
+                SPICE_DEBUG("the GStreamer pipeline dropped %u frames", dropped);
+            }
+
             /* The frame is now ready for display */
             gstframe->decoded_sample = sample;
             decoder->display_frame = gstframe;
@@ -438,10 +434,28 @@ sink_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer data)
     if (info->type & GST_PAD_PROBE_TYPE_BUFFER) { // Buffer arrived
         GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
         g_mutex_lock(&decoder->queues_mutex);
-        SpiceGstFrame *gstframe = get_decoded_frame(decoder, buffer);
-        if (gstframe) {
-            free_gst_frame(gstframe);
+
+        GList *l = find_frame_entry(decoder, buffer);
+        if (l) {
+            SpiceGstFrame *gstframe = l->data;
+            const SpiceFrame *frame = gstframe->encoded_frame;
+            int64_t duration = g_get_monotonic_time() - frame->creation_time;
+            record(frames_stats,
+                   "frame mm_time %u size %u creation time %" PRId64
+                   " decoded time %" PRId64 " queue %u",
+                   frame->mm_time, frame->size, frame->creation_time, duration,
+                   decoder->decoding_queue->length);
+
+            if (!decoder->appsink) {
+                /* The sink will display the frame directly so this
+                 * SpiceGstFrame and those of any dropped frame are no longer
+                 * needed.
+                 */
+                pop_up_to_frame(decoder, gstframe);
+                free_gst_frame(gstframe);
+            }
         }
+
         g_mutex_unlock(&decoder->queues_mutex);
     }
     return GST_PAD_PROBE_OK;
@@ -452,9 +466,8 @@ static void
 deep_element_added_cb(GstBin *pipeline, GstBin *bin, GstElement *element,
                       SpiceGstDecoder *decoder)
 {
-    /* attach a probe to the sink in case we don't have appsink (that
-     * is the frames does not go to new_sample */
-    if (GST_IS_BASE_SINK(element) && decoder->appsink == NULL) {
+    /* Attach a probe to the sink to update the statistics */
+    if (GST_IS_BASE_SINK(element)) {
         GstPad *pad = gst_element_get_static_pad(element, "sink");
         gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, sink_event_probe, decoder, NULL);
         gst_object_unref(pad);
