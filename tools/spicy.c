@@ -1014,8 +1014,35 @@ static void video_codec_type_cb(GtkRadioAction *action G_GNUC_UNUSED,
                                 GtkRadioAction *current,
                                 gpointer user_data)
 {
-    spice_display_channel_change_preferred_video_codec_type(SPICE_CHANNEL(user_data),
-                                                            gtk_radio_action_get_current_value(current));
+    static GArray *preferred_codecs = NULL;
+    gint selected_codec = gtk_radio_action_get_current_value(current);
+    guint i;
+    GError *err = NULL;
+
+    if (!preferred_codecs) {
+        preferred_codecs = g_array_sized_new(FALSE, FALSE,
+                                             sizeof(gint),
+                                             G_N_ELEMENTS(video_codec_type_entries));
+        /* initialize with the menu ordering */
+        for (i = 0; i < G_N_ELEMENTS(video_codec_type_entries); i++) {
+            g_array_append_val(preferred_codecs, video_codec_type_entries[i].value);
+        }
+    }
+
+    /* remove codec from array and insert at the beginning */
+    for (i = 0; i < preferred_codecs->len &&
+                g_array_index(preferred_codecs, gint, i) != selected_codec; i++);
+
+    g_assert(i < preferred_codecs->len);
+    g_array_remove_index(preferred_codecs, i);
+    g_array_prepend_val(preferred_codecs, selected_codec);
+
+    if (!spice_display_channel_change_preferred_video_codec_types(SPICE_CHANNEL(user_data),
+                                                                  (gint *) preferred_codecs->data,
+                                                                  preferred_codecs->len, &err)) {
+        g_warning("setting preferred video codecs failed: %s", err->message);
+        g_error_free(err);
+    }
 }
 
 static void
