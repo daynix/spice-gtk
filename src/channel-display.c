@@ -20,6 +20,7 @@
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
+#include <glib/gi18n-lib.h>
 
 #include "spice-client.h"
 #include "spice-common.h"
@@ -610,18 +611,15 @@ void spice_display_channel_change_preferred_compression(SpiceChannel *channel, g
 }
 
 static void spice_display_send_client_preferred_video_codecs(SpiceChannel *channel,
-                                                             const GArray *codecs)
+                                                             const gint *codecs, gsize ncodecs)
 {
-    guint i;
     SpiceMsgOut *out;
     SpiceMsgcDisplayPreferredVideoCodecType *msg;
 
     msg = g_malloc0(sizeof(SpiceMsgcDisplayPreferredVideoCodecType) +
-                    (sizeof(SpiceVideoCodecType) * codecs->len));
-    msg->num_of_codecs = codecs->len;
-    for (i = 0; i < codecs->len; i++) {
-        msg->codecs[i] = g_array_index(codecs, gint, i);
-    }
+                    (sizeof(SpiceVideoCodecType) * ncodecs));
+    msg->num_of_codecs = ncodecs;
+    memcpy(msg->codecs, codecs, sizeof(*codecs) * ncodecs);
 
     out = spice_msg_out_new(channel, SPICE_MSGC_DISPLAY_PREFERRED_VIDEO_CODEC_TYPE);
     out->marshallers->msgc_display_preferred_video_codec_type(out->marshaller, msg);
@@ -656,11 +654,10 @@ void spice_display_change_preferred_video_codec_type(SpiceChannel *channel, gint
  * display channel.
  *
  * Since: 0.35
+ * Deprecated: 0.38: use spice_display_channel_change_preferred_video_codec_types() instead.
  */
 void spice_display_channel_change_preferred_video_codec_type(SpiceChannel *channel, gint codec_type)
 {
-    GArray *codecs;
-
     g_return_if_fail(SPICE_IS_DISPLAY_CHANNEL(channel));
     g_return_if_fail(codec_type >= SPICE_VIDEO_CODEC_TYPE_MJPEG &&
                      codec_type < SPICE_VIDEO_CODEC_TYPE_ENUM_END);
@@ -675,10 +672,64 @@ void spice_display_channel_change_preferred_video_codec_type(SpiceChannel *chann
      * This array can be rearranged to have @codec_type in the front (which is
      * the preferred for the client side) */
     CHANNEL_DEBUG(channel, "changing preferred video codec type to %s", gst_opts[codec_type].name);
-    codecs = g_array_new(FALSE, FALSE, sizeof(gint));
-    g_array_append_val(codecs, codec_type);
-    spice_display_send_client_preferred_video_codecs(channel, codecs);
-    g_array_unref(codecs);
+    spice_display_send_client_preferred_video_codecs(channel, &codec_type, 1);
+}
+
+/**
+ * spice_display_channel_change_preferred_video_codecs_types:
+ * @channel: a #SpiceDisplayChannel
+ * @codecs: an array of @ncodecs #SpiceVideoCodecType types
+ * @ncodecs: the number of codec types in the @codecs array
+ * @err: #GError describing the reason why the change failed
+ *
+ * Tells the spice server the ordered preferred video codec types to
+ * use for streaming in @channel.
+ *
+ * Returns: %TRUE if the preferred codec list was successfully changed, and %FALSE
+ * otherwise.
+ *
+ * Since: 0.38
+ */
+gboolean spice_display_channel_change_preferred_video_codec_types(SpiceChannel *channel,
+                                                                  const gint *codecs, gsize ncodecs,
+                                                                  GError **err)
+{
+    gsize i;
+    GString *msg;
+
+    g_return_val_if_fail(SPICE_IS_DISPLAY_CHANNEL(channel), FALSE);
+    g_return_val_if_fail(ncodecs != 0, FALSE);
+
+    if (!spice_channel_test_capability(channel, SPICE_DISPLAY_CAP_PREF_VIDEO_CODEC_TYPE)) {
+        CHANNEL_DEBUG(channel, "does not have capability to change the preferred video codec type");
+        g_set_error_literal(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                            _("Channel does not have capability to change the preferred video codec type"));
+
+        return FALSE;
+    }
+
+    msg = g_string_new("changing preferred video codec type to: ");
+    for (i = 0; i < ncodecs; i++) {
+        gint codec_type = codecs[i];
+
+        if (codec_type < SPICE_VIDEO_CODEC_TYPE_MJPEG ||
+            codec_type >= SPICE_VIDEO_CODEC_TYPE_ENUM_END) {
+            g_string_free(msg, TRUE);
+            g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                        _("Invalid codec-type found (%d) ... "), codec_type);
+
+            return FALSE;
+        }
+
+        g_string_append_printf(msg, "%s ", gst_opts[codec_type].name);
+
+    }
+    CHANNEL_DEBUG(channel, "%s", msg->str);
+    g_string_free(msg, TRUE);
+
+    spice_display_send_client_preferred_video_codecs(channel, codecs, ncodecs);
+
+    return TRUE;
 }
 
 /**
