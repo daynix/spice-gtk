@@ -335,15 +335,15 @@ static void demux_to_client(Client *client)
 
     CHANNEL_DEBUG(client->self, "pushing %"G_GSIZE_FORMAT" to client %p", size, client);
 
-    if (size > 0) {
-        g_output_stream_write_all_async(g_io_stream_get_output_stream(client->pipe),
-                                        c->demux.buf, size, G_PRIORITY_DEFAULT,
-                                        c->cancellable, demux_to_client_cb, client);
+    if (size == 0) {
+        /* Client disconnected */
+        demux_to_client_finish(client, TRUE);
         return;
-    } else {
-        /* Nothing to write */
-        demux_to_client_finish(client, FALSE);
     }
+
+    g_output_stream_write_all_async(g_io_stream_get_output_stream(client->pipe),
+                                    c->demux.buf, size, G_PRIORITY_DEFAULT,
+                                    c->cancellable, demux_to_client_cb, client);
 #endif
 }
 
