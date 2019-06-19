@@ -421,8 +421,12 @@ static void data_read_cb(GObject *source_object,
 
     if (client)
         demux_to_client(client);
-    else
+    else if (size > 0) {
         start_client(self);
+    } else {
+        c->demuxing = FALSE;
+        start_demux(self);
+    }
 }
 
 
