@@ -409,7 +409,9 @@ static void data_read_cb(GObject *source_object,
 
     size = spice_vmc_input_stream_read_all_finish(G_INPUT_STREAM(source_object), res, &error);
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
         return;
     }
@@ -453,7 +455,9 @@ static void size_read_cb(GObject *source_object,
 
 end:
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
     }
 }
@@ -480,7 +484,9 @@ static void client_read_cb(GObject *source_object,
 
 end:
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
     }
 }
