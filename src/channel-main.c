@@ -1755,7 +1755,7 @@ static void main_handle_channels_list(SpiceChannel *channel, SpiceMsgIn *in)
         c->session = g_object_ref(session);
         c->type = msg->channels[i].type;
         c->id = msg->channels[i].id;
-        /* no need to explicitely switch to main context, since
+        /* no need to explicitly switch to main context, since
            synchronous call is not needed. */
         /* no need to track idle, session is refed */
         g_idle_add((GSourceFunc)_channel_new, c);
