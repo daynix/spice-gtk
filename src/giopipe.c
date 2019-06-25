@@ -420,7 +420,7 @@ pipe_output_stream_is_writable (GPollableOutputStream *stream)
     PipeOutputStream *self = PIPE_OUTPUT_STREAM(stream);
     gboolean writable;
 
-    writable = self->buffer == NULL || self->peer->read >= 0 || self->peer_closed;
+    writable = self->buffer == NULL || self->peer_closed || self->peer->read >= 0;
     //g_debug("writable %p %d", self, writable);
 
     return writable;

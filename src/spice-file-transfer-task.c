@@ -327,7 +327,7 @@ void spice_file_transfer_task_completed(SpiceFileTransferTask *self,
                                self);
     self->pending = TRUE;
 signal:
-    g_signal_emit(self, task_signals[SIGNAL_FINISHED], 0, self->error);
+    g_coroutine_signal_emit(self, task_signals[SIGNAL_FINISHED], 0, self->error);
     /* SpiceFileTransferTask unref is done after input stream is closed */
 }
 
@@ -433,8 +433,8 @@ void spice_file_transfer_task_read_async(SpiceFileTransferTask *self,
     /* Notify the progress prior the read to make the info be related to the
      * data that was already sent. To notify the 100% (completed), channel-main
      * should call read-async when it expects EOF. */
-    g_object_notify(G_OBJECT(self), "progress");
-    g_object_notify(G_OBJECT(self), "transferred-bytes");
+    g_coroutine_object_notify(G_OBJECT(self), "progress");
+    g_coroutine_object_notify(G_OBJECT(self), "transferred-bytes");
 
     task = g_task_new(self, self->cancellable, callback, userdata);
 

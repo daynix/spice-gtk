@@ -209,6 +209,11 @@ spice_vmc_input_stream_read_all_async(GInputStream        *stream,
                       cancellable,
                       callback,
                       user_data);
+    if (count == 0) {
+        g_task_return_int(task, 0);
+        g_object_unref(task);
+        return;
+    }
     self->task = task;
     if (cancellable)
         self->cancel_id =

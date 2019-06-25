@@ -335,15 +335,15 @@ static void demux_to_client(Client *client)
 
     CHANNEL_DEBUG(client->self, "pushing %"G_GSIZE_FORMAT" to client %p", size, client);
 
-    if (size > 0) {
-        g_output_stream_write_all_async(g_io_stream_get_output_stream(client->pipe),
-                                        c->demux.buf, size, G_PRIORITY_DEFAULT,
-                                        c->cancellable, demux_to_client_cb, client);
+    if (size == 0) {
+        /* Client disconnected */
+        demux_to_client_finish(client, TRUE);
         return;
-    } else {
-        /* Nothing to write */
-        demux_to_client_finish(client, FALSE);
     }
+
+    g_output_stream_write_all_async(g_io_stream_get_output_stream(client->pipe),
+                                    c->demux.buf, size, G_PRIORITY_DEFAULT,
+                                    c->cancellable, demux_to_client_cb, client);
 #endif
 }
 
@@ -409,7 +409,9 @@ static void data_read_cb(GObject *source_object,
 
     size = spice_vmc_input_stream_read_all_finish(G_INPUT_STREAM(source_object), res, &error);
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
         return;
     }
@@ -421,8 +423,12 @@ static void data_read_cb(GObject *source_object,
 
     if (client)
         demux_to_client(client);
-    else
+    else if (size > 0) {
         start_client(self);
+    } else {
+        c->demuxing = FALSE;
+        start_demux(self);
+    }
 }
 
 
@@ -449,7 +455,9 @@ static void size_read_cb(GObject *source_object,
 
 end:
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
     }
 }
@@ -476,7 +484,9 @@ static void client_read_cb(GObject *source_object,
 
 end:
     if (error) {
-        g_warning("error: %s", error->message);
+        if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            g_warning("error: %s", error->message);
+        }
         g_clear_error(&error);
     }
 }
