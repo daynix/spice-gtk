@@ -179,6 +179,8 @@ static void output_queue_push(OutputQueue *q, const guint8 *buf, gsize size,
         q->idle_id = g_idle_add(output_queue_idle, q);
 }
 
+#define MAX_MUX_SIZE G_MAXUINT16
+
 typedef struct Client
 {
     guint refs;
@@ -187,10 +189,10 @@ typedef struct Client
     gint64 id;
     GCancellable *cancellable;
 
-    struct _mux {
+    struct {
         gint64 id;
         guint16 size;
-        guint8 *buf;
+        guint8 buf[MAX_MUX_SIZE];
     } mux;
 } Client;
 
@@ -199,8 +201,6 @@ client_unref(Client *client)
 {
     if (--client->refs > 0)
         return;
-
-    g_free(client->mux.buf);
 
     g_object_unref(client->pipe);
     g_object_unref(client->cancellable);
@@ -239,8 +239,6 @@ static void mux_pushed_cb(OutputQueue *q, gpointer user_data)
     client_unref(client);
 }
 
-#define MAX_MUX_SIZE G_MAXUINT16
-
 static void server_reply_cb(GObject *source_object,
                             GAsyncResult *res,
                             gpointer user_data)
@@ -256,12 +254,10 @@ static void server_reply_cb(GObject *source_object,
 
     g_return_if_fail(size <= MAX_MUX_SIZE);
     g_return_if_fail(size >= 0);
-    client->mux.size = size;
+    client->mux.size = GUINT16_TO_LE(size);
 
-    output_queue_push(c->queue, (guint8 *)&client->mux.id, sizeof(gint64), NULL, NULL);
-    client->mux.size = GUINT16_TO_LE(client->mux.size);
-    output_queue_push(c->queue, (guint8 *)&client->mux.size, sizeof(guint16), NULL, NULL);
-    output_queue_push(c->queue, (guint8 *)client->mux.buf, size, (GFunc)mux_pushed_cb, client);
+    output_queue_push(c->queue, (guint8 *)&client->mux, sizeof(gint64) + sizeof(guint16) + size,
+                      (GFunc)mux_pushed_cb, client);
 
     return;
 
@@ -369,7 +365,6 @@ static void start_client(SpiceWebdavChannel *self)
     client->id = c->demux.client;
     client->self = self;
     client->mux.id = GINT64_TO_LE(client->id);
-    client->mux.buf = g_malloc0(MAX_MUX_SIZE);
     client->cancellable = g_cancellable_new();
     spice_make_pipe(&client->pipe, &peer);
 
