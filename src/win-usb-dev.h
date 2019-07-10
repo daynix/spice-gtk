@@ -23,6 +23,7 @@
 #define __WIN_USB_DEV_H__
 
 #include <gio/gio.h>
+#include "usb-backend.h"
 
 G_BEGIN_DECLS
 
@@ -51,12 +52,12 @@ struct _GUdevClientClass
     GObjectClass parent_class;
 
     /* signals */
-    void (*uevent)(GUdevClient *client, libusb_device *device, gboolean add);
+    void (*uevent)(GUdevClient *client, SpiceUsbBackendDevice *device, gboolean add);
 };
 
 GType g_udev_client_get_type(void) G_GNUC_CONST;
 GUdevClient *g_udev_client_new(void);
-libusb_context *g_udev_client_get_context(GUdevClient *client);
+SpiceUsbBackend *g_udev_client_get_context(GUdevClient *client);
 void g_udev_client_report_devices(GUdevClient *client);
 
 GQuark g_udev_client_error_quark(void);

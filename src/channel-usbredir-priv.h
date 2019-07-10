@@ -23,9 +23,8 @@
 
 #ifdef USE_USBREDIR
 
-#include <libusb.h>
-#include <usbredirfilter.h>
 #include "spice-client.h"
+#include "usb-backend.h"
 
 G_BEGIN_DECLS
 
@@ -33,7 +32,7 @@ G_BEGIN_DECLS
    context should not be destroyed before the last device has been
    disconnected */
 void spice_usbredir_channel_set_context(SpiceUsbredirChannel *channel,
-                                        libusb_context       *context);
+                                        SpiceUsbBackend      *context);
 
 void spice_usbredir_channel_disconnect_device_async(SpiceUsbredirChannel *channel,
                                                     GCancellable *cancellable,
@@ -48,7 +47,7 @@ gboolean spice_usbredir_channel_disconnect_device_finish(SpiceUsbredirChannel *c
    (through spice_channel_connect()), before calling this. */
 void spice_usbredir_channel_connect_device_async(
                                         SpiceUsbredirChannel *channel,
-                                        libusb_device        *device,
+                                        SpiceUsbBackendDevice *device,
                                         SpiceUsbDevice       *spice_device,
                                         GCancellable         *cancellable,
                                         GAsyncReadyCallback   callback,
@@ -60,7 +59,7 @@ gboolean spice_usbredir_channel_connect_device_finish(
 
 void spice_usbredir_channel_disconnect_device(SpiceUsbredirChannel *channel);
 
-libusb_device *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel);
+SpiceUsbBackendDevice *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel);
 
 void spice_usbredir_channel_lock(SpiceUsbredirChannel *channel);
 
@@ -70,6 +69,9 @@ void spice_usbredir_channel_get_guest_filter(
                           SpiceUsbredirChannel               *channel,
                           const struct usbredirfilter_rule  **rules_ret,
                           int                                *rules_count_ret);
+
+/* Callback for USB backend */
+int spice_usbredir_write_callback(SpiceUsbredirChannel *channel, uint8_t *data, int count);
 
 G_END_DECLS
 

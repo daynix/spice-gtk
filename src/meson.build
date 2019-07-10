@@ -121,6 +121,8 @@ spice_client_glib_sources = [
   'usb-device-manager-priv.h',
   'usbutil.c',
   'usbutil.h',
+  'usb-backend.c',
+  'usb-backend.h',
   'vmcstream.c',
   'vmcstream.h',
 ]

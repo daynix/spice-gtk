@@ -23,11 +23,9 @@
 #include "config.h"
 
 #include <windows.h>
-#include <libusb.h>
 #include "win-usb-dev.h"
 #include "spice-marshal.h"
 #include "spice-util.h"
-#include "usbutil.h"
 
 enum {
     PROP_0,
@@ -35,7 +33,7 @@ enum {
 };
 
 struct _GUdevClientPrivate {
-    libusb_context *ctx;
+    SpiceUsbBackend *ctx;
     GList *udev_list;
     HWND hwnd;
     gboolean redirecting;
@@ -68,9 +66,7 @@ static void g_udev_device_print_list(GList *l, const gchar *msg);
 #else
 static void g_udev_device_print_list(GList *l, const gchar *msg) {}
 #endif
-static void g_udev_device_print(libusb_device *dev, const gchar *msg);
-
-static gboolean g_udev_skip_search(libusb_device *dev);
+static void g_udev_device_print(SpiceUsbBackendDevice *dev, const gchar *msg);
 
 GQuark g_udev_client_error_quark(void)
 {
@@ -86,7 +82,7 @@ GUdevClient *g_udev_client_new(void)
     return singleton;
 }
 
-libusb_context *g_udev_client_get_context(GUdevClient *client)
+SpiceUsbBackend *g_udev_client_get_context(GUdevClient *client)
 {
     return client->priv->ctx;
 }
@@ -99,8 +95,7 @@ static ssize_t
 g_udev_client_list_devices(GUdevClient *self, GList **devs,
                            GError **err, const gchar *name)
 {
-    gssize rc;
-    libusb_device **lusb_list, **dev;
+    SpiceUsbBackendDevice **lusb_list, **dev;
     GUdevClientPrivate *priv;
     ssize_t n;
 
@@ -111,43 +106,33 @@ g_udev_client_list_devices(GUdevClient *self, GList **devs,
 
     g_return_val_if_fail(self->priv->ctx != NULL, -3);
 
-    rc = libusb_get_device_list(priv->ctx, &lusb_list);
-    if (rc < 0) {
-        const char *errstr = libusb_strerror(rc);
-        g_warning("%s: libusb_get_device_list failed - %s", name, errstr);
+    lusb_list = spice_usb_backend_get_device_list(priv->ctx);
+    if (!lusb_list) {
         g_set_error(err, G_UDEV_CLIENT_ERROR, G_UDEV_CLIENT_LIBUSB_FAILED,
-                    "%s: Error getting device list from libusb: %s [%"G_GSSIZE_FORMAT"]",
-                    name, errstr, rc);
+                    "%s: Error getting USB device list", name);
         return -4;
     }
 
     n = 0;
     for (dev = lusb_list; *dev; dev++) {
-        if (g_udev_skip_search(*dev)) {
-            continue;
-        }
-        *devs = g_list_prepend(*devs, libusb_ref_device(*dev));
+        *devs = g_list_prepend(*devs, spice_usb_backend_device_ref(*dev));
         n++;
     }
-    libusb_free_device_list(lusb_list, 1);
+    spice_usb_backend_free_device_list(lusb_list);
 
     return n;
 }
 
-static void unreference_libusb_device(gpointer data)
+static void unreference_backend_device(gpointer data)
 {
-    libusb_unref_device((libusb_device *)data);
+    spice_usb_backend_device_unref((SpiceUsbBackendDevice *)data);
 }
 
 static void g_udev_client_free_device_list(GList **devs)
 {
     g_return_if_fail(devs != NULL);
     if (*devs) {
-        /* the unreference_libusb_device method is required as
-         * libusb_unref_device calling convention differs from glib's
-         * see 558c967ec
-         */
-        g_list_free_full(*devs, unreference_libusb_device);
+        g_list_free_full(*devs, unreference_backend_device);
         *devs = NULL;
     }
 }
@@ -160,7 +145,6 @@ g_udev_client_initable_init(GInitable *initable, GCancellable *cancellable,
     GUdevClient *self;
     GUdevClientPrivate *priv;
     WNDCLASS wcls;
-    int rc;
 
     g_return_val_if_fail(G_UDEV_IS_CLIENT(initable), FALSE);
     g_return_val_if_fail(cancellable == NULL, FALSE);
@@ -168,14 +152,11 @@ g_udev_client_initable_init(GInitable *initable, GCancellable *cancellable,
     self = G_UDEV_CLIENT(initable);
     priv = self->priv;
 
-    rc = libusb_init(&priv->ctx);
-    if (rc < 0) {
-        const char *errstr = libusb_strerror(rc);
-        g_warning("Error initializing USB support: %s [%i]", errstr, rc);
-        g_set_error(err, G_UDEV_CLIENT_ERROR, G_UDEV_CLIENT_LIBUSB_FAILED,
-                    "Error initializing USB support: %s [%i]", errstr, rc);
+    priv->ctx = spice_usb_backend_new(err);
+    if (!priv->ctx) {
         return FALSE;
     }
+
 #ifdef G_OS_WIN32
 #if LIBUSB_API_VERSION >= 0x01000106
     libusb_set_option(priv->ctx, LIBUSB_OPTION_USE_USBDK);
@@ -248,9 +229,9 @@ static void g_udev_client_finalize(GObject *gobject)
     UnregisterClass(G_UDEV_CLIENT_WINCLASS_NAME, NULL);
     g_udev_client_free_device_list(&priv->udev_list);
 
-    /* free libusb context initializing by libusb_init() */
+    /* free backend context */
     g_warn_if_fail(priv->ctx != NULL);
-    libusb_exit(priv->ctx);
+    spice_usb_backend_delete(priv->ctx);
 
     /* Chain up to the parent class */
     if (G_OBJECT_CLASS(g_udev_client_parent_class)->finalize)
@@ -340,20 +321,18 @@ static void g_udev_client_class_init(GUdevClientClass *klass)
 }
 
 /* comparing bus:addr and vid:pid */
-static gint compare_libusb_devices(gconstpointer a, gconstpointer b)
+static gint compare_usb_devices(gconstpointer a, gconstpointer b)
 {
-    libusb_device *a_dev = (libusb_device *)a;
-    libusb_device *b_dev = (libusb_device *)b;
-    struct libusb_device_descriptor a_desc, b_desc;
+    const UsbDeviceInformation *a_info, *b_info;
     gboolean same_bus, same_addr, same_vid, same_pid;
+    a_info = spice_usb_backend_device_get_info((SpiceUsbBackendDevice *)a);
+    b_info = spice_usb_backend_device_get_info((SpiceUsbBackendDevice *)b);
 
-    libusb_get_device_descriptor(a_dev, &a_desc);
-    libusb_get_device_descriptor(b_dev, &b_desc);
 
-    same_bus = (libusb_get_bus_number(a_dev) == libusb_get_bus_number(b_dev));
-    same_addr = (libusb_get_device_address(a_dev) == libusb_get_device_address(b_dev));
-    same_vid = (a_desc.idVendor == b_desc.idVendor);
-    same_pid = (a_desc.idProduct == b_desc.idProduct);
+    same_bus = (a_info->bus == b_info->bus);
+    same_addr = (a_info->address == b_info->address);
+    same_vid = (a_info->vid == b_info->vid);
+    same_pid = (a_info->pid == b_info->pid);
 
     return (same_bus && same_addr && same_vid && same_pid) ? 0 : -1;
 }
@@ -363,12 +342,12 @@ static void update_device_list(GUdevClient *self, GList *new_device_list)
     GList *dev;
 
     for (dev = g_list_first(new_device_list); dev != NULL; dev = g_list_next(dev)) {
-        GList *found = g_list_find_custom(self->priv->udev_list, dev->data, compare_libusb_devices);
+        GList *found = g_list_find_custom(self->priv->udev_list, dev->data, compare_usb_devices);
         if (found != NULL) {
             /* keep old existing libusb_device in the new list, when
                usb-dev-manager will maintain its own list of libusb_device,
                these lists will be completely consistent */
-            libusb_device *temp = found->data;
+            SpiceUsbBackendDevice *temp = found->data;
             found->data = dev->data;
             dev->data = temp;
         }
@@ -386,7 +365,7 @@ static void notify_dev_state_change(GUdevClient *self,
     GList *dev;
 
     for (dev = g_list_first(old_list); dev != NULL; dev = g_list_next(dev)) {
-        GList *found = g_list_find_custom(new_list, dev->data, compare_libusb_devices);
+        GList *found = g_list_find_custom(new_list, dev->data, compare_usb_devices);
         if (found == NULL) {
             g_udev_device_print(dev->data, add ? "add" : "remove");
             g_signal_emit(self, signals[UEVENT_SIGNAL], 0, dev->data, add);
@@ -447,29 +426,11 @@ static void g_udev_device_print_list(GList *l, const gchar *msg)
 }
 #endif
 
-static void g_udev_device_print(libusb_device *dev, const gchar *msg)
+static void g_udev_device_print(SpiceUsbBackendDevice *dev, const gchar *msg)
 {
-    struct libusb_device_descriptor desc;
-
-    libusb_get_device_descriptor(dev, &desc);
+    const UsbDeviceInformation *info = spice_usb_backend_device_get_info(dev);
 
     SPICE_DEBUG("%s: %d.%d 0x%04x:0x%04x class %d", msg,
-                libusb_get_bus_number(dev),
-                libusb_get_device_address(dev),
-                desc.idVendor, desc.idProduct, desc.bDeviceClass);
-}
-
-static gboolean g_udev_skip_search(libusb_device *dev)
-{
-    gboolean skip;
-    uint8_t addr = libusb_get_device_address(dev);
-    struct libusb_device_descriptor desc;
-
-    libusb_get_device_descriptor(dev, &desc);
-
-    skip = ((addr == 0xff) ||  /* root hub (HCD) */
-            (addr == 1) || /* root hub addr */
-            (desc.bDeviceClass == LIBUSB_CLASS_HUB) || /* hub*/
-            (addr == 0)); /* bad address */
-    return skip;
+                info->bus, info->address,
+                info->vid, info->pid, info->class);
 }
