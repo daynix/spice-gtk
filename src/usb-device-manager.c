@@ -129,13 +129,9 @@ enum {
 #ifdef USE_USBREDIR
 
 typedef struct _SpiceUsbDeviceInfo {
-    guint8  busnum;
-    guint8  devaddr;
-    guint16 vid;
-    guint16 pid;
-    gboolean isochronous;
     SpiceUsbBackendDevice *bdev;
     gint    ref;
+    gboolean isochronous;
 } SpiceUsbDeviceInfo;
 
 
@@ -1613,18 +1609,11 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
 {
     SpiceUsbDeviceInfo *info;
-    const UsbDeviceInformation *bdev_info;
 
     g_return_val_if_fail(bdev != NULL, NULL);
 
-    bdev_info = spice_usb_backend_device_get_info(bdev);
-
     info = g_new0(SpiceUsbDeviceInfo, 1);
 
-    info->busnum  = bdev_info->bus;
-    info->devaddr = bdev_info->address;
-    info->vid = bdev_info->vid;
-    info->pid = bdev_info->pid;
     info->ref = 1;
     info->bdev = spice_usb_backend_device_ref(bdev);
     info->isochronous = spice_usb_backend_device_isoch(bdev);
@@ -1635,37 +1624,45 @@ static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
 guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *device)
 {
     const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
+    const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
 
-    return info->busnum;
+    b_info = spice_usb_backend_device_get_info(info->bdev);
+    return b_info->bus;
 }
 
 guint8 spice_usb_device_get_devaddr(const SpiceUsbDevice *device)
 {
     const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
+    const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
 
-    return info->devaddr;
+    b_info = spice_usb_backend_device_get_info(info->bdev);
+    return b_info->address;
 }
 
 guint16 spice_usb_device_get_vid(const SpiceUsbDevice *device)
 {
     const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
+    const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
 
-    return info->vid;
+    b_info = spice_usb_backend_device_get_info(info->bdev);
+    return b_info->vid;
 }
 
 guint16 spice_usb_device_get_pid(const SpiceUsbDevice *device)
 {
     const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
+    const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
 
-    return info->pid;
+    b_info = spice_usb_backend_device_get_info(info->bdev);
+    return b_info->pid;
 }
 
 gboolean spice_usb_device_is_isochronous(const SpiceUsbDevice *device)
