@@ -128,11 +128,11 @@ enum {
 
 #ifdef USE_USBREDIR
 
-typedef struct _SpiceUsbDeviceInfo {
+struct _SpiceUsbDevice {
     SpiceUsbBackendDevice *bdev;
     gint    ref;
     gboolean isochronous;
-} SpiceUsbDeviceInfo;
+};
 
 
 static void channel_new(SpiceSession *session, SpiceChannel *channel,
@@ -154,7 +154,7 @@ static void spice_usb_device_manager_hotplug_cb(void *user_data,
 static void spice_usb_device_manager_check_redir_on_connect(
     SpiceUsbDeviceManager *self, SpiceChannel *channel);
 
-static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev);
+static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev);
 static SpiceUsbDevice *spice_usb_device_ref(SpiceUsbDevice *device);
 static void spice_usb_device_unref(SpiceUsbDevice *device);
 
@@ -696,11 +696,9 @@ static void spice_usb_device_manager_class_init(SpiceUsbDeviceManagerClass *klas
  * Since: 0.27
  **/
 gconstpointer
-spice_usb_device_get_libusb_device(const SpiceUsbDevice *device G_GNUC_UNUSED)
+spice_usb_device_get_libusb_device(const SpiceUsbDevice *info G_GNUC_UNUSED)
 {
 #ifdef USE_USBREDIR
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
-
     g_return_val_if_fail(info != NULL, FALSE);
 
     return spice_usb_backend_device_get_libdev(info->bdev);
@@ -1604,15 +1602,15 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 
 #ifdef USE_USBREDIR
 /*
- * SpiceUsbDeviceInfo
+ * SpiceUsbDevice
  */
-static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
+static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
 {
-    SpiceUsbDeviceInfo *info;
+    SpiceUsbDevice *info;
 
     g_return_val_if_fail(bdev != NULL, NULL);
 
-    info = g_new0(SpiceUsbDeviceInfo, 1);
+    info = g_new0(SpiceUsbDevice, 1);
 
     info->ref = 1;
     info->bdev = spice_usb_backend_device_ref(bdev);
@@ -1621,9 +1619,8 @@ static SpiceUsbDeviceInfo *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
     return info;
 }
 
-guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *device)
+guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *info)
 {
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
     const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
@@ -1632,9 +1629,8 @@ guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *device)
     return b_info->bus;
 }
 
-guint8 spice_usb_device_get_devaddr(const SpiceUsbDevice *device)
+guint8 spice_usb_device_get_devaddr(const SpiceUsbDevice *info)
 {
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
     const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
@@ -1643,9 +1639,8 @@ guint8 spice_usb_device_get_devaddr(const SpiceUsbDevice *device)
     return b_info->address;
 }
 
-guint16 spice_usb_device_get_vid(const SpiceUsbDevice *device)
+guint16 spice_usb_device_get_vid(const SpiceUsbDevice *info)
 {
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
     const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
@@ -1654,9 +1649,8 @@ guint16 spice_usb_device_get_vid(const SpiceUsbDevice *device)
     return b_info->vid;
 }
 
-guint16 spice_usb_device_get_pid(const SpiceUsbDevice *device)
+guint16 spice_usb_device_get_pid(const SpiceUsbDevice *info)
 {
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
     const UsbDeviceInformation *b_info;
 
     g_return_val_if_fail(info != NULL, 0);
@@ -1665,10 +1659,8 @@ guint16 spice_usb_device_get_pid(const SpiceUsbDevice *device)
     return b_info->pid;
 }
 
-gboolean spice_usb_device_is_isochronous(const SpiceUsbDevice *device)
+gboolean spice_usb_device_is_isochronous(const SpiceUsbDevice *info)
 {
-    const SpiceUsbDeviceInfo *info = (const SpiceUsbDeviceInfo *)device;
-
     g_return_val_if_fail(info != NULL, 0);
 
     return info->isochronous;
@@ -1741,20 +1733,16 @@ void _usbdk_hider_update(SpiceUsbDeviceManager *manager)
 
 #endif
 
-static SpiceUsbDevice *spice_usb_device_ref(SpiceUsbDevice *device)
+static SpiceUsbDevice *spice_usb_device_ref(SpiceUsbDevice *info)
 {
-    SpiceUsbDeviceInfo *info = (SpiceUsbDeviceInfo *)device;
-
     g_return_val_if_fail(info != NULL, NULL);
     g_atomic_int_inc(&info->ref);
-    return device;
+    return info;
 }
 
-static void spice_usb_device_unref(SpiceUsbDevice *device)
+static void spice_usb_device_unref(SpiceUsbDevice *info)
 {
     gboolean ref_count_is_0;
-
-    SpiceUsbDeviceInfo *info = (SpiceUsbDeviceInfo *)device;
 
     g_return_if_fail(info != NULL);
 
@@ -1767,12 +1755,10 @@ static void spice_usb_device_unref(SpiceUsbDevice *device)
 
 static gboolean
 spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
-                                    SpiceUsbDevice *device,
+                                    SpiceUsbDevice *info,
                                     SpiceUsbBackendDevice *bdev)
 {
-    SpiceUsbDeviceInfo *info = (SpiceUsbDeviceInfo *)device;
-
-    if ((device == NULL) || (bdev == NULL))
+    if ((info == NULL) || (bdev == NULL))
         return FALSE;
 
     return info->bdev == bdev;
@@ -1784,11 +1770,9 @@ spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
  */
 static SpiceUsbBackendDevice *
 spice_usb_device_manager_device_to_bdev(SpiceUsbDeviceManager *self,
-                                        SpiceUsbDevice *device)
+                                        SpiceUsbDevice *info)
 {
     /* Simply return a ref to the cached libdev */
-    SpiceUsbDeviceInfo *info = (SpiceUsbDeviceInfo *)device;
-
     return spice_usb_backend_device_ref(info->bdev);
 }
 #endif /* USE_USBREDIR */
