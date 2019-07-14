@@ -195,7 +195,7 @@ usbredir_version = '0.7.1'
 usbredir_version_info = '>= @0@'.format(usbredir_version)
 d1 = dependency('libusbredirparser-0.5', version: usbredir_version_info, required : get_option('usbredir'))
 d2 = dependency('libusbredirhost', version: usbredir_version_info, required : get_option('usbredir'))
-d3 = dependency('libusb-1.0', version : '>= 1.0.16', required : get_option('usbredir'))
+d3 = dependency('libusb-1.0', version : '>= 1.0.21', required : get_option('usbredir'))
 if d1.found() and d2.found() and d3.found()
   spice_glib_deps += [d1, d2, d3]
   spice_gtk_config_data.set('USE_USBREDIR', '1')
