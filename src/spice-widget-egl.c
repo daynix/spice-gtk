@@ -489,33 +489,19 @@ client_draw_rect_tex(SpiceDisplay *display,
                      float x, float y, float w, float h,
                      float tx, float ty, float tw, float th)
 {
-    float verts[4][4];
-    float tex[4][2];
+    GLfloat tex[4][2] = {
+        { tx, ty },
+        { tx + tw, ty },
+        { tx, ty + th },
+        { tx + tw, ty + th },
+    };
 
-    verts[0][0] = x;
-    verts[0][1] = y;
-    verts[0][2] = 0.0;
-    verts[0][3] = 1.0;
-    tex[0][0] = tx;
-    tex[0][1] = ty;
-    verts[1][0] = x + w;
-    verts[1][1] = y;
-    verts[1][2] = 0.0;
-    verts[1][3] = 1.0;
-    tex[1][0] = tx + tw;
-    tex[1][1] = ty;
-    verts[2][0] = x;
-    verts[2][1] = y + h;
-    verts[2][2] = 0.0;
-    verts[2][3] = 1.0;
-    tex[2][0] = tx;
-    tex[2][1] = ty + th;
-    verts[3][0] = x + w;
-    verts[3][1] = y + h;
-    verts[3][2] = 0.0;
-    verts[3][3] = 1.0;
-    tex[3][0] = tx + tw;
-    tex[3][1] = ty + th;
+    GLfloat verts[4][4] = {
+        { x, y, 0.0, 1.0 },
+        { x + w, y, 0.0, 1.0 },
+        { x, y + h, 0.0, 1.0 },
+        { x + w, y + h, 0.0, 1.0 },
+    };
 
     draw_rect_from_arrays(display, verts, tex);
 }
