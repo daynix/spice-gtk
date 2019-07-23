@@ -29,7 +29,6 @@
 #ifdef G_OS_WIN32
 #include <windows.h>
 #include "usbdk_api.h"
-#include "win-usb-dev.h"
 #endif
 
 #include "channel-usbredir-priv.h"
@@ -101,12 +100,10 @@ struct _SpiceUsbDeviceManagerPrivate {
     struct usbredirfilter_rule *redirect_on_connect_rules;
     int auto_conn_filter_rules_count;
     int redirect_on_connect_rules_count;
+    gboolean redirecting;
 #ifdef G_OS_WIN32
-    GUdevClient *udev;
     usbdk_api_wrapper *usbdk_api;
     HANDLE usbdk_hider_handle;
-#else
-    gboolean redirecting; /* Handled by GUdevClient in the gudev case */
 #endif
     GPtrArray *devices;
     GPtrArray *channels;
@@ -139,16 +136,9 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
                             gpointer user_data);
 static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data);
-#ifdef G_OS_WIN32
-static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               SpiceUsbBackendDevice *udevice,
-                                               gboolean         add,
-                                               gpointer         user_data);
-#else
 static void spice_usb_device_manager_hotplug_cb(void *user_data,
                                                 SpiceUsbBackendDevice *dev,
                                                 gboolean added);
-#endif
 static void spice_usb_device_manager_check_redir_on_connect(
     SpiceUsbDeviceManager *self, SpiceChannel *channel);
 
@@ -190,11 +180,7 @@ G_DEFINE_BOXED_TYPE(SpiceUsbDevice, spice_usb_device,
 static void
 _set_redirecting(SpiceUsbDeviceManager *self, gboolean is_redirecting)
 {
-#ifdef G_OS_WIN32
-    g_object_set(self->priv->udev, "redirecting", is_redirecting, NULL);
-#else
     self->priv->redirecting = is_redirecting;
-#endif
 }
 
 #else
@@ -215,10 +201,6 @@ gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self)
 {
 #ifndef USE_USBREDIR
     return FALSE;
-#elif defined(G_OS_WIN32)
-    gboolean redirecting;
-    g_object_get(self->priv->udev, "redirecting", &redirecting, NULL);
-    return redirecting;
 #else
     return self->priv->redirecting;
 #endif
@@ -267,29 +249,18 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
     GList *list;
     GList *it;
 
-    /* Start listening for usb devices plug / unplug */
-#ifdef G_OS_WIN32
-    priv->udev = g_udev_client_new();
-    if (priv->udev == NULL) {
-        g_warning("Error initializing GUdevClient");
-        return FALSE;
-    }
-    priv->context = g_udev_client_get_context(priv->udev);
-    g_signal_connect(G_OBJECT(priv->udev), "uevent",
-                     G_CALLBACK(spice_usb_device_manager_uevent_cb), self);
-    /* Do coldplug (detection of already connected devices) */
-    g_udev_client_report_devices(priv->udev);
-#else
     /* Initialize libusb */
     priv->context = spice_usb_backend_new(err);
     if (!priv->context) {
         return FALSE;
     }
 
+    /* Start listening for usb devices plug / unplug */
     if (!spice_usb_backend_register_hotplug(priv->context, self,
                                             spice_usb_device_manager_hotplug_cb)) {
         return FALSE;
     }
+#ifndef G_OS_WIN32
     spice_usb_device_manager_start_event_listening(self, NULL);
 #endif
 
@@ -324,8 +295,9 @@ static void spice_usb_device_manager_dispose(GObject *gobject)
         g_warn_if_reached();
         g_atomic_int_set(&priv->event_thread_run, FALSE);
     }
-    spice_usb_backend_deregister_hotplug(priv->context);
 #endif
+    spice_usb_backend_deregister_hotplug(priv->context);
+
     if (priv->event_thread) {
         g_warn_if_fail(g_atomic_int_get(&priv->event_thread_run) == FALSE);
         g_atomic_int_set(&priv->event_thread_run, FALSE);
@@ -350,14 +322,10 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
     if (priv->devices) {
         g_ptr_array_unref(priv->devices);
     }
-#ifdef G_OS_WIN32
-    g_clear_object(&priv->udev);
-#endif
     g_return_if_fail(priv->event_thread == NULL);
-#ifndef G_OS_WIN32
-    if (priv->context)
+    if (priv->context) {
         spice_usb_backend_delete(priv->context);
-#endif
+    }
     free(priv->auto_conn_filter_rules);
     free(priv->redirect_on_connect_rules);
 #ifdef G_OS_WIN32
@@ -891,20 +859,6 @@ static void spice_usb_device_manager_remove_dev(SpiceUsbDeviceManager *self,
     spice_usb_device_unref(device);
 }
 
-#ifdef G_OS_WIN32
-static void spice_usb_device_manager_uevent_cb(GUdevClient     *client,
-                                               SpiceUsbBackendDevice *bdev,
-                                               gboolean         add,
-                                               gpointer         user_data)
-{
-    SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(user_data);
-
-    if (add)
-        spice_usb_device_manager_add_dev(self, bdev);
-    else
-        spice_usb_device_manager_remove_dev(self, bdev);
-}
-#else
 struct hotplug_idle_cb_args {
     SpiceUsbDeviceManager *self;
     SpiceUsbBackendDevice *device;
@@ -940,7 +894,6 @@ static void spice_usb_device_manager_hotplug_cb(void *user_data,
     args->added = added;
     g_idle_add(spice_usb_device_manager_hotplug_idle_cb, args);
 }
-#endif // USE_USBREDIR
 
 static void spice_usb_device_manager_channel_connect_cb(
     GObject *gobject, GAsyncResult *channel_res, gpointer user_data)

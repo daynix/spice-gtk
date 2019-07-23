@@ -32,6 +32,9 @@
 #include <libusb.h>
 #include <string.h>
 #include <fcntl.h>
+#ifdef G_OS_WIN32
+#include <commctrl.h>
+#endif
 #include "usbredirhost.h"
 #include "usbredirparser.h"
 #include "spice-util.h"
@@ -55,6 +58,11 @@ struct _SpiceUsbBackend
     usb_hot_plug_callback hotplug_callback;
     void *hotplug_user_data;
     libusb_hotplug_callback_handle hotplug_handle;
+#ifdef G_OS_WIN32
+    HANDLE hWnd;
+    libusb_device **libusb_device_list;
+    gint redirecting;
+#endif
 };
 
 struct _SpiceUsbBackendChannel
@@ -66,6 +74,7 @@ struct _SpiceUsbBackendChannel
     int rules_count;
     SpiceUsbBackendDevice *attached;
     SpiceUsbredirChannel  *user_data;
+    SpiceUsbBackend *backend;
     GError **error;
 };
 
@@ -127,6 +136,170 @@ static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
     }
     return 0;
 }
+
+#ifdef G_OS_WIN32
+/* Windows-specific: get notification on device change */
+
+static gboolean is_same_libusb_dev(libusb_device *libdev1,
+                                   libusb_device *libdev2)
+{
+    UsbDeviceInformation info1, info2;
+    g_return_val_if_fail(libdev1 != NULL && libdev2 != NULL, FALSE);
+
+    get_usb_device_info_from_libusb_device(&info1, libdev1);
+    get_usb_device_info_from_libusb_device(&info2, libdev2);
+
+    return info1.bus == info2.bus &&
+           info1.address == info2.address &&
+           info1.vid == info2.vid &&
+           info1.pid == info2.pid;
+}
+
+/*
+    Compares context and list1 and list2 and fire callback for each
+    device in list1 that not present in list2.
+    Returns number of such devices.
+*/
+static int compare_dev_list_fire_callback(SpiceUsbBackend *be,
+                                          libusb_device * const *list1,
+                                          libusb_device * const *list2,
+                                          gboolean add)
+{
+    int num_changed = 0;
+    libusb_hotplug_event event = add ?
+        LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED : LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT;
+    while (*list1) {
+        gboolean found = 0;
+        uint32_t n = 0;
+        while (!found && list2[n]) {
+            found = is_same_libusb_dev(*list1, list2[n]);
+            n++;
+        }
+        if (!found) {
+            UsbDeviceInformation info;
+            get_usb_device_info_from_libusb_device(&info, *list1);
+            SPICE_DEBUG("%s %04X:%04X at %d:%d", add ? "adding" : "removing",
+                        info.vid, info.pid, info.bus, info.address);
+            hotplug_callback(NULL, *list1, event, be);
+            num_changed++;
+        }
+        list1++;
+    }
+    return num_changed;
+}
+
+static LRESULT subclass_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                            UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+    SpiceUsbBackend *be = (SpiceUsbBackend *)dwRefData;
+    if (uMsg == WM_DEVICECHANGE && !be->redirecting) {
+        libusb_device **new_list = NULL;
+        libusb_get_device_list(be->libusb_context, &new_list);
+        if (new_list) {
+            int num_changed = compare_dev_list_fire_callback(be, be->libusb_device_list, new_list, FALSE);
+            num_changed += compare_dev_list_fire_callback(be, new_list, be->libusb_device_list, TRUE);
+            if (num_changed > 0) {
+                libusb_free_device_list(be->libusb_device_list, TRUE);
+                be->libusb_device_list = new_list;
+            } else {
+                libusb_free_device_list(new_list, TRUE);
+            }
+        } else {
+            g_warn_if_reached();
+        }
+    }
+    return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
+static void disable_hotplug_support(SpiceUsbBackend *be)
+{
+    if (be->hWnd) {
+        DestroyWindow(be->hWnd);
+        be->hWnd = NULL;
+    }
+    if (be->libusb_device_list) {
+        libusb_free_device_list(be->libusb_device_list, TRUE);
+        be->libusb_device_list = NULL;
+    }
+}
+
+static int enable_hotplug_support(SpiceUsbBackend *be, const char **error_on_enable)
+{
+    long win_err;
+    libusb_device **libdev_list = NULL;
+    libusb_device *empty_list = NULL;
+
+    libusb_get_device_list(be->libusb_context, &libdev_list);
+    if (!libdev_list) {
+        *error_on_enable = "Getting device list";
+        goto error;
+    }
+    /* using standard class for window to receive messages */
+    be->hWnd = CreateWindow("Static", NULL, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL);
+    if (!be->hWnd) {
+        *error_on_enable = "CreateWindow";
+        goto error;
+    }
+    if (!SetWindowSubclass(be->hWnd, subclass_proc, 0, (DWORD_PTR)be)) {
+        *error_on_enable = "SetWindowSubclass";
+        goto error;
+    }
+    be->hotplug_handle = 1;
+    be->libusb_device_list = libdev_list;
+
+    compare_dev_list_fire_callback(be, be->libusb_device_list, &empty_list, TRUE);
+
+    return LIBUSB_SUCCESS;
+error:
+    win_err = GetLastError();
+    if (!win_err) {
+        win_err = -1;
+    }
+    g_warning("%s failed: %ld", *error_on_enable, win_err);
+    if (libdev_list) {
+        libusb_free_device_list(libdev_list, TRUE);
+    }
+    return win_err;
+}
+
+static void set_redirecting(SpiceUsbBackend *be, gboolean on)
+{
+    if (on) {
+        g_atomic_int_inc(&be->redirecting);
+    } else {
+        gboolean no_redir;
+        no_redir = g_atomic_int_dec_and_test(&be->redirecting);
+        if (no_redir && be->hWnd) {
+            PostMessage(be->hWnd, WM_DEVICECHANGE, 0, 0);
+        }
+    }
+}
+
+#else
+/* Linux-specific: use hot callback from libusb */
+
+static void disable_hotplug_support(SpiceUsbBackend *be)
+{
+    libusb_hotplug_deregister_callback(be->libusb_context, be->hotplug_handle);
+}
+
+static int enable_hotplug_support(SpiceUsbBackend *be, const char **error_on_enable)
+{
+    int rc = 0;
+    rc = libusb_hotplug_register_callback(be->libusb_context,
+        LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
+        LIBUSB_HOTPLUG_ENUMERATE, LIBUSB_HOTPLUG_MATCH_ANY,
+        LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY,
+        hotplug_callback, be, &be->hotplug_handle);
+    *error_on_enable = libusb_strerror(rc);
+    return rc;
+}
+
+static inline void set_redirecting(SpiceUsbBackend *be, gboolean on) {
+    /* nothing on Linux */
+}
+
+#endif
 
 /* lock functions for usbredirhost and usbredirparser */
 static void *usbredir_alloc_lock(void) {
@@ -265,7 +438,7 @@ void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be)
 {
     g_return_if_fail(be != NULL);
     if (be->hotplug_handle) {
-        libusb_hotplug_deregister_callback(be->libusb_context, be->hotplug_handle);
+        disable_hotplug_support(be);
         be->hotplug_handle = 0;
     }
     be->hotplug_callback = NULL;
@@ -276,17 +449,15 @@ gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                                             usb_hot_plug_callback proc)
 {
     int rc;
+    const char *desc;
     g_return_val_if_fail(be != NULL, FALSE);
 
     be->hotplug_callback = proc;
     be->hotplug_user_data = user_data;
-    rc = libusb_hotplug_register_callback(be->libusb_context,
-        LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
-        LIBUSB_HOTPLUG_ENUMERATE, LIBUSB_HOTPLUG_MATCH_ANY,
-        LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY,
-        hotplug_callback, be, &be->hotplug_handle);
+
+    rc = enable_hotplug_support(be, &desc);
+
     if (rc != LIBUSB_SUCCESS) {
-        const char *desc = libusb_strerror(rc);
         g_warning("Error initializing USB hotplug support: %s [%i]", desc, rc);
         be->hotplug_callback = NULL;
         return FALSE;
@@ -305,45 +476,6 @@ void spice_usb_backend_delete(SpiceUsbBackend *be)
     SPICE_DEBUG("%s <<", __FUNCTION__);
 }
 
-SpiceUsbBackendDevice **spice_usb_backend_get_device_list(SpiceUsbBackend *be)
-{
-    LOUD_DEBUG("%s >>", __FUNCTION__);
-    libusb_device **devlist = NULL, **dev;
-    SpiceUsbBackendDevice *d, **list;
-
-    int n = 0, index;
-
-    if (be && be->libusb_context) {
-        libusb_get_device_list(be->libusb_context, &devlist);
-    }
-
-    /* add all the libusb device that not present in our list */
-    for (dev = devlist; dev && *dev; dev++) {
-        n++;
-    }
-
-    list = g_new0(SpiceUsbBackendDevice*, n + 1);
-
-    index = 0;
-
-    for (dev = devlist; dev && *dev; dev++) {
-        d = allocate_backend_device(*dev);
-        if (!d) {
-            libusb_unref_device(*dev);
-        } else {
-            SPICE_DEBUG("created dev %p, usblib dev %p", d, *dev);
-            list[index++] = d;
-        }
-    }
-
-    if (devlist) {
-        libusb_free_device_list(devlist, 0);
-    }
-
-    LOUD_DEBUG("%s <<", __FUNCTION__);
-    return list;
-}
-
 const UsbDeviceInformation* spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev)
 {
     return &dev->device_info;
@@ -352,18 +484,6 @@ const UsbDeviceInformation* spice_usb_backend_device_get_info(SpiceUsbBackendDev
 gconstpointer spice_usb_backend_device_get_libdev(SpiceUsbBackendDevice *dev)
 {
     return dev->libusb_device;
-}
-
-void spice_usb_backend_free_device_list(SpiceUsbBackendDevice **devlist)
-{
-    LOUD_DEBUG("%s >>", __FUNCTION__);
-    SpiceUsbBackendDevice **dev;
-    for (dev = devlist; *dev; dev++) {
-        SpiceUsbBackendDevice *d = *dev;
-        spice_usb_backend_device_unref(d);
-    }
-    g_free(devlist);
-    LOUD_DEBUG("%s <<", __FUNCTION__);
 }
 
 SpiceUsbBackendDevice *spice_usb_backend_device_ref(SpiceUsbBackendDevice *dev)
@@ -533,12 +653,23 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
                                           SpiceUsbBackendDevice *dev,
                                           GError **error)
 {
+    int rc;
     SPICE_DEBUG("%s >> ch %p, dev %p (was attached %p)", __FUNCTION__, ch, dev, ch->attached);
 
     g_return_val_if_fail(dev != NULL, FALSE);
 
     libusb_device_handle *handle = NULL;
-    int rc = libusb_open(dev->libusb_device, &handle);
+
+    /*
+       Under Windows we need to avoid updating
+       list of devices when we are acquiring the device
+    */
+    set_redirecting(ch->backend, TRUE);
+
+    rc = libusb_open(dev->libusb_device, &handle);
+
+    set_redirecting(ch->backend, FALSE);
+
     if (rc) {
         const char *desc = libusb_strerror(rc);
         g_set_error(error, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
@@ -586,6 +717,7 @@ SpiceUsbBackendChannel *spice_usb_backend_channel_new(SpiceUsbBackend *be,
     SPICE_DEBUG("%s >>", __FUNCTION__);
     ch->user_data = SPICE_USBREDIR_CHANNEL(user_data);
     if (be->libusb_context) {
+        ch->backend = be;
         ch->usbredirhost = usbredirhost_open_full(
             be->libusb_context,
             NULL,

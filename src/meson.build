@@ -158,9 +158,7 @@ endif
 
 if spice_gtk_has_usbredir and host_machine.system() == 'windows'
   spice_client_glib_sources += ['usbdk_api.c',
-                                'usbdk_api.h',
-                                'win-usb-dev.c',
-                                'win-usb-dev.h']
+                                'usbdk_api.h']
 endif
 
 #
