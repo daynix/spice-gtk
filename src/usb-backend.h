@@ -60,7 +60,8 @@ gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be);
 void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be);
 gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                                             void *user_data,
-                                            usb_hot_plug_callback proc);
+                                            usb_hot_plug_callback proc,
+                                            GError **error);
 void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be);
 
 /* Spice USB backend device API */

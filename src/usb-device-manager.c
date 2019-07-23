@@ -257,7 +257,8 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
 
     /* Start listening for usb devices plug / unplug */
     if (!spice_usb_backend_register_hotplug(priv->context, self,
-                                            spice_usb_device_manager_hotplug_cb)) {
+                                            spice_usb_device_manager_hotplug_cb,
+                                            err)) {
         return FALSE;
     }
 #ifndef G_OS_WIN32

@@ -446,7 +446,8 @@ void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be)
 
 gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                                             void *user_data,
-                                            usb_hot_plug_callback proc)
+                                            usb_hot_plug_callback proc,
+                                            GError **error)
 {
     int rc;
     const char *desc;
@@ -460,6 +461,8 @@ gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
     if (rc != LIBUSB_SUCCESS) {
         g_warning("Error initializing USB hotplug support: %s [%i]", desc, rc);
         be->hotplug_callback = NULL;
+        g_set_error(error, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                    _("Error on USB hotplug detection: %s [%i]"), desc, rc);
         return FALSE;
     }
     return TRUE;
