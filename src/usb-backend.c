@@ -108,21 +108,22 @@ static SpiceUsbBackendDevice *allocate_backend_device(libusb_device *libdev)
 }
 
 static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
-                                        libusb_device *device,
+                                        libusb_device *libdev,
                                         libusb_hotplug_event event,
                                         void *user_data)
 {
-    SpiceUsbBackend *be = (SpiceUsbBackend *)user_data;
-    if (be->hotplug_callback) {
-        SpiceUsbBackendDevice *dev;
-        gboolean val = event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED;
-        dev = allocate_backend_device(device);
-        if (dev) {
-            SPICE_DEBUG("created dev %p, usblib dev %p", dev, device);
-            libusb_ref_device(device);
-            be->hotplug_callback(be->hotplug_user_data, dev, val);
-            spice_usb_backend_device_unref(dev);
-        }
+    SpiceUsbBackend *be = user_data;
+    SpiceUsbBackendDevice *dev;
+    gboolean arrived = event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED;
+
+    g_return_val_if_fail(be->hotplug_callback != NULL, 0);
+
+    dev = allocate_backend_device(libdev);
+    if (dev) {
+        SPICE_DEBUG("created dev %p, usblib dev %p", dev, libdev);
+        libusb_ref_device(libdev);
+        be->hotplug_callback(be->hotplug_user_data, dev, arrived);
+        spice_usb_backend_device_unref(dev);
     }
     return 0;
 }
