@@ -72,7 +72,6 @@ struct _SpiceUsbredirChannelPrivate {
     SpiceUsbAclHelper *acl_helper;
 #endif
     GMutex device_connect_mutex;
-    SpiceUsbDeviceManager *usb_device_manager;
 };
 
 static void channel_set_handlers(SpiceChannelClass *klass);
@@ -169,11 +168,6 @@ static void spice_usbredir_channel_dispose(GObject *obj)
     SpiceUsbredirChannel *channel = SPICE_USBREDIR_CHANNEL(obj);
 
     spice_usbredir_channel_disconnect_device(channel);
-    /* This should have been set to NULL during device disconnection,
-     * but better not to leak it if this does not happen for some reason
-     */
-    g_warn_if_fail(channel->priv->usb_device_manager == NULL);
-    g_clear_object(&channel->priv->usb_device_manager);
 
     /* Chain up to the parent class */
     if (G_OBJECT_CLASS(spice_usbredir_channel_parent_class)->dispose)
@@ -248,8 +242,6 @@ static gboolean spice_usbredir_channel_open_device(
     SpiceUsbredirChannel *channel, GError **err)
 {
     SpiceUsbredirChannelPrivate *priv = channel->priv;
-    SpiceSession *session;
-    SpiceUsbDeviceManager *manager;
 
     g_return_val_if_fail(priv->state == STATE_DISCONNECTED
 #ifdef USE_POLKIT
@@ -262,16 +254,6 @@ static gboolean spice_usbredir_channel_open_device(
             g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                 "Error attaching device: (no error information)");
         }
-        return FALSE;
-    }
-
-    session = spice_channel_get_session(SPICE_CHANNEL(channel));
-    manager = spice_usb_device_manager_get(session, NULL);
-    g_return_val_if_fail(manager != NULL, FALSE);
-
-    priv->usb_device_manager = g_object_ref(manager);
-    if (!spice_usb_device_manager_start_event_listening(priv->usb_device_manager, err)) {
-        spice_usb_backend_channel_detach(priv->host);
         return FALSE;
     }
 
@@ -445,16 +427,6 @@ void spice_usbredir_channel_disconnect_device(SpiceUsbredirChannel *channel)
         break;
 #endif
     case STATE_CONNECTED:
-        /*
-         * This sets the usb event thread run condition to FALSE, therefor
-         * it must be done before usbredirhost_set_device NULL, as
-         * usbredirhost_set_device NULL will interrupt the
-         * libusb_handle_events call in the thread.
-         */
-        g_warn_if_fail(priv->usb_device_manager != NULL);
-        spice_usb_device_manager_stop_event_listening(priv->usb_device_manager);
-        g_clear_object(&priv->usb_device_manager);
-
         /* This also closes the libusb handle we passed from open_device */
         spice_usb_backend_channel_detach(priv->host);
         g_clear_pointer(&priv->device, spice_usb_backend_device_unref);

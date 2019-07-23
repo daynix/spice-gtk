@@ -93,9 +93,6 @@ struct _SpiceUsbDeviceManagerPrivate {
     gchar *redirect_on_connect;
 #ifdef USE_USBREDIR
     SpiceUsbBackend *context;
-    int event_listeners;
-    GThread *event_thread;
-    gint event_thread_run;
     struct usbredirfilter_rule *auto_conn_filter_rules;
     struct usbredirfilter_rule *redirect_on_connect_rules;
     int auto_conn_filter_rules_count;
@@ -261,9 +258,6 @@ static gboolean spice_usb_device_manager_initable_init(GInitable  *initable,
                                             err)) {
         return FALSE;
     }
-#ifndef G_OS_WIN32
-    spice_usb_device_manager_start_event_listening(self, NULL);
-#endif
 
     /* Start listening for usb channels connect/disconnect */
     spice_g_signal_connect_object(priv->session, "channel-new", G_CALLBACK(channel_new), self, G_CONNECT_AFTER);
@@ -285,27 +279,8 @@ static void spice_usb_device_manager_dispose(GObject *gobject)
     SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(gobject);
     SpiceUsbDeviceManagerPrivate *priv = self->priv;
 
-#ifndef G_OS_WIN32
-    spice_usb_device_manager_stop_event_listening(self);
-    if (g_atomic_int_get(&priv->event_thread_run)) {
-        /* Force termination of the event thread even if there were some
-         * mismatched spice_usb_device_manager_{start,stop}_event_listening
-         * calls. Otherwise, the usb event thread will be leaked, and will
-         * try to use the libusb context we destroy in finalize(), which would
-         * cause a crash */
-        g_warn_if_reached();
-        g_atomic_int_set(&priv->event_thread_run, FALSE);
-    }
-#endif
     spice_usb_backend_deregister_hotplug(priv->context);
 
-    if (priv->event_thread) {
-        g_warn_if_fail(g_atomic_int_get(&priv->event_thread_run) == FALSE);
-        g_atomic_int_set(&priv->event_thread_run, FALSE);
-        spice_usb_backend_interrupt_event_handler(priv->context);
-        g_thread_join(priv->event_thread);
-        priv->event_thread = NULL;
-    }
 #endif
 
     /* Chain up to the parent class */
@@ -323,7 +298,6 @@ static void spice_usb_device_manager_finalize(GObject *gobject)
     if (priv->devices) {
         g_ptr_array_unref(priv->devices);
     }
-    g_return_if_fail(priv->event_thread == NULL);
     if (priv->context) {
         spice_usb_backend_delete(priv->context);
     }
@@ -914,59 +888,6 @@ static void spice_usb_device_manager_channel_connect_cb(
 
 /* ------------------------------------------------------------------ */
 /* private api                                                        */
-
-static gpointer spice_usb_device_manager_usb_ev_thread(gpointer user_data)
-{
-    SpiceUsbDeviceManager *self = SPICE_USB_DEVICE_MANAGER(user_data);
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-
-    while (g_atomic_int_get(&priv->event_thread_run)) {
-        if (!spice_usb_backend_handle_events(priv->context)) {
-            break;
-        }
-    }
-
-    return NULL;
-}
-
-gboolean spice_usb_device_manager_start_event_listening(
-    SpiceUsbDeviceManager *self, GError **err)
-{
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-
-    g_return_val_if_fail(err == NULL || *err == NULL, FALSE);
-
-    priv->event_listeners++;
-    if (priv->event_listeners > 1)
-        return TRUE;
-
-    /* We don't join the thread when we stop event listening, as the
-       libusb_handle_events call in the thread won't exit until the
-       libusb_close call for the device is made from usbredirhost_close. */
-    if (priv->event_thread) {
-        g_atomic_int_set(&priv->event_thread_run, FALSE);
-        spice_usb_backend_interrupt_event_handler(priv->context);
-         g_thread_join(priv->event_thread);
-         priv->event_thread = NULL;
-    }
-    g_atomic_int_set(&priv->event_thread_run, TRUE);
-    priv->event_thread = g_thread_new("usb_ev_thread",
-                                      spice_usb_device_manager_usb_ev_thread,
-                                      self);
-    return priv->event_thread != NULL;
-}
-
-void spice_usb_device_manager_stop_event_listening(
-    SpiceUsbDeviceManager *self)
-{
-    SpiceUsbDeviceManagerPrivate *priv = self->priv;
-
-    g_return_if_fail(priv->event_listeners > 0);
-
-    priv->event_listeners--;
-    if (priv->event_listeners == 0)
-        g_atomic_int_set(&priv->event_thread_run, FALSE);
-}
 
 static void spice_usb_device_manager_check_redir_on_connect(
     SpiceUsbDeviceManager *self, SpiceChannel *channel)

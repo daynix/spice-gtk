@@ -56,8 +56,6 @@ enum {
 SpiceUsbBackend *spice_usb_backend_new(GError **error);
 void spice_usb_backend_delete(SpiceUsbBackend *context);
 
-gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be);
-void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be);
 gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                                             void *user_data,
                                             usb_hot_plug_callback proc,

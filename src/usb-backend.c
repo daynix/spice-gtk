@@ -58,6 +58,9 @@ struct _SpiceUsbBackend
     usb_hot_plug_callback hotplug_callback;
     void *hotplug_user_data;
     libusb_hotplug_callback_handle hotplug_handle;
+    GThread *event_thread;
+    gint event_thread_run;
+
 #ifdef G_OS_WIN32
     HANDLE hWnd;
     libusb_device **libusb_device_list;
@@ -410,28 +413,25 @@ SpiceUsbBackend *spice_usb_backend_new(GError **error)
     return be;
 }
 
-gboolean spice_usb_backend_handle_events(SpiceUsbBackend *be)
+static gpointer handle_libusb_events(gpointer user_data)
 {
+    SpiceUsbBackend *be = user_data;
     SPICE_DEBUG("%s >>", __FUNCTION__);
-    gboolean ok = FALSE;
-    if (be->libusb_context) {
-        int res = libusb_handle_events(be->libusb_context);
-        ok = res == 0;
+    int res = 0;
+    const char *desc = "";
+    while (g_atomic_int_get(&be->event_thread_run)) {
+        res = libusb_handle_events(be->libusb_context);
         if (res && res != LIBUSB_ERROR_INTERRUPTED) {
-            const char *desc = libusb_strerror(res);
+            desc = libusb_strerror(res);
             g_warning("Error handling USB events: %s [%i]", desc, res);
-            ok = FALSE;
+            break;
         }
     }
-    SPICE_DEBUG("%s << %d", __FUNCTION__, ok);
-    return ok;
-}
-
-void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be)
-{
-    if (be->libusb_context) {
-        libusb_interrupt_event_handler(be->libusb_context);
+    if (be->event_thread_run) {
+        SPICE_DEBUG("%s: the thread aborted, %s(%d)", __FUNCTION__, desc, res);
     }
+    SPICE_DEBUG("%s <<", __FUNCTION__);
+    return NULL;
 }
 
 void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be)
@@ -442,6 +442,12 @@ void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be)
         be->hotplug_handle = 0;
     }
     be->hotplug_callback = NULL;
+    g_atomic_int_set(&be->event_thread_run, FALSE);
+    if (be->event_thread) {
+        libusb_interrupt_event_handler(be->libusb_context);
+        g_thread_join(be->event_thread);
+        be->event_thread = NULL;
+    }
 }
 
 gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
@@ -465,6 +471,11 @@ gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
                     _("Error on USB hotplug detection: %s [%i]"), desc, rc);
         return FALSE;
     }
+
+    g_atomic_int_set(&be->event_thread_run, TRUE);
+    be->event_thread = g_thread_new("usb_ev_thread",
+                                    handle_libusb_events,
+                                    be);
     return TRUE;
 }
 
@@ -472,6 +483,14 @@ void spice_usb_backend_delete(SpiceUsbBackend *be)
 {
     g_return_if_fail(be != NULL);
     SPICE_DEBUG("%s >>", __FUNCTION__);
+    /*
+        we expect hotplug callbacks are deregistered
+        and the event thread is terminated. If not,
+        we do that anyway before delete the backend
+    */
+    g_warn_if_fail(be->hotplug_handle == 0);
+    g_warn_if_fail(be->event_thread == NULL);
+    spice_usb_backend_deregister_hotplug(be);
     if (be->libusb_context) {
         libusb_exit(be->libusb_context);
     }

@@ -25,12 +25,6 @@
 
 G_BEGIN_DECLS
 
-gboolean spice_usb_device_manager_start_event_listening(
-    SpiceUsbDeviceManager *manager, GError **err);
-
-void spice_usb_device_manager_stop_event_listening(
-    SpiceUsbDeviceManager *manager);
-
 #ifdef USE_USBREDIR
 void spice_usb_device_manager_device_error(
     SpiceUsbDeviceManager *manager, SpiceUsbDevice *device, GError *err);
