@@ -473,9 +473,14 @@ gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
     }
 
     g_atomic_int_set(&be->event_thread_run, TRUE);
-    be->event_thread = g_thread_new("usb_ev_thread",
-                                    handle_libusb_events,
-                                    be);
+    be->event_thread = g_thread_try_new("usb_ev_thread",
+                                        handle_libusb_events,
+                                        be, error);
+    if (!be->event_thread) {
+        g_warning("Error starting event thread");
+        spice_usb_backend_deregister_hotplug(be);
+        return FALSE;
+    }
     return TRUE;
 }
 
