@@ -69,27 +69,30 @@ struct _SpiceUsbBackendChannel
     GError **error;
 };
 
-static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
+static void get_usb_device_info_from_libusb_device(UsbDeviceInformation *info,
+                                                   libusb_device *libdev)
 {
-    UsbDeviceInformation *info = &bdev->device_info;
-
     struct libusb_device_descriptor desc;
-    libusb_device *libdev = bdev->libusb_device;
     libusb_get_device_descriptor(libdev, &desc);
     info->bus = libusb_get_bus_number(libdev);
     info->address = libusb_get_device_address(libdev);
-    if (info->address == 0xff || /* root hub (HCD) */
-        info->address <= 1 || /* root hub or bad address */
-        (desc.bDeviceClass == LIBUSB_CLASS_HUB) /*hub*/) {
-        return FALSE;
-    }
-
     info->vid = desc.idVendor;
     info->pid = desc.idProduct;
     info->class = desc.bDeviceClass;
     info->subclass = desc.bDeviceSubClass;
     info->protocol = desc.bDeviceProtocol;
+}
 
+static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
+{
+    UsbDeviceInformation *info = &bdev->device_info;
+    get_usb_device_info_from_libusb_device(info, bdev->libusb_device);
+
+    if (info->address == 0xff || /* root hub (HCD) */
+        info->address <= 1 || /* root hub or bad address */
+        (info->class == LIBUSB_CLASS_HUB) /*hub*/) {
+        return FALSE;
+    }
     return TRUE;
 }
 
