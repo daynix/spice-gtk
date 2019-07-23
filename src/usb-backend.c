@@ -83,10 +83,10 @@ static void get_usb_device_info_from_libusb_device(UsbDeviceInformation *info,
     info->protocol = desc.bDeviceProtocol;
 }
 
-static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
+static gboolean fill_usb_info(SpiceUsbBackendDevice *dev)
 {
-    UsbDeviceInformation *info = &bdev->device_info;
-    get_usb_device_info_from_libusb_device(info, bdev->libusb_device);
+    UsbDeviceInformation *info = &dev->device_info;
+    get_usb_device_info_from_libusb_device(info, dev->libusb_device);
 
     if (info->address == 0xff || /* root hub (HCD) */
         info->address <= 1 || /* root hub or bad address */
