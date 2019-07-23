@@ -69,6 +69,61 @@ struct _SpiceUsbBackendChannel
     GError **error;
 };
 
+static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
+{
+    UsbDeviceInformation *info = &bdev->device_info;
+
+    struct libusb_device_descriptor desc;
+    libusb_device *libdev = bdev->libusb_device;
+    libusb_get_device_descriptor(libdev, &desc);
+    info->bus = libusb_get_bus_number(libdev);
+    info->address = libusb_get_device_address(libdev);
+    if (info->address == 0xff || /* root hub (HCD) */
+        info->address <= 1 || /* root hub or bad address */
+        (desc.bDeviceClass == LIBUSB_CLASS_HUB) /*hub*/) {
+        return FALSE;
+    }
+
+    info->vid = desc.idVendor;
+    info->pid = desc.idProduct;
+    info->class = desc.bDeviceClass;
+    info->subclass = desc.bDeviceSubClass;
+    info->protocol = desc.bDeviceProtocol;
+
+    return TRUE;
+}
+
+static SpiceUsbBackendDevice *allocate_backend_device(libusb_device *libdev)
+{
+    SpiceUsbBackendDevice *dev = g_new0(SpiceUsbBackendDevice, 1);
+    dev->ref_count = 1;
+    dev->libusb_device = libdev;
+    if (!fill_usb_info(dev)) {
+        g_clear_pointer(&dev, g_free);
+    }
+    return dev;
+}
+
+static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
+                                        libusb_device *device,
+                                        libusb_hotplug_event event,
+                                        void *user_data)
+{
+    SpiceUsbBackend *be = (SpiceUsbBackend *)user_data;
+    if (be->hotplug_callback) {
+        SpiceUsbBackendDevice *dev;
+        gboolean val = event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED;
+        dev = allocate_backend_device(device);
+        if (dev) {
+            SPICE_DEBUG("created dev %p, usblib dev %p", dev, device);
+            libusb_ref_device(device);
+            be->hotplug_callback(be->hotplug_user_data, dev, val);
+            spice_usb_backend_device_unref(dev);
+        }
+    }
+    return 0;
+}
+
 /* lock functions for usbredirhost and usbredirparser */
 static void *usbredir_alloc_lock(void) {
     GMutex *mutex;
@@ -129,41 +184,6 @@ gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev)
 
     libusb_free_config_descriptor(conf_desc);
     return isoc_found;
-}
-
-static gboolean fill_usb_info(SpiceUsbBackendDevice *bdev)
-{
-    UsbDeviceInformation *info = &bdev->device_info;
-
-    struct libusb_device_descriptor desc;
-    libusb_device *libdev = bdev->libusb_device;
-    libusb_get_device_descriptor(libdev, &desc);
-    info->bus = libusb_get_bus_number(libdev);
-    info->address = libusb_get_device_address(libdev);
-    if (info->address == 0xff || /* root hub (HCD) */
-        info->address <= 1 || /* root hub or bad address */
-        (desc.bDeviceClass == LIBUSB_CLASS_HUB) /*hub*/) {
-        return FALSE;
-    }
-
-    info->vid = desc.idVendor;
-    info->pid = desc.idProduct;
-    info->class = desc.bDeviceClass;
-    info->subclass = desc.bDeviceSubClass;
-    info->protocol = desc.bDeviceProtocol;
-
-    return TRUE;
-}
-
-static SpiceUsbBackendDevice *allocate_backend_device(libusb_device *libdev)
-{
-    SpiceUsbBackendDevice *dev = g_new0(SpiceUsbBackendDevice, 1);
-    dev->ref_count = 1;
-    dev->libusb_device = libdev;
-    if (!fill_usb_info(dev)) {
-        g_clear_pointer(&dev, g_free);
-    }
-    return dev;
 }
 
 static gboolean is_channel_ready(SpiceUsbredirChannel *channel)
@@ -235,26 +255,6 @@ void spice_usb_backend_interrupt_event_handler(SpiceUsbBackend *be)
     if (be->libusb_context) {
         libusb_interrupt_event_handler(be->libusb_context);
     }
-}
-
-static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
-                                        libusb_device *device,
-                                        libusb_hotplug_event event,
-                                        void *user_data)
-{
-    SpiceUsbBackend *be = (SpiceUsbBackend *)user_data;
-    if (be->hotplug_callback) {
-        SpiceUsbBackendDevice *dev;
-        gboolean val = event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED;
-        dev = allocate_backend_device(device);
-        if (dev) {
-            SPICE_DEBUG("created dev %p, usblib dev %p", dev, device);
-            libusb_ref_device(device);
-            be->hotplug_callback(be->hotplug_user_data, dev, val);
-            spice_usb_backend_device_unref(dev);
-        }
-    }
-    return 0;
 }
 
 void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be)
