@@ -212,6 +212,18 @@ GOptionGroup* spice_get_option_group(void)
     return grp;
 }
 
+static SpiceUsbDeviceManager *
+get_usb_device_manager_for_option(SpiceSession *session, const char *option)
+{
+    GError *err = NULL;
+    SpiceUsbDeviceManager *m = spice_usb_device_manager_get(session, &err);
+    if (!m) {
+        g_warning("Option %s is set but failed: %s", option, err->message);
+        g_error_free(err);
+    }
+    return m;
+}
+
 /**
  * spice_set_session_option:
  * @session: a #SpiceSession to set option upon
@@ -261,16 +273,20 @@ void spice_set_session_option(SpiceSession *session)
             g_object_set(session, "smartcard-db", smartcard_db, NULL);
     }
     if (usbredir_auto_redirect_filter) {
-        SpiceUsbDeviceManager *m = spice_usb_device_manager_get(session, NULL);
-        if (m)
+        SpiceUsbDeviceManager *m =
+                get_usb_device_manager_for_option(session, "--spice-usbredir-auto-redirect-filter");
+        if (m) {
             g_object_set(m, "auto-connect-filter",
                          usbredir_auto_redirect_filter, NULL);
+        }
     }
     if (usbredir_redirect_on_connect) {
-        SpiceUsbDeviceManager *m = spice_usb_device_manager_get(session, NULL);
-        if (m)
+        SpiceUsbDeviceManager *m =
+                get_usb_device_manager_for_option(session, "--spice-usbredir-redirect-on-connect");
+        if (m) {
             g_object_set(m, "redirect-on-connect",
                          usbredir_redirect_on_connect, NULL);
+        }
     }
     if (disable_usbredir)
         g_object_set(session, "enable-usbredir", FALSE, NULL);
