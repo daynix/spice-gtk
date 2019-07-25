@@ -50,6 +50,8 @@ struct _SpiceUsbBackendDevice
     gint ref_count;
     SpiceUsbBackendChannel *attached_to;
     UsbDeviceInformation device_info;
+    bool cached_isochronous_valid;
+    bool cached_isochronous;
 };
 
 struct _SpiceUsbBackend
@@ -346,6 +348,10 @@ gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev)
     gint i, j, k;
     int rc;
 
+    if (dev->cached_isochronous_valid) {
+        return dev->cached_isochronous;
+    }
+
     g_return_val_if_fail(libdev != NULL, 0);
 
     rc = libusb_get_active_config_descriptor(libdev, &conf_desc);
@@ -366,6 +372,9 @@ gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev)
             }
         }
     }
+
+    dev->cached_isochronous_valid = true;
+    dev->cached_isochronous = isoc_found;
 
     libusb_free_config_descriptor(conf_desc);
     return isoc_found;
