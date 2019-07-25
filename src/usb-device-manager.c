@@ -123,7 +123,6 @@ enum {
 struct _SpiceUsbDevice {
     SpiceUsbBackendDevice *bdev;
     gint    ref;
-    gboolean isochronous;
 };
 
 
@@ -1489,7 +1488,6 @@ static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
 
     info->ref = 1;
     info->bdev = spice_usb_backend_device_ref(bdev);
-    info->isochronous = spice_usb_backend_device_isoch(bdev);
 
     return info;
 }
@@ -1538,7 +1536,7 @@ gboolean spice_usb_device_is_isochronous(const SpiceUsbDevice *info)
 {
     g_return_val_if_fail(info != NULL, 0);
 
-    return info->isochronous;
+    return spice_usb_backend_device_isoch(info->bdev);
 }
 
 #ifdef G_OS_WIN32
