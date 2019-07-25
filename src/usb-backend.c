@@ -44,7 +44,7 @@
 
 #define LOUD_DEBUG(x, ...)
 
-struct _SpiceUsbBackendDevice
+struct _SpiceUsbDevice
 {
     libusb_device *libusb_device;
     gint ref_count;
@@ -517,12 +517,12 @@ void spice_usb_backend_delete(SpiceUsbBackend *be)
     SPICE_DEBUG("%s <<", __FUNCTION__);
 }
 
-const UsbDeviceInformation* spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev)
+const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbBackendDevice *dev)
 {
     return &dev->device_info;
 }
 
-gconstpointer spice_usb_backend_device_get_libdev(SpiceUsbBackendDevice *dev)
+gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbBackendDevice *dev)
 {
     return dev->libusb_device;
 }

@@ -27,7 +27,7 @@
 G_BEGIN_DECLS
 
 typedef struct _SpiceUsbBackend SpiceUsbBackend;
-typedef struct _SpiceUsbBackendDevice SpiceUsbBackendDevice;
+typedef struct _SpiceUsbDevice SpiceUsbBackendDevice;
 typedef struct _SpiceUsbBackendChannel SpiceUsbBackendChannel;
 
 typedef struct UsbDeviceInformation
@@ -64,8 +64,8 @@ void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be);
 /* Spice USB backend device API */
 SpiceUsbBackendDevice *spice_usb_backend_device_ref(SpiceUsbBackendDevice *dev);
 void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev);
-gconstpointer spice_usb_backend_device_get_libdev(SpiceUsbBackendDevice *dev);
-const UsbDeviceInformation* spice_usb_backend_device_get_info(SpiceUsbBackendDevice *dev);
+gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbBackendDevice *dev);
+const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbBackendDevice *dev);
 gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev);
 /* returns 0 if the device passes the filter */
 int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
