@@ -776,7 +776,7 @@ static void spice_usb_device_manager_add_dev(SpiceUsbDeviceManager  *self,
         return;
     }
 
-    device = (SpiceUsbDevice*)spice_usb_device_new(bdev);
+    device = spice_usb_device_new(bdev);
     if (!device)
         return;
 
