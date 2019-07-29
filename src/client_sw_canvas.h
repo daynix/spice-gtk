@@ -15,11 +15,8 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_SW_CANVAS_H__
-#define __SPICE_CLIENT_SW_CANVAS_H__
+#pragma once
 
 #define SW_CANVAS_CACHE
 
 #include <common/sw_canvas.h>
-
-#endif /* __SPICE_CLIENT_SW_CANVAS_H__ */

@@ -18,8 +18,7 @@
    License along with this library; if not, write to the Free Software
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 */
-#ifndef __GIO_COROUTINE_H__
-#define __GIO_COROUTINE_H__
+#pragma once
 
 #include <gio/gio.h>
 #include "coroutine.h"
@@ -62,5 +61,3 @@ void         g_coroutine_signal_emit (gpointer instance, guint signal_id,
 void         g_coroutine_object_notify(GObject *object, const gchar *property_name);
 
 G_END_DECLS
-
-#endif /* __GIO_COROUTINE_H__ */

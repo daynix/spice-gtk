@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef SPICEGTK_DECODE_H_
-# define SPICEGTK_DECODE_H_
+#pragma once
 
 #include <glib.h>
 
@@ -40,5 +39,3 @@ SpiceJpegDecoder *jpeg_decoder_new(void);
 void jpeg_decoder_destroy(SpiceJpegDecoder *d);
 
 G_END_DECLS
-
-#endif // SPICEGTK_DECODE_H_

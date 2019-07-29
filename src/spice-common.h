@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef SPICE_COMMON_H_
-# define SPICE_COMMON_H_
+#pragma once
 
 /* system */
 #include <stdio.h>
@@ -32,5 +31,3 @@
 #include "common/marshaller.h"
 
 #include "spice-util.h"
-
-#endif // SPICE_COMMON_H_

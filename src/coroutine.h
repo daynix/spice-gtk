@@ -18,8 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef _COROUTINE_H_
-#define _COROUTINE_H_
+#pragma once
 
 #include "config.h"
 
@@ -73,7 +72,6 @@ static inline gboolean coroutine_self_is_main(void) {
 	return coroutine_self() == NULL || coroutine_is_main(coroutine_self());
 }
 
-#endif
 /*
  * Local variables:
  *  c-indent-level: 8

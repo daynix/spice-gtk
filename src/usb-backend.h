@@ -19,8 +19,7 @@
     License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __SPICE_USB_BACKEND_H__
-#define __SPICE_USB_BACKEND_H__
+#pragma once
 
 #include <usbredirfilter.h>
 #include "usb-device-manager.h"
@@ -90,5 +89,3 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
 
 G_END_DECLS
-
-#endif

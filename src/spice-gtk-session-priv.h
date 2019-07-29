@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_GTK_SESSION_PRIV_H__
-#define __SPICE_CLIENT_GTK_SESSION_PRIV_H__
+#pragma once
 
 #include "spice-gtk-session.h"
 
@@ -46,5 +45,3 @@ gboolean spice_gtk_session_get_keyboard_has_focus(SpiceGtkSession *self);
 gboolean spice_gtk_session_get_mouse_has_pointer(SpiceGtkSession *self);
 
 G_END_DECLS
-
-#endif /* __SPICE_CLIENT_GTK_SESSION_PRIV_H__ */

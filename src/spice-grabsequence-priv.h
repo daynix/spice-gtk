@@ -15,8 +15,7 @@
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_GRABSEQUENCE_PRIV_H__
-#define __SPICE_GRABSEQUENCE_PRIV_H__
+#pragma once
 
 #include <glib.h>
 
@@ -25,5 +24,3 @@ struct _SpiceGrabSequence {
     guint nkeysyms;
     guint *keysyms;
 };
-
-#endif

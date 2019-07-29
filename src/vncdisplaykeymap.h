@@ -19,8 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef VNC_DISPLAY_KEYMAP_H
-#define VNC_DISPLAY_KEYMAP_H
+#pragma once
 
 #include <glib.h>
 
@@ -32,5 +31,3 @@ guint16 vnc_display_keymap_gdk2xtkbd(const guint16 *keycode_map,
 void vnc_display_keyval_set_entries(void);
 void vnc_display_keyval_free_entries(void);
 guint vnc_display_keyval_from_keycode(guint keycode, guint keyval);
-
-#endif /* VNC_DISPLAY_KEYMAP_H */

@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef SPICE_UTIL_PRIV_H
-#define SPICE_UTIL_PRIV_H
+#pragma once
 
 #include <glib.h>
 #include "spice-util.h"
@@ -34,5 +33,3 @@ void spice_mono_edge_highlight(unsigned width, unsigned hight,
                                const guint8 *and, const guint8 *xor, guint8 *dest);
 
 G_END_DECLS
-
-#endif /* SPICE_UTIL_PRIV_H */

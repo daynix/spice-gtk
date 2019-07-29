@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef SPICE_CHANNEL_CACHE_H_
-# define SPICE_CHANNEL_CACHE_H_
+#pragma once
 
 #include "common/mem.h"
 
@@ -150,5 +149,3 @@ static inline void cache_free(display_cache *cache)
 }
 
 G_END_DECLS
-
-#endif // SPICE_CHANNEL_CACHE_H_

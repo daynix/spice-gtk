@@ -18,8 +18,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_USB_ACL_HELPER_H__
-#define __SPICE_USB_ACL_HELPER_H__
+#pragma once
 
 #include "spice-client.h"
 #include <gio/gio.h>
@@ -68,5 +67,3 @@ gboolean spice_usb_acl_helper_open_acl_finish(
 void spice_usb_acl_helper_cancel(SpiceUsbAclHelper *self);
 
 G_END_DECLS
-
-#endif /* __SPICE_USB_ACL_HELPER_H__ */

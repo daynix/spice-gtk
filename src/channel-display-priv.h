@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef CHANNEL_DISPLAY_PRIV_H_
-# define CHANNEL_DISPLAY_PRIV_H_
+#pragma once
 
 #include <pixman.h>
 #ifdef WIN32
@@ -203,5 +202,3 @@ gboolean hand_pipeline_to_widget(display_stream *st,  GstPipeline *pipeline);
 void spice_frame_free(SpiceFrame *frame);
 
 G_END_DECLS
-
-#endif // CHANNEL_DISPLAY_PRIV_H_

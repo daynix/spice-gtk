@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_SESSION_PRIV_H__
-#define __SPICE_CLIENT_SESSION_PRIV_H__
+#pragma once
 
 #include "config.h"
 
@@ -99,5 +98,3 @@ gboolean spice_session_set_migration_session(SpiceSession *session, SpiceSession
 SpiceAudio *spice_audio_get(SpiceSession *session, GMainContext *context);
 const gchar* spice_audio_data_mode_to_string(gint mode);
 G_END_DECLS
-
-#endif /* __SPICE_CLIENT_SESSION_PRIV_H__ */

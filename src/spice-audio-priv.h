@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_AUDIO_PRIVATE_H__
-#define __SPICE_AUDIO_PRIVATE_H__
+#pragma once
 
 #include <glib.h>
 #include <gio/gio.h>
@@ -41,5 +40,3 @@ void spice_audio_get_record_volume_info_async(SpiceAudio *audio, GCancellable *c
 gboolean spice_audio_get_record_volume_info_finish(SpiceAudio *audio, GAsyncResult *res,
         gboolean *mute, guint8 *nchannels, guint16 **volume, GError **error);
 G_END_DECLS
-
-#endif /* __SPICE_AUDIO_PRIVATE_H__ */

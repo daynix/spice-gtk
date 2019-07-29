@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_CHANNEL_PRIV_H__
-#define __SPICE_CLIENT_CHANNEL_PRIV_H__
+#pragma once
 
 #include "config.h"
 
@@ -210,5 +209,3 @@ gint spice_channel_unix_read_fd(SpiceChannel *channel);
 #endif
 
 G_END_DECLS
-
-#endif /* __SPICE_CLIENT_CHANNEL_PRIV_H__ */

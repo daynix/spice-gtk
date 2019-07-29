@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_GSTAUDIO_H__
-#define __SPICE_CLIENT_GSTAUDIO_H__
+#pragma once
 
 #include "spice-client.h"
 #include "spice-audio.h"
@@ -52,5 +51,3 @@ SpiceGstaudio *spice_gstaudio_new(SpiceSession *session,
                                   GMainContext *context, const char *name);
 
 G_END_DECLS
-
-#endif /* __SPICE_CLIENT_GSTAUDIO_H__ */

@@ -15,8 +15,7 @@
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_URI_PRIV_H__
-#define __SPICE_URI_PRIV_H__
+#pragma once
 
 #include "spice-uri.h"
 
@@ -26,5 +25,3 @@ SpiceURI* spice_uri_new(void);
 gboolean spice_uri_parse(SpiceURI* self, const gchar* uri, GError** error);
 
 G_END_DECLS
-
-#endif /* __SPICE_URI_PRIV_H__ */

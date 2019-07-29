@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SMARTCARD_MANAGER_PRIV_H__
-#define __SMARTCARD_MANAGER_PRIV_H__
+#pragma once
 
 #include "config.h"
 #include <gio/gio.h>
@@ -33,5 +32,3 @@ gboolean spice_smartcard_manager_init_finish(SpiceSession *session,
                                              GError **err);
 
 G_END_DECLS
-
-#endif /* __SMARTCARD_MANAGER_PRIV_H__ */

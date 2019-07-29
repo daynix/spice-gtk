@@ -18,8 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#ifndef _CONTINUATION_H_
-#define _CONTINUATION_H_
+#pragma once
 
 #include "spice-common.h"
 #include <stddef.h>
@@ -53,7 +52,6 @@ int cc_swap(struct continuation *from, struct continuation *to);
         SPICE_ALIGNED_CAST(type *,                                      \
                            (((char *)obj) - offset_of(type, member)))
 
-#endif
 /*
  * Local variables:
  *  c-indent-level: 8

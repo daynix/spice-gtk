@@ -19,8 +19,7 @@
     Dmitry Fleytman <dmitry@daynix.com>
     Kirill Moizik <kirill@daynix.com>
 */
-#ifndef USBDK_HEADER
-#define USBDK_HEADER
+#pragma once
 
 typedef struct tag_usbdk_api_wrapper usbdk_api_wrapper;
 
@@ -31,4 +30,3 @@ HANDLE   usbdk_create_hider_handle(usbdk_api_wrapper *usbdk_api);
 void     usbdk_api_set_hide_rules(usbdk_api_wrapper *usbdk_api, HANDLE hider_handle, gchar *redirect_on_connect);
 BOOL     usbdk_clear_hide_rules(usbdk_api_wrapper *usbdk_api, HANDLE hider_handle);
 void     usbdk_close_hider_handle(usbdk_api_wrapper *usbdk_api, HANDLE hider_handle);
-#endif

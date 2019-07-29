@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_VMC_STREAM_H__
-#define __SPICE_VMC_STREAM_H__
+#pragma once
 
 #include <gio/gio.h>
 
@@ -77,5 +76,3 @@ GType           spice_vmc_stream_get_type        (void) G_GNUC_CONST;
 SpiceVmcStream* spice_vmc_stream_new             (SpiceChannel *channel);
 
 G_END_DECLS
-
-#endif /* __SPICE_VMC_STREAM_H__ */

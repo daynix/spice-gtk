@@ -15,8 +15,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __SPICE_CLIENT_PULSE_H__
-#define __SPICE_CLIENT_PULSE_H__
+#pragma once
 
 #include "spice-client.h"
 #include "spice-audio.h"
@@ -53,5 +52,3 @@ SpicePulse *spice_pulse_new(SpiceSession *session,
                             const char *name);
 
 G_END_DECLS
-
-#endif /* __SPICE_CLIENT_PULSE_H__ */

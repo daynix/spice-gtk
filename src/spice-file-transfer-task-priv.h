@@ -15,8 +15,7 @@
    License along with this library; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __SPICE_FILE_TRANSFER_TASK_PRIV_H__
-#define __SPICE_FILE_TRANSFER_TASK_PRIV_H__
+#pragma once
 
 #include "config.h"
 
@@ -53,5 +52,3 @@ gssize spice_file_transfer_task_read_finish(SpiceFileTransferTask *self,
 gboolean spice_file_transfer_task_is_completed(SpiceFileTransferTask *self);
 
 G_END_DECLS
-
-#endif /* __SPICE_FILE_TRANSFER_TASK_PRIV_H__ */
