@@ -12,10 +12,10 @@ meson.add_dist_script('build-aux/meson-dist', meson.project_version(), meson.sou
 # global C defines
 #
 spice_gtk_prefix = get_option('prefix')
-spice_gtk_bindir = join_paths(spice_gtk_prefix, get_option('bindir'))
-spice_gtk_datadir = join_paths(spice_gtk_prefix, get_option('datadir'))
-spice_gtk_localedir = join_paths(spice_gtk_datadir, 'locale')
-spice_gtk_includedir = join_paths(spice_gtk_prefix, get_option('includedir'))
+spice_gtk_bindir = spice_gtk_prefix / get_option('bindir')
+spice_gtk_datadir = spice_gtk_prefix / get_option('datadir')
+spice_gtk_localedir = spice_gtk_datadir / 'locale'
+spice_gtk_includedir = spice_gtk_prefix / get_option('includedir')
 spice_gtk_global_cflags = ['-DHAVE_CONFIG_H',
                            '-DSPICE_COMPILATION',
                            '-DG_LOG_DOMAIN="GSpice"',

@@ -56,7 +56,7 @@ spice_marshals = gnome.genmarshal('spice-marshal', sources : 'spice-marshal.txt'
 spice_client_glib_enums = gnome.mkenums_simple('spice-glib-enums',
                                                sources : ['spice-channel.h', 'channel-inputs.h', 'spice-session.h'],
                                                install_header : true,
-                                               install_dir : join_paths(spice_gtk_includedir, 'spice-client-glib-2.0'))
+                                               install_dir : spice_gtk_includedir / 'spice-client-glib-2.0')
 
 spice_client_glib_introspection_sources = [
   spice_client_glib_headers,
@@ -167,12 +167,12 @@ endif
 
 # version-script
 spice_client_glib_syms = files('map-file')
-spice_client_glib_syms_path = join_paths(meson.current_source_dir(), 'map-file')
+spice_client_glib_syms_path = meson.current_source_dir() / 'map-file'
 spice_gtk_version_script = '-Wl,--version-script=@0@'.format(spice_client_glib_syms_path)
 spice_gtk_has_version_script = compiler.has_link_argument(spice_gtk_version_script)
 if not spice_gtk_has_version_script
   spice_client_glib_syms = files('spice-glib-sym-file')
-  spice_client_glib_syms_path = join_paths(meson.current_source_dir(), 'spice-glib-sym-file')
+  spice_client_glib_syms_path = meson.current_source_dir() / 'spice-glib-sym-file'
   spice_gtk_version_script = ['-export-symbols', spice_client_glib_syms_path]
 endif
 
@@ -252,7 +252,7 @@ if spice_gtk_has_gtk
   spice_widget_enums = gnome.mkenums_simple('spice-widget-enums',
                                             sources : 'spice-widget.h',
                                             install_header : true,
-                                            install_dir : join_paths(spice_gtk_includedir, 'spice-client-gtk-3.0'))
+                                            install_dir : spice_gtk_includedir / 'spice-client-gtk-3.0')
 
   spice_client_gtk_introspection_sources = [
     spice_client_gtk_headers,
@@ -311,7 +311,7 @@ if spice_gtk_has_gtk
   spice_client_gtk_syms = spice_client_glib_syms
   if not spice_gtk_has_version_script
     spice_client_gtk_syms = files('spice-gtk-sym-file')
-    spice_client_gtk_syms_path = join_paths(meson.current_source_dir(), 'spice-gtk-sym-file')
+    spice_client_gtk_syms_path = meson.current_source_dir() / 'spice-gtk-sym-file'
     spice_gtk_version_script = ['-export-symbols', spice_client_gtk_syms_path]
   endif
 
