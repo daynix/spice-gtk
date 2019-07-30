@@ -28,11 +28,11 @@ fedora:
   before_script:
     - dnf install -y $DEPS_COMMON $DEPS_FEDORA
     - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
-    - meson --buildtype=release spice-protocol build-spice-protocol --prefix=/usr
+    - meson --buildtype=release spice-protocol build-spice-protocol --prefix=/usr --werror
     - ninja -C build-spice-protocol install
 
   script:
-    - meson --buildtype=release build-default
+    - meson --buildtype=release build-default --werror
     # Meson does not update submodules recursively
     - git submodule update --init --recursive
     # this fix an issue with Meson dist
@@ -42,7 +42,7 @@ fedora:
     - ninja -C build-default
     - ninja -C build-default test
 
-    - meson --buildtype=release build-feat-disabled -Dauto_features=disabled
+    - meson --buildtype=release build-feat-disabled -Dauto_features=disabled --werror
     - ninja -C build-feat-disabled
     - ninja -C build-feat-disabled test
 
@@ -58,11 +58,11 @@ windows:
     - dnf install -y $DEPS_COMMON $DEPS_MINGW
     - git clone ${CI_REPOSITORY_URL/spice-gtk/spice-protocol}
     - mkdir spice-protocol/build-spice-protocol && cd spice-protocol/build-spice-protocol
-    - mingw64-meson --buildtype=release --prefix=/usr
+    - mingw64-meson --buildtype=release --prefix=/usr --werror
     - ninja install
 
   script:
     - cd $CI_PROJECT_DIR
     - mkdir build-win64 && cd build-win64
-    - mingw64-meson --buildtype=release -Dgtk_doc=disabled
+    - mingw64-meson --buildtype=release -Dgtk_doc=disabled --werror
     - ninja install
