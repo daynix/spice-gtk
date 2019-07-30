@@ -177,7 +177,6 @@ if not spice_gtk_has_version_script
 endif
 
 # soversion
-# XXX: KEEP IN SYNC WITH src/Makefile.am FILE
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 spice_client_glib_current = 14
 spice_client_glib_revision = 0
@@ -317,7 +316,6 @@ if spice_gtk_has_gtk
   endif
 
   # soversion
-  # XXX: KEEP IN SYNC WITH src/Makefile.am FILE
   # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
   spice_client_gtk_current = 5
   spice_client_gtk_revision = 0
