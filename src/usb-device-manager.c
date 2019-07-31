@@ -1012,8 +1012,12 @@ GPtrArray* spice_usb_device_manager_get_devices_with_filter(
         if (rules) {
             SpiceUsbBackendDevice *bdev =
                 spice_usb_device_manager_device_to_bdev(self, device);
-            if (spice_usb_backend_device_check_filter(bdev, rules, count) != 0)
+            gboolean filter_ok =
+                (spice_usb_backend_device_check_filter(bdev, rules, count) == 0);
+            spice_usb_backend_device_unref(bdev);
+            if (!filter_ok) {
                 continue;
+            }
         }
         g_ptr_array_add(devices_copy, spice_usb_device_ref(device));
     }
