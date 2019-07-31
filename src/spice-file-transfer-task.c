@@ -648,6 +648,8 @@ spice_file_transfer_task_dispose(GObject *object)
     g_clear_object(&self->file);
     g_clear_object(&self->file_stream);
     g_clear_error(&self->error);
+    g_clear_object(&self->channel);
+    g_clear_object(&self->cancellable);
 
     G_OBJECT_CLASS(spice_file_transfer_task_parent_class)->dispose(object);
 }
