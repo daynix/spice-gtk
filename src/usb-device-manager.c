@@ -1490,7 +1490,7 @@ static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
     return info;
 }
 
-guint8 spice_usb_device_get_busnum(const SpiceUsbDevice *info)
+guint16 spice_usb_device_get_busnum(const SpiceUsbDevice *info)
 {
     const UsbDeviceInformation *b_info;
 
