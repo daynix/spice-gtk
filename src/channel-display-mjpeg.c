@@ -300,5 +300,8 @@ VideoDecoder* create_mjpeg_decoder(int codec_type, display_stream *stream)
 
     /* All the other fields are initialized to zero by g_new0(). */
 
+    /* makes the draw-area visible */
+    hand_pipeline_to_widget(stream, NULL);
+
     return (VideoDecoder*)decoder;
 }

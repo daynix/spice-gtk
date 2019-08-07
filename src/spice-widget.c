@@ -2780,13 +2780,20 @@ static void gst_size_allocate(GtkWidget *widget, GdkRectangle *a, gpointer data)
 }
 
 /* This callback should pass to the widget a pointer of the pipeline
- * so that we can set pipeline and overlay related calls from here.
+ * so that we can the set GST pipeline and overlay related calls from
+ * here.  If the pipeline pointer is NULL, the drawing area of the
+ * native renderer is set visible.
  */
 static gboolean set_overlay(SpiceChannel *channel, void* pipeline_ptr, SpiceDisplay *display)
 {
-#if defined(GDK_WINDOWING_X11)
     SpiceDisplayPrivate *d = display->priv;
 
+    if (pipeline_ptr == NULL) {
+        gtk_stack_set_visible_child_name(d->stack, "draw-area");
+        return true;
+    }
+
+#if defined(GDK_WINDOWING_X11)
     /* GstVideoOverlay is currently used only under x */
     if (!g_getenv("DISABLE_GSTVIDEOOVERLAY") &&
         GDK_IS_X11_DISPLAY(gdk_display_get_default())) {

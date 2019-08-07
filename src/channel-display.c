@@ -485,7 +485,9 @@ static void spice_display_channel_class_init(SpiceDisplayChannelClass *klass)
      *
      * The #SpiceDisplayChannel::gst-video-overlay signal is emitted when
      * pipeline is ready and can be passed to widget to register GStreamer
-     * overlay interface and other GStreamer callbacks.
+     * overlay interface and other GStreamer callbacks. If the pipeline
+     * pointer is NULL, the drawing area of the native renderer is set
+     * visible.
      *
      * Returns: %TRUE if the overlay is being set
      *
