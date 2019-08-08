@@ -235,7 +235,7 @@ mux_msg_flushed_cb(GObject *source_object,
 {
     Client *client = user_data;
 
-    if (!g_output_stream_write_all_finish(G_OUTPUT_STREAM(source_object), result, NULL, NULL) ||
+    if (spice_vmc_write_finish(SPICE_CHANNEL(source_object), result, NULL) == -1 ||
         client->mux.size == 0 ||
         !client_start_read(client)) {
         remove_client(client);
@@ -249,8 +249,6 @@ static void server_reply_cb(GObject *source_object,
                             gpointer user_data)
 {
     Client *client = user_data;
-    SpiceWebdavChannelPrivate *c = client->self->priv;
-    GOutputStream *mux_out;
     GError *err = NULL;
     gssize size;
 
@@ -262,13 +260,12 @@ static void server_reply_cb(GObject *source_object,
     g_return_if_fail(size >= 0);
     client->mux.size = GUINT16_TO_LE(size);
 
-    mux_out = g_io_stream_get_output_stream(G_IO_STREAM(c->stream));
-
-    /* this internally uses spice_vmc_write_async(), priority is ignored;
-     * the callback is invoked once the msg is written out to the socket */
-    g_output_stream_write_all_async(mux_out, (guint8 *)&client->mux, sizeof(gint64) + sizeof(guint16) + size,
-        G_PRIORITY_DEFAULT, client->cancellable, mux_msg_flushed_cb, client);
-
+    spice_vmc_write_async(SPICE_CHANNEL(client->self),
+                          &client->mux,
+                          sizeof(gint64) + sizeof(guint16) + size,
+                          client->cancellable,
+                          mux_msg_flushed_cb,
+                          client);
     return;
 
 end:
