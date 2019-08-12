@@ -301,7 +301,6 @@ static void spice_usbredir_channel_open_acl_cb(
 }
 #endif
 
-#ifndef USE_POLKIT
 static void
 _open_device_async_cb(GTask *task,
                       gpointer object,
@@ -328,7 +327,6 @@ _open_device_async_cb(GTask *task,
         g_task_return_boolean(task, TRUE);
     }
 }
-#endif
 
 G_GNUC_INTERNAL
 void spice_usbredir_channel_connect_device_async(
@@ -373,21 +371,22 @@ void spice_usbredir_channel_connect_device_async(
     priv->spice_device = g_boxed_copy(spice_usb_device_get_type(),
                                       spice_device);
 #ifdef USE_POLKIT
-    priv->task = task;
-    priv->state  = STATE_WAITING_FOR_ACL_HELPER;
-    priv->acl_helper = spice_usb_acl_helper_new();
-    g_object_set(spice_channel_get_session(SPICE_CHANNEL(channel)),
-                 "inhibit-keyboard-grab", TRUE, NULL);
-    spice_usb_acl_helper_open_acl_async(priv->acl_helper,
-                                        info->bus,
-                                        info->address,
-                                        cancellable,
-                                        spice_usbredir_channel_open_acl_cb,
-                                        channel);
-    return;
-#else
-    g_task_run_in_thread(task, _open_device_async_cb);
+    if (info->bus != BUS_NUMBER_FOR_EMULATED_USB) {
+        priv->task = task;
+        priv->state  = STATE_WAITING_FOR_ACL_HELPER;
+        priv->acl_helper = spice_usb_acl_helper_new();
+        g_object_set(spice_channel_get_session(SPICE_CHANNEL(channel)),
+                    "inhibit-keyboard-grab", TRUE, NULL);
+        spice_usb_acl_helper_open_acl_async(priv->acl_helper,
+                                            info->bus,
+                                            info->address,
+                                            cancellable,
+                                            spice_usbredir_channel_open_acl_cb,
+                                            channel);
+        return;
+    }
 #endif
+    g_task_run_in_thread(task, _open_device_async_cb);
 
 done:
     g_object_unref(task);
