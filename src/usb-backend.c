@@ -192,7 +192,7 @@ static int compare_dev_list_fire_callback(SpiceUsbBackend *be,
 }
 
 static LRESULT subclass_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
-                            UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+                             UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     SpiceUsbBackend *be = (SpiceUsbBackend *)dwRefData;
     if (uMsg == WM_DEVICECHANGE && !be->redirecting) {
@@ -298,14 +298,16 @@ static int enable_hotplug_support(SpiceUsbBackend *be, const char **error_on_ena
     return rc;
 }
 
-static inline void set_redirecting(SpiceUsbBackend *be, gboolean on) {
+static inline void set_redirecting(SpiceUsbBackend *be, gboolean on)
+{
     /* nothing on Linux */
 }
 
 #endif
 
 /* lock functions for usbredirhost and usbredirparser */
-static void *usbredir_alloc_lock(void) {
+static void *usbredir_alloc_lock(void)
+{
     GMutex *mutex;
 
     mutex = g_new0(GMutex, 1);
@@ -314,20 +316,23 @@ static void *usbredir_alloc_lock(void) {
     return mutex;
 }
 
-static void usbredir_free_lock(void *user_data) {
+static void usbredir_free_lock(void *user_data)
+{
     GMutex *mutex = user_data;
 
     g_mutex_clear(mutex);
     g_free(mutex);
 }
 
-static void usbredir_lock_lock(void *user_data) {
+static void usbredir_lock_lock(void *user_data)
+{
     GMutex *mutex = user_data;
 
     g_mutex_lock(mutex);
 }
 
-static void usbredir_unlock_lock(void *user_data) {
+static void usbredir_unlock_lock(void *user_data)
+{
     GMutex *mutex = user_data;
 
     g_mutex_unlock(mutex);
