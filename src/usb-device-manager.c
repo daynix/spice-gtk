@@ -32,7 +32,6 @@
 #endif
 
 #include "channel-usbredir-priv.h"
-#include "usbutil.h"
 #endif
 
 #include "spice-session-priv.h"
@@ -1432,35 +1431,9 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
 gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *format)
 {
 #ifdef USE_USBREDIR
-    guint16 bus, address, vid, pid;
-    gchar *description, *descriptor, *manufacturer = NULL, *product = NULL;
-
     g_return_val_if_fail(device != NULL, NULL);
 
-    bus     = spice_usb_device_get_busnum(device);
-    address = spice_usb_device_get_devaddr(device);
-    vid     = spice_usb_device_get_vid(device);
-    pid     = spice_usb_device_get_pid(device);
-
-    if ((vid > 0) && (pid > 0)) {
-        descriptor = g_strdup_printf("[%04x:%04x]", vid, pid);
-    } else {
-        descriptor = g_strdup("");
-    }
-
-    spice_usb_util_get_device_strings(bus, address, vid, pid,
-                                      &manufacturer, &product);
-
-    if (!format)
-        format = _("%s %s %s at %d-%d");
-
-    description = g_strdup_printf(format, manufacturer, product, descriptor, bus, address);
-
-    g_free(manufacturer);
-    g_free(descriptor);
-    g_free(product);
-
-    return description;
+    return spice_usb_backend_device_get_description(device, format);
 #else
     return NULL;
 #endif

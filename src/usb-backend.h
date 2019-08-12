@@ -90,5 +90,6 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
                                                 const struct usbredirfilter_rule  **rules,
                                                 int *count);
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
+gchar *spice_usb_backend_device_get_description(SpiceUsbBackendDevice *dev, const gchar *format);
 
 G_END_DECLS

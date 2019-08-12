@@ -42,6 +42,7 @@
 #include "usb-emulation.h"
 #include "channel-usbredir-priv.h"
 #include "spice-channel-priv.h"
+#include "usbutil.h"
 
 #define LOUD_DEBUG(x, ...)
 
@@ -850,6 +851,46 @@ spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
             ra[i].allow ? "allowed" : "denied", ra[i].device_class,
             (uint32_t)ra[i].vendor_id, (uint32_t)ra[i].product_id);
     }
+}
+
+gchar *spice_usb_backend_device_get_description(SpiceUsbBackendDevice *dev,
+                                                const gchar *format)
+{
+    guint16 bus, address, vid, pid;
+    gchar *description, *descriptor, *manufacturer = NULL, *product = NULL;
+
+    g_return_val_if_fail(dev != NULL, NULL);
+
+    bus     = dev->device_info.bus;
+    address = dev->device_info.address;
+    vid     = dev->device_info.vid;
+    pid     = dev->device_info.pid;
+
+    if ((vid > 0) && (pid > 0)) {
+        descriptor = g_strdup_printf("[%04x:%04x]", vid, pid);
+    } else {
+        descriptor = g_strdup("");
+    }
+
+    if (dev->libusb_device) {
+        spice_usb_util_get_device_strings(bus, address, vid, pid,
+                                          &manufacturer, &product);
+    } else {
+        product = device_ops(dev->edev)->get_product_description(dev->edev);
+    }
+
+    if (!format) {
+        format = _("%s %s %s at %d-%d");
+    }
+
+    description = g_strdup_printf(format, manufacturer ? manufacturer : "",
+                                  product, descriptor, bus, address);
+
+    g_free(manufacturer);
+    g_free(descriptor);
+    g_free(product);
+
+    return description;
 }
 
 void spice_usb_backend_device_report_change(SpiceUsbBackend *be,
