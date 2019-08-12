@@ -122,6 +122,7 @@ spice_client_glib_sources = [
   'usbutil.c',
   'usbutil.h',
   'usb-backend.c',
+  'usb-emulation.h',
   'usb-backend.h',
   'vmcstream.c',
   'vmcstream.h',

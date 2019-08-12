@@ -39,6 +39,7 @@
 #include "usbredirparser.h"
 #include "spice-util.h"
 #include "usb-backend.h"
+#include "usb-emulation.h"
 #include "channel-usbredir-priv.h"
 #include "spice-channel-priv.h"
 
@@ -46,7 +47,10 @@
 
 struct _SpiceUsbDevice
 {
+    /* Pointer to device. Either real device (libusb_device)
+     * or emulated one (edev) */
     libusb_device *libusb_device;
+    SpiceUsbEmulatedDevice *edev;
     gint ref_count;
     SpiceUsbBackendChannel *attached_to;
     UsbDeviceInformation device_info;
@@ -68,6 +72,10 @@ struct _SpiceUsbBackend
     libusb_device **libusb_device_list;
     gint redirecting;
 #endif
+
+    /* Mask of allocated device, a specific bit set to 1 to indicate that the device at
+     * that address is allocated */
+    uint32_t own_devices_mask;
 };
 
 struct _SpiceUsbBackendChannel
@@ -422,6 +430,8 @@ SpiceUsbBackend *spice_usb_backend_new(GError **error)
         libusb_set_option(be->libusb_context, LIBUSB_OPTION_USE_USBDK);
 #endif
 #endif
+        /* exclude addresses 0 (reserved) and 1 (root hub) */
+        be->own_devices_mask = 3;
     }
     SPICE_DEBUG("%s <<", __FUNCTION__);
     return be;
@@ -538,8 +548,13 @@ void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev)
 {
     LOUD_DEBUG("%s >> %p(%d)", __FUNCTION__, dev, dev->ref_count);
     if (g_atomic_int_dec_and_test(&dev->ref_count)) {
-        libusb_unref_device(dev->libusb_device);
-        LOUD_DEBUG("%s freeing %p (libusb %p)", __FUNCTION__, dev, dev->libusb_device);
+        if (dev->libusb_device) {
+            libusb_unref_device(dev->libusb_device);
+            LOUD_DEBUG("%s freeing %p (libusb %p)", __FUNCTION__, dev, dev->libusb_device);
+        }
+        if (dev->edev) {
+            device_ops(dev->edev)->unrealize(dev->edev);
+        }
         g_free(dev);
     }
 }
@@ -835,6 +850,90 @@ spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
             ra[i].allow ? "allowed" : "denied", ra[i].device_class,
             (uint32_t)ra[i].vendor_id, (uint32_t)ra[i].product_id);
     }
+}
+
+void spice_usb_backend_device_report_change(SpiceUsbBackend *be,
+                                            SpiceUsbBackendDevice *dev)
+{
+    gchar *desc;
+    g_return_if_fail(dev && dev->edev);
+
+    desc = device_ops(dev->edev)->get_product_description(dev->edev);
+    SPICE_DEBUG("%s: %s", __FUNCTION__, desc);
+    g_free(desc);
+}
+
+void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbBackendDevice *dev)
+{
+    g_return_if_fail(dev);
+
+    if (dev->edev) {
+        be->own_devices_mask &= ~(1 << dev->device_info.address);
+    }
+    if (be->hotplug_callback) {
+        be->hotplug_callback(be->hotplug_user_data, dev, FALSE);
+    }
+}
+
+gboolean
+spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
+                                         SpiceUsbEmulatedDeviceCreate create_proc,
+                                         void *create_params,
+                                         GError **err)
+{
+    SpiceUsbEmulatedDevice *edev;
+    SpiceUsbBackendDevice *dev;
+    struct libusb_device_descriptor *desc;
+    uint16_t device_desc_size;
+    uint8_t address = 0;
+
+    if (be->own_devices_mask == 0xffffffff) {
+        g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                    _("can't create device - limit reached"));
+        return FALSE;
+    }
+    for (address = 0; address < 32; ++address) {
+        if (~be->own_devices_mask & (1 << address)) {
+            break;
+        }
+    }
+
+    dev = g_new0(SpiceUsbBackendDevice, 1);
+    dev->device_info.bus = BUS_NUMBER_FOR_EMULATED_USB;
+    dev->device_info.address = address;
+    dev->ref_count = 1;
+
+    dev->edev = edev = create_proc(be, dev, create_params, err);
+    if (edev == NULL) {
+        spice_usb_backend_device_unref(dev);
+        return FALSE;
+    }
+
+    if (!device_ops(edev)->get_descriptor(edev, LIBUSB_DT_DEVICE, 0,
+                                          (void **)&desc, &device_desc_size)
+        || device_desc_size != sizeof(*desc)) {
+
+        spice_usb_backend_device_unref(dev);
+        g_set_error(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+                    _("can't create device - internal error"));
+        return FALSE;
+    }
+
+    be->own_devices_mask |= 1 << address;
+
+    dev->device_info.vid = desc->idVendor;
+    dev->device_info.pid = desc->idProduct;
+    dev->device_info.bcdUSB = desc->bcdUSB;
+    dev->device_info.class = desc->bDeviceClass;
+    dev->device_info.subclass = desc->bDeviceSubClass;
+    dev->device_info.protocol = desc->bDeviceProtocol;
+
+    if (be->hotplug_callback) {
+        be->hotplug_callback(be->hotplug_user_data, dev, TRUE);
+    }
+    spice_usb_backend_device_unref(dev);
+
+    return TRUE;
 }
 
 #endif /* USB_REDIR */

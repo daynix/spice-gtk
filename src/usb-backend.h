@@ -30,12 +30,15 @@ typedef struct _SpiceUsbBackend SpiceUsbBackend;
 typedef struct _SpiceUsbDevice SpiceUsbBackendDevice;
 typedef struct _SpiceUsbBackendChannel SpiceUsbBackendChannel;
 
+#define BUS_NUMBER_FOR_EMULATED_USB G_MAXUINT16
+
 typedef struct UsbDeviceInformation
 {
     uint16_t bus;
     uint16_t address;
     uint16_t vid;
     uint16_t pid;
+    uint16_t bcdUSB;
     uint8_t class;
     uint8_t subclass;
     uint8_t protocol;
