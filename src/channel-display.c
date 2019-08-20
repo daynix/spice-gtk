@@ -615,11 +615,17 @@ static void spice_display_send_client_preferred_video_codecs(SpiceChannel *chann
 {
     SpiceMsgOut *out;
     SpiceMsgcDisplayPreferredVideoCodecType *msg;
+    int i;
 
     msg = g_malloc0(sizeof(SpiceMsgcDisplayPreferredVideoCodecType) +
-                    (sizeof(SpiceVideoCodecType) * ncodecs));
+                    (sizeof(msg->codecs[0]) * ncodecs));
     msg->num_of_codecs = ncodecs;
-    memcpy(msg->codecs, codecs, sizeof(*codecs) * ncodecs);
+
+    /* cannot memcpy because codecs is gint, but msg->codecs is uint8_t
+     * but safe because SpiceVideoCodecType <= 255 */
+    for (i = 0; i < ncodecs; i++) {
+        msg->codecs[i] = codecs[i];
+    }
 
     out = spice_msg_out_new(channel, SPICE_MSGC_DISPLAY_PREFERRED_VIDEO_CODEC_TYPE);
     out->marshallers->msgc_display_preferred_video_codec_type(out->marshaller, msg);
