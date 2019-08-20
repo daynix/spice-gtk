@@ -332,6 +332,7 @@ static void demux_to_client_cb(GObject *source, GAsyncResult *result, gpointer u
     fail = (size != c->demux.size);
     g_warn_if_fail(size == c->demux.size);
     demux_to_client_finish(client, fail);
+    client_unref(client);
 }
 #endif
 
@@ -351,7 +352,7 @@ static void demux_to_client(Client *client)
 
     g_output_stream_write_all_async(g_io_stream_get_output_stream(client->pipe),
                                     c->demux.buf, size, G_PRIORITY_DEFAULT,
-                                    c->cancellable, demux_to_client_cb, client);
+                                    c->cancellable, demux_to_client_cb, client_ref(client));
 #endif
 }
 
