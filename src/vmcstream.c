@@ -397,18 +397,11 @@ spice_vmc_output_stream_write_fn(GOutputStream   *stream,
 
 static gssize
 spice_vmc_output_stream_write_finish(GOutputStream *stream,
-                                     GAsyncResult *simple,
+                                     GAsyncResult *result,
                                      GError **error)
 {
-    SpiceVmcOutputStream *self = SPICE_VMC_OUTPUT_STREAM(stream);
-    GAsyncResult *res = g_task_propagate_pointer(G_TASK(simple), error);
-    gssize bytes_written;
-
-    SPICE_DEBUG("spicevmc write finish");
-    bytes_written = spice_vmc_write_finish(self->channel, res, error);
-    g_object_unref(res);
-
-    return bytes_written;
+    g_return_val_if_fail(g_task_is_valid(result, stream), -1);
+    return g_task_propagate_int(G_TASK(result), error);
 }
 
 static void
@@ -417,9 +410,17 @@ write_cb(GObject *source_object,
          gpointer user_data)
 {
     GTask *task = user_data;
+    GError *error = NULL;
+    gssize bytes_written;
 
-    g_task_return_pointer(task, g_object_ref(res), g_object_unref);
+    SPICE_DEBUG("spicevmc write finish");
+    bytes_written = spice_vmc_write_finish(SPICE_CHANNEL(source_object), res, &error);
 
+    if (error) {
+        g_task_return_error(task, error);
+    } else {
+        g_task_return_int(task, bytes_written);
+    }
     g_object_unref(task);
 }
 
