@@ -365,7 +365,6 @@ foreach key, value : config_data
 endforeach
 
 configure_file(output : 'config.h',
-               install : false,
                configuration : spice_gtk_config_data)
 
 #
