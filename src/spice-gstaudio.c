@@ -602,6 +602,7 @@ static void spice_gstaudio_get_playback_volume_info_async(SpiceAudio *audio,
     GTask *task = g_task_new(audio, cancellable, callback, user_data);
 
     g_task_return_boolean(task, TRUE);
+    g_object_unref(task);
 }
 
 static gboolean spice_gstaudio_get_playback_volume_info_finish(SpiceAudio *audio,
@@ -684,6 +685,7 @@ static void spice_gstaudio_get_record_volume_info_async(SpiceAudio *audio,
     GTask *task = g_task_new(audio, cancellable, callback, user_data);
 
     g_task_return_boolean(task, TRUE);
+    g_object_unref(task);
 }
 
 static gboolean spice_gstaudio_get_record_volume_info_finish(SpiceAudio *audio,
