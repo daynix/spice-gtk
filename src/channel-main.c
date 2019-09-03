@@ -2337,7 +2337,8 @@ static gboolean migrate_connect(gpointer data)
 
 /* coroutine context */
 static void main_migrate_connect(SpiceChannel *channel,
-                                 SpiceMigrationDstInfo *dst_info, bool do_seamless,
+                                 SpiceMigrationDstInfo *dst_info,
+                                 bool do_seamless,
                                  uint32_t src_mig_version)
 {
     SpiceMainChannelPrivate *main_priv = SPICE_MAIN_CHANNEL(channel)->priv;
@@ -2379,13 +2380,12 @@ static void main_migrate_connect(SpiceChannel *channel,
             SPICE_DEBUG("migration (semi-seamless): connections all ok");
             reply_type = SPICE_MSGC_MAIN_MIGRATE_CONNECTED;
         }
-        spice_session_start_migrating(spice_channel_get_session(channel),
-                                      mig.do_seamless);
+        spice_session_start_migrating(session, mig.do_seamless);
     }
 
 end:
     CHANNEL_DEBUG(channel, "migrate connect reply %d", reply_type);
-    out = spice_msg_out_new(SPICE_CHANNEL(channel), reply_type);
+    out = spice_msg_out_new(channel, reply_type);
     spice_msg_out_send(out);
 }
 
