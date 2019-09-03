@@ -2174,8 +2174,9 @@ migrate_channel_connect(spice_migrate *mig, int type, int id)
     SPICE_DEBUG("migrate_channel_connect %d:%d", type, id);
 
     SpiceChannel *newc = spice_channel_new(mig->session, type, id);
-    spice_channel_connect(newc);
-    mig->nchannels++;
+    if (newc != NULL && spice_channel_connect(newc)) {
+        mig->nchannels++;
+    }
 }
 
 /* coroutine context */
