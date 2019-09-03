@@ -2168,15 +2168,14 @@ static void migrate_channel_new_cb(SpiceSession *s, SpiceChannel *channel, gpoin
                      G_CALLBACK(migrate_channel_event_cb), data);
 }
 
-static SpiceChannel* migrate_channel_connect(spice_migrate *mig, int type, int id)
+static void
+migrate_channel_connect(spice_migrate *mig, int type, int id)
 {
     SPICE_DEBUG("migrate_channel_connect %d:%d", type, id);
 
     SpiceChannel *newc = spice_channel_new(mig->session, type, id);
     spice_channel_connect(newc);
     mig->nchannels++;
-
-    return newc;
 }
 
 /* coroutine context */
