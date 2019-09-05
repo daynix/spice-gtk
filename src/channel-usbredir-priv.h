@@ -70,7 +70,7 @@ void spice_usbredir_channel_get_guest_filter(
                           int                                *rules_count_ret);
 
 /* Callback for USB backend */
-int spice_usbredir_write_callback(SpiceUsbredirChannel *channel, uint8_t *data, int count);
+int spice_usbredir_write(SpiceUsbredirChannel *channel, uint8_t *data, int count);
 
 G_END_DECLS
 

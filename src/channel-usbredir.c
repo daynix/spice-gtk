@@ -572,7 +572,7 @@ static int try_write_compress_LZ4(SpiceUsbredirChannel *channel, uint8_t *data, 
 #endif
 
 G_GNUC_INTERNAL
-int spice_usbredir_write_callback(SpiceUsbredirChannel *channel, uint8_t *data, int count)
+int spice_usbredir_write(SpiceUsbredirChannel *channel, uint8_t *data, int count)
 {
     SpiceMsgOut *msg_out;
 

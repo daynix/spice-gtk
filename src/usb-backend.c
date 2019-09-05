@@ -614,7 +614,7 @@ static int usbredir_write_callback(void *user_data, uint8_t *data, int count)
     SpiceUsbBackendChannel *ch = user_data;
     int res;
     SPICE_DEBUG("%s ch %p, %d bytes", __FUNCTION__, ch, count);
-    res = spice_usbredir_write_callback(ch->user_data, data, count);
+    res = spice_usbredir_write(ch->user_data, data, count);
     return res;
 }
 
