@@ -73,7 +73,7 @@ int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
 
 /* Spice USB backend channel API */
 SpiceUsbBackendChannel *spice_usb_backend_channel_new(SpiceUsbBackend *context,
-                                                      void            *user_data);
+                                                      SpiceUsbredirChannel *usbredir_channel);
 void spice_usb_backend_channel_delete(SpiceUsbBackendChannel *ch);
 /* returns 0 for success or error code */
 int spice_usb_backend_read_guest_data(SpiceUsbBackendChannel *ch, uint8_t *data, int count);

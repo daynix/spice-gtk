@@ -78,7 +78,7 @@ struct _SpiceUsbBackendChannel
     struct usbredirfilter_rule *rules;
     int rules_count;
     SpiceUsbBackendDevice *attached;
-    SpiceUsbredirChannel  *user_data;
+    SpiceUsbredirChannel *usbredir_channel;
     SpiceUsbBackend *backend;
     GError **error;
 };
@@ -394,7 +394,7 @@ static void usbredir_write_flush_callback(void *user_data)
         /* just to be on the safe side */
         return;
     }
-    if (is_channel_ready(ch->user_data)) {
+    if (is_channel_ready(ch->usbredir_channel)) {
         SPICE_DEBUG("%s ch %p -> usbredirhost", __FUNCTION__, ch);
         usbredirhost_write_guest_data(ch->usbredirhost);
     } else {
@@ -614,14 +614,14 @@ static int usbredir_write_callback(void *user_data, uint8_t *data, int count)
     SpiceUsbBackendChannel *ch = user_data;
     int res;
     SPICE_DEBUG("%s ch %p, %d bytes", __FUNCTION__, ch, count);
-    res = spice_usbredir_write(ch->user_data, data, count);
+    res = spice_usbredir_write(ch->usbredir_channel, data, count);
     return res;
 }
 
 static uint64_t usbredir_buffered_output_size_callback(void *user_data)
 {
     SpiceUsbBackendChannel *ch = user_data;
-    return spice_channel_get_queue_size(SPICE_CHANNEL(ch->user_data));
+    return spice_channel_get_queue_size(SPICE_CHANNEL(ch->usbredir_channel));
 }
 
 int spice_usb_backend_read_guest_data(SpiceUsbBackendChannel *ch, uint8_t *data, int count)
@@ -747,16 +747,15 @@ void spice_usb_backend_channel_detach(SpiceUsbBackendChannel *ch)
     ch->attached = NULL;
 }
 
-SpiceUsbBackendChannel *spice_usb_backend_channel_new(SpiceUsbBackend *be,
-                                                      void *user_data)
+SpiceUsbBackendChannel *
+spice_usb_backend_channel_new(SpiceUsbBackend *be,
+                              SpiceUsbredirChannel *usbredir_channel)
 {
     SpiceUsbBackendChannel *ch;
 
-    g_return_val_if_fail(SPICE_IS_USBREDIR_CHANNEL(user_data), NULL);
-
     ch = g_new0(SpiceUsbBackendChannel, 1);
     SPICE_DEBUG("%s >>", __FUNCTION__);
-    ch->user_data = SPICE_USBREDIR_CHANNEL(user_data);
+    ch->usbredir_channel = usbredir_channel;
     if (be->libusb_context) {
         ch->backend = be;
         ch->usbredirhost = usbredirhost_open_full(
