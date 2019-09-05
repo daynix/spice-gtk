@@ -1742,12 +1742,9 @@ void spice_session_switching_disconnect(SpiceSession *self)
 }
 
 #define SWAP_STR(x, y) G_STMT_START { \
-    const gchar *tmp;                 \
-    const gchar *a = x;               \
-    const gchar *b = y;               \
-    tmp = a;                          \
-    a = b;                            \
-    b = tmp;                          \
+    gchar *tmp = x;                   \
+    x = y;                            \
+    y = tmp;                          \
 } G_STMT_END
 
 G_GNUC_INTERNAL
