@@ -115,7 +115,6 @@ struct _SpiceSessionPrivate {
     SpiceGlzDecoderWindow *glz_window;
     int               images_cache_size;
     int               glz_window_size;
-    uint32_t          pci_ram_size;
     uint32_t          n_display_channels;
     guint8            uuid[16];
     gchar             *name;
@@ -2562,7 +2561,6 @@ void spice_session_set_caches_hints(SpiceSession *session,
 
     SpiceSessionPrivate *s = session->priv;
 
-    s->pci_ram_size = pci_ram_size;
     s->n_display_channels = n_display_channels;
 
     /* TODO: when setting cache and window size, we should consider the client's
