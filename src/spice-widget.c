@@ -2921,7 +2921,7 @@ static void cursor_set(SpiceCursorChannel *channel,
 #endif
     if (d->show_cursor) {
         /* unhide */
-        g_clear_pointer(&d->show_cursor, g_object_unref);
+        g_clear_object(&d->show_cursor);
         if (d->mouse_mode == SPICE_MOUSE_MODE_SERVER) {
             /* keep a hidden cursor, will be shown in cursor_move() */
             d->show_cursor = cursor;
