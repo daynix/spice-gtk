@@ -112,7 +112,6 @@ struct _SpiceSessionPrivate {
     gboolean          for_migration;
 
     display_cache     *images;
-    display_cache     *palettes;
     SpiceGlzDecoderWindow *glz_window;
     int               images_cache_size;
     int               glz_window_size;
