@@ -2017,7 +2017,6 @@ int main(int argc, char *argv[])
 
     /* parse opts */
     gtk_init(&argc, &argv);
-    gst_init(&argc, &argv);
     context = g_option_context_new("- spice client test application");
     g_option_context_set_summary(context, "Gtk+ test client to connect to Spice servers.");
     g_option_context_set_description(context, "Report bugs to " PACKAGE_BUGREPORT ".");
