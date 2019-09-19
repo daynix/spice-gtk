@@ -193,7 +193,8 @@ device_iteration(const int loop, const bool attach_on_connect)
 
 static void attach(const void *param)
 {
-    const bool attach_on_connect = !!GPOINTER_TO_UINT(param);
+    const bool attach_on_connect = !!(GPOINTER_TO_UINT(param) & 1);
+    const bool libusb_enabled = !!(GPOINTER_TO_UINT(param) & 2);
 
     hellos_sent = 0;
     messages_sent = 0;
@@ -236,7 +237,12 @@ static void attach(const void *param)
     g_assert_nonnull(device);
     g_assert_false(device->edev_configured);
 
+    void *libusb_context_saved = be->libusb_context;
+    if (!libusb_enabled) {
+        be->libusb_context = NULL;
+    }
     usb_ch = spice_usb_backend_channel_new(be, SPICE_USBREDIR_CHANNEL(ch));
+    be->libusb_context = libusb_context_saved;
     g_assert_nonnull(usb_ch);
 
     for (int loop = 0; loop < 2; loop++) {
@@ -300,8 +306,12 @@ int main(int argc, char* argv[])
 
     g_test_add_data_func("/cd-emu/simple", GUINT_TO_POINTER(1), multiple);
     g_test_add_data_func("/cd-emu/multiple", GUINT_TO_POINTER(128), multiple);
-    g_test_add_data_func("/cd-emu/attach_no_auto", GUINT_TO_POINTER(0), attach);
-    g_test_add_data_func("/cd-emu/attach_auto", GUINT_TO_POINTER(1), attach);
+#define ATTACH_PARAM(auto_attach, libusb) \
+    GUINT_TO_POINTER(!!(auto_attach) + 2 * !!(libusb))
+    g_test_add_data_func("/cd-emu/attach_no_auto", ATTACH_PARAM(0, 1), attach);
+    g_test_add_data_func("/cd-emu/attach_auto", ATTACH_PARAM(1, 1), attach);
+    g_test_add_data_func("/cd-emu/attach_no_auto_no_libusb", ATTACH_PARAM(0, 0), attach);
+    g_test_add_data_func("/cd-emu/attach_auto_no_libusb", ATTACH_PARAM(1, 0), attach);
 
     int ret =  g_test_run();
 
