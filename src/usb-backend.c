@@ -721,6 +721,11 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
 
     g_return_val_if_fail(dev != NULL, FALSE);
 
+    // no physical device enabled
+    if (ch->usbredirhost == NULL) {
+        return FALSE;
+    }
+
     libusb_device_handle *handle = NULL;
 
     /*
