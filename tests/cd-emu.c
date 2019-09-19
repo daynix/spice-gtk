@@ -164,6 +164,10 @@ device_iteration(const int loop, const bool attach_on_connect)
     g_assert_cmpint(hellos_sent, ==, hellos_expected);
     g_assert_cmpint(messages_sent, >=, messages_expected);
 
+    spice_usb_backend_channel_flush_writes(usb_ch);
+    g_assert_cmpint(hellos_sent, ==, hellos_expected);
+    g_assert_cmpint(messages_sent, >=, messages_expected);
+
     // send hello reply
     if (loop == 0) {
         DATA_START
