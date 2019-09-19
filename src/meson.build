@@ -157,6 +157,18 @@ elif spice_gtk_coroutine == 'winfiber'
   spice_client_glib_sources += 'coroutine_winfibers.c'
 endif
 
+if spice_gtk_has_usbredir
+  spice_client_glib_sources += [
+    'usb-device-cd.c',
+    'usb-device-cd.h',
+    'cd-scsi.c',
+    'cd-scsi.h',
+    'cd-scsi-dev-params.h',
+    'cd-usb-bulk-msd.c',
+    'cd-usb-bulk-msd.h',
+  ]
+endif
+
 if spice_gtk_has_usbredir and host_machine.system() == 'windows'
   spice_client_glib_sources += ['usbdk_api.c',
                                 'usbdk_api.h']
