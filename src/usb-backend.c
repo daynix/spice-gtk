@@ -357,11 +357,17 @@ gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev)
     gint i, j, k;
     int rc;
 
+    g_return_val_if_fail(libdev != NULL || dev->edev != NULL, FALSE);
+
+    if (dev->edev != NULL) {
+        /* currently we do not emulate isoch devices */
+        return FALSE;
+    }
+
     if (dev->cached_isochronous_valid) {
         return dev->cached_isochronous;
     }
 
-    g_return_val_if_fail(libdev != NULL, 0);
 
     rc = libusb_get_active_config_descriptor(libdev, &conf_desc);
     if (rc) {
