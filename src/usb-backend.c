@@ -58,6 +58,7 @@ struct _SpiceUsbDevice
     UsbDeviceInformation device_info;
     bool cached_isochronous_valid;
     bool cached_isochronous;
+    gboolean edev_configured;
 };
 
 struct _SpiceUsbBackend
@@ -80,14 +81,23 @@ struct _SpiceUsbBackend
     uint32_t own_devices_mask;
 };
 
+typedef enum {
+    USB_CHANNEL_STATE_INITIALIZING,
+    USB_CHANNEL_STATE_HOST,
+    USB_CHANNEL_STATE_PARSER,
+} SpiceUsbBackendChannelState;
+
 struct _SpiceUsbBackendChannel
 {
     struct usbredirhost *usbredirhost;
     struct usbredirparser *parser;
+    SpiceUsbBackendChannelState state;
     uint8_t *read_buf;
     int read_buf_size;
     struct usbredirfilter_rule *rules;
     int rules_count;
+    uint32_t rejected          : 1;
+    uint32_t wait_disconnect_ack : 1;
     SpiceUsbBackendDevice *attached;
     SpiceUsbredirChannel *usbredir_channel;
     SpiceUsbBackend *backend;
@@ -407,13 +417,17 @@ from both the main thread as well as from the usb event handling thread */
 static void usbredir_write_flush_callback(void *user_data)
 {
     SpiceUsbBackendChannel *ch = user_data;
-    if (!ch->usbredirhost) {
-        /* just to be on the safe side */
+    if (ch->parser == NULL) {
         return;
     }
     if (is_channel_ready(ch->usbredir_channel)) {
-        SPICE_DEBUG("%s ch %p -> usbredirhost", __FUNCTION__, ch);
-        usbredirhost_write_guest_data(ch->usbredirhost);
+        if (ch->state == USB_CHANNEL_STATE_HOST) {
+            SPICE_DEBUG("%s ch %p -> usbredirhost", __FUNCTION__, ch);
+            usbredirhost_write_guest_data(ch->usbredirhost);
+        } else {
+            SPICE_DEBUG("%s ch %p -> parser", __FUNCTION__, ch);
+            usbredirparser_do_write(ch->parser);
+        }
     } else {
         SPICE_DEBUG("%s ch %p (not ready)", __FUNCTION__, ch);
     }
@@ -568,13 +582,53 @@ void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev)
     }
 }
 
-G_GNUC_INTERNAL
-int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
-                                          const struct usbredirfilter_rule *rules,
-                                          int count)
+static int check_edev_device_filter(SpiceUsbBackendDevice *dev,
+                                    const struct usbredirfilter_rule *rules,
+                                    int count)
 {
-    g_return_val_if_fail(dev->libusb_device != NULL, -EINVAL);
-    return usbredirhost_check_device_filter(rules, count, dev->libusb_device, 0);
+    SpiceUsbEmulatedDevice *edev = dev->edev;
+    uint8_t cls[32], subcls[32], proto[32], *cfg, ifnum = 0;
+    uint16_t size, offset = 0;
+
+    if (!device_ops(edev)->get_descriptor(edev, LIBUSB_DT_CONFIG, 0, (void **)&cfg, &size)) {
+        return -EINVAL;
+    }
+
+    while ((offset + 1) < size) {
+        uint8_t len  = cfg[offset];
+        uint8_t type = cfg[offset + 1];
+        if ((offset + len) > size) {
+            break;
+        }
+        if (type == LIBUSB_DT_INTERFACE) {
+            cls[ifnum] = cfg[offset + 5];
+            subcls[ifnum] = cfg[offset + 6];
+            proto[ifnum] = cfg[offset + 7];
+            ifnum++;
+        }
+        offset += len;
+    }
+
+    return usbredirfilter_check(rules, count,
+                                dev->device_info.class,
+                                dev->device_info.subclass,
+                                dev->device_info.protocol,
+                                cls, subcls, proto, ifnum,
+                                dev->device_info.vid,
+                                dev->device_info.pid,
+                                dev->device_info.bcdUSB, 0);
+}
+
+int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
+                                          const struct usbredirfilter_rule *rules, int count)
+{
+    if (dev->libusb_device != NULL) {
+        return usbredirhost_check_device_filter(rules, count, dev->libusb_device, 0);
+    } else if (dev->edev != NULL) {
+        return check_edev_device_filter(dev, rules, count);
+    }
+    g_warn_if_reached();
+    return -EINVAL;
 }
 
 static int usbredir_read_callback(void *user_data, uint8_t *data, int count)
@@ -693,10 +747,33 @@ int spice_usb_backend_read_guest_data(SpiceUsbBackendChannel *ch, uint8_t *data,
 
     ch->read_buf = data;
     ch->read_buf_size = count;
-    if (ch->usbredirhost) {
+    if (SPICE_UNLIKELY(ch->state == USB_CHANNEL_STATE_INITIALIZING)) {
+        if (ch->usbredirhost != NULL) {
+            res = usbredirhost_read_guest_data(ch->usbredirhost);
+            if (res != 0) {
+                return res;
+            }
+            ch->state = USB_CHANNEL_STATE_HOST;
+
+            /* usbredirhost should consume hello response */
+            g_return_val_if_fail(ch->read_buf == NULL, USB_REDIR_ERROR_READ_PARSE);
+        } else {
+            ch->state = USB_CHANNEL_STATE_PARSER;
+        }
+
+        ch->read_buf = data;
+        ch->read_buf_size = count;
+        if (ch->attached && ch->attached->edev) {
+            /* case of CD sharing on connect */
+            ch->state = USB_CHANNEL_STATE_PARSER;
+            SPICE_DEBUG("%s: switch %p to parser", __FUNCTION__, ch);
+        }
+        return usbredirparser_do_read(ch->parser);
+    }
+    if (ch->state == USB_CHANNEL_STATE_HOST) {
         res = usbredirhost_read_guest_data(ch->usbredirhost);
     } else {
-        res = USB_REDIR_ERROR_IO;
+        res = usbredirparser_do_read(ch->parser);
     }
     switch (res)
     {
@@ -714,6 +791,11 @@ int spice_usb_backend_read_guest_data(SpiceUsbBackendChannel *ch, uint8_t *data,
         break;
     }
     SPICE_DEBUG("%s ch %p, %d bytes, res %d", __FUNCTION__, ch, count, res);
+
+    if (ch->rejected) {
+        ch->rejected = 0;
+        res = USB_REDIR_ERROR_DEV_REJECTED;
+    }
 
     return res;
 }
@@ -741,23 +823,115 @@ GError *spice_usb_backend_get_error_details(int error_code, gchar *desc)
     return err;
 }
 
+void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data)
+{
+    if (ch->state == USB_CHANNEL_STATE_HOST) {
+        SPICE_DEBUG("%s ch %p -> usbredirhost", __FUNCTION__, ch);
+        usbredirhost_free_write_buffer(ch->usbredirhost, data);
+    } else {
+        SPICE_DEBUG("%s ch %p -> parser", __FUNCTION__, ch);
+        usbredirparser_free_write_buffer(ch->parser, data);
+    }
+}
+
 static void
 usbredir_control_packet(void *priv, uint64_t id, struct usb_redir_control_packet_header *h,
                         uint8_t *data, int data_len)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
+    struct usb_redir_control_packet_header response = *h;
+    uint8_t reqtype = h->requesttype & 0x7f;
+    gboolean done = FALSE;
+    void *out_buffer = NULL;
+
+    response.status = usb_redir_stall;
+    SPICE_DEBUG("%s %p: TRVIL %02X %02X %04X %04X %04X",
+                __FUNCTION__,
+                ch, h->requesttype, h->request,
+                h->value, h->index, h->length);
+
+    if (!edev) {
+        SPICE_DEBUG("%s: device not attached", __FUNCTION__);
+        response.status = usb_redir_ioerror;
+        done = TRUE;
+    } else if (reqtype == (LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_RECIPIENT_DEVICE) &&
+               h->request == LIBUSB_REQUEST_GET_DESCRIPTOR) {
+        uint16_t size;
+        done = device_ops(edev)->get_descriptor(edev, h->value >> 8, h->value & 0xff,
+                                                &out_buffer, &size);
+        response.length = size;
+        if (done) {
+            response.status = 0;
+        }
+        done = TRUE;
+    }
+
+    if (!done) {
+        device_ops(edev)->control_request(edev, data, data_len, &response, &out_buffer);
+        done = TRUE;
+    }
+
+    if (response.status) {
+        response.length = 0;
+    } else if (response.length > h->length) {
+        response.length = h->length;
+    }
+
+    SPICE_DEBUG("%s responding with payload of %02X, status %X",
+                __FUNCTION__, response.length, response.status);
+    usbredirparser_send_control_packet(ch->parser, id, &response,
+                                       response.length ? out_buffer : NULL,
+                                       response.length);
+
+    usbredir_write_flush_callback(ch);
+    usbredirparser_free_packet_data(ch->parser, data);
 }
 
 static void
 usbredir_bulk_packet(void *priv, uint64_t id, struct usb_redir_bulk_packet_header *h,
                      uint8_t *data, int data_len)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
+    struct usb_redir_bulk_packet_header hout = *h;
+    uint32_t len = (h->length_high << 16) | h->length;
+    SPICE_DEBUG("%s %p: ep %X, len %u, id %" G_GUINT64_FORMAT, __FUNCTION__,
+                ch, h->endpoint, len, id);
+
+    if (!edev) {
+        SPICE_DEBUG("%s: device not attached", __FUNCTION__);
+        hout.status = usb_redir_ioerror;
+        hout.length = hout.length_high = 0;
+        SPICE_DEBUG("%s: responding with ZLP status %d", __FUNCTION__, hout.status);
+    } else if (h->endpoint & LIBUSB_ENDPOINT_IN) {
+        if (device_ops(edev)->bulk_in_request(edev, id, &hout)) {
+            usbredirparser_free_packet_data(ch->parser, data);
+            /* completion is asynchronous */
+            return;
+        }
+    } else {
+        hout.status = usb_redir_stall;
+        device_ops(edev)->bulk_out_request(edev, h->endpoint, data, data_len, &hout.status);
+        SPICE_DEBUG("%s: responding status %d", __FUNCTION__, hout.status);
+    }
+
+    usbredirparser_send_bulk_packet(ch->parser, id, &hout, NULL, 0);
+    usbredirparser_free_packet_data(ch->parser, data);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_device_reset(void *priv)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
+    SPICE_DEBUG("%s ch %p", __FUNCTION__, ch);
+    if (edev) {
+        device_ops(edev)->reset(edev);
+    }
 }
 
 static void
@@ -776,34 +950,72 @@ static void
 usbredir_set_configuration(void *priv, uint64_t id,
                            struct usb_redir_set_configuration_header *set_configuration)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    struct usb_redir_configuration_status_header h;
+    h.status = 0;
+    h.configuration = set_configuration->configuration;
+    SPICE_DEBUG("%s ch %p, cfg %d", __FUNCTION__, ch, h.configuration);
+    if (ch->attached) {
+        ch->attached->edev_configured = h.configuration != 0;
+    }
+    usbredirparser_send_configuration_status(ch->parser, id, &h);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_get_configuration(void *priv, uint64_t id)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    struct usb_redir_configuration_status_header h;
+    h.status = 0;
+    h.configuration = ch->attached && ch->attached->edev_configured;
+    SPICE_DEBUG("%s ch %p, cfg %d", __FUNCTION__, ch, h.configuration);
+    usbredirparser_send_configuration_status(ch->parser, id, &h);
+    usbredir_write_flush_callback(ch);
 }
 
 static void
 usbredir_set_alt_setting(void *priv, uint64_t id, struct usb_redir_set_alt_setting_header *s)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    struct usb_redir_alt_setting_status_header sh;
+    sh.status = (!s->interface && !s->alt) ? 0 : usb_redir_stall;
+    sh.interface = s->interface;
+    sh.alt = s->alt;
+    SPICE_DEBUG("%s ch %p, %d:%d", __FUNCTION__, ch, s->interface, s->alt);
+    usbredirparser_send_alt_setting_status(ch->parser, id, &sh);
+    usbredir_write_flush_callback(ch);
 }
 
 static void
 usbredir_get_alt_setting(void *priv, uint64_t id, struct usb_redir_get_alt_setting_header *s)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    struct usb_redir_alt_setting_status_header sh;
+    sh.status = (s->interface == 0) ? 0 : usb_redir_stall;
+    sh.interface = s->interface;
+    sh.alt = 0;
+    SPICE_DEBUG("%s ch %p, if %d", __FUNCTION__, ch, s->interface);
+    usbredirparser_send_alt_setting_status(ch->parser, id, &sh);
+    usbredir_write_flush_callback(ch);
 }
 
 static void usbredir_cancel_data(void *priv, uint64_t id)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
+    if (!edev) {
+        SPICE_DEBUG("%s: device not attached", __FUNCTION__);
+        return;
+    }
+    device_ops(edev)->cancel_request(edev, id);
 }
 
 static void usbredir_filter_reject(void *priv)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SPICE_DEBUG("%s %p", __FUNCTION__, ch);
+    ch->rejected = 1;
 }
 
 /* Note that the ownership of the rules array is passed on to the callback. */
@@ -828,13 +1040,77 @@ usbredir_filter_filter(void *priv, struct usbredirfilter_rule *r, int count)
 
 static void usbredir_device_disconnect_ack(void *priv)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SPICE_DEBUG("%s ch %p", __FUNCTION__, ch);
+    if (ch->state == USB_CHANNEL_STATE_PARSER && ch->usbredirhost != NULL &&
+        ch->wait_disconnect_ack) {
+        ch->state = USB_CHANNEL_STATE_HOST;
+        SPICE_DEBUG("%s switch to usbredirhost", __FUNCTION__);
+    }
+    ch->wait_disconnect_ack = 0;
 }
 
 static void
 usbredir_hello(void *priv, struct usb_redir_hello_header *hello)
 {
-    USBREDIR_CALLBACK_NOT_IMPLEMENTED();
+    SpiceUsbBackendChannel *ch = priv;
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
+    struct usb_redir_device_connect_header device_connect;
+    struct usb_redir_ep_info_header ep_info = { 0 };
+    struct usb_redir_interface_info_header interface_info = { 0 };
+    uint8_t *cfg;
+    uint16_t size, offset = 0;
+    SPICE_DEBUG("%s %p %sattached %s", __FUNCTION__, ch,
+        edev ? "" : "not ",  hello ? "" : "(internal)");
+
+    if (!edev) {
+        return;
+    }
+    if (!device_ops(edev)->get_descriptor(edev, LIBUSB_DT_CONFIG, 0, (void **)&cfg, &size)) {
+        return;
+    }
+    while ((offset + 1) < size) {
+        uint8_t len  = cfg[offset];
+        uint8_t type = cfg[offset + 1];
+        if ((offset + len) > size) {
+            break;
+        }
+        if (type == LIBUSB_DT_INTERFACE) {
+            uint32_t i = interface_info.interface_count;
+            uint8_t class, subclass, protocol;
+            class = cfg[offset + 5];
+            subclass = cfg[offset + 6];
+            protocol = cfg[offset + 7];
+            interface_info.interface_class[i] = class;
+            interface_info.interface_subclass[i] = subclass;
+            interface_info.interface_protocol[i] = protocol;
+            interface_info.interface_count++;
+            SPICE_DEBUG("%s IF%d: %d/%d/%d", __FUNCTION__, i, class, subclass, protocol);
+        } else if (type == LIBUSB_DT_ENDPOINT) {
+            uint8_t address = cfg[offset + 2];
+            uint16_t max_packet_size = 0x100 * cfg[offset + 5] + cfg[offset + 4];
+            uint8_t index = address & 0xf;
+            if (address & 0x80) index += 0x10;
+            ep_info.type[index] = cfg[offset + 3] & 0x3;
+            ep_info.max_packet_size[index] = max_packet_size;
+            SPICE_DEBUG("%s EP[%02X]: %d/%d", __FUNCTION__, index, ep_info.type[index], max_packet_size);
+        }
+        offset += len;
+    }
+
+    usbredirparser_send_interface_info(ch->parser, &interface_info);
+    usbredirparser_send_ep_info(ch->parser, &ep_info);
+
+    device_connect.device_class = 0; //d->device_info.class;
+    device_connect.device_subclass = 0; //d->device_info.subclass;
+    device_connect.device_protocol = 0; //d->device_info.protocol;;
+    device_connect.vendor_id = d->device_info.vid;
+    device_connect.product_id = d->device_info.pid;
+    device_connect.device_version_bcd = d->device_info.bcdUSB;
+    device_connect.speed = usb_redir_speed_high;
+    usbredirparser_send_device_connect(ch->parser, &device_connect);
+    usbredir_write_flush_callback(ch);
 }
 
 static void initialize_parser(SpiceUsbBackendChannel *ch)
@@ -900,14 +1176,36 @@ static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch)
     return parser;
 }
 
-void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data)
+static gboolean attach_edev(SpiceUsbBackendChannel *ch,
+                            SpiceUsbBackendDevice *dev,
+                            GError **error)
 {
-    if (ch->usbredirhost) {
-        SPICE_DEBUG("%s ch %p", __FUNCTION__, ch);
-        usbredirhost_free_write_buffer(ch->usbredirhost, data);
-    } else {
-        SPICE_DEBUG("%s ch %p - NOBODY TO CALL", __FUNCTION__, ch);
+    if (!dev->edev) {
+        g_set_error(error, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
+           _("Failed to redirect device %d"), 1);
+        return FALSE;
     }
+    if (ch->state == USB_CHANNEL_STATE_INITIALIZING) {
+        /*
+            we can't initialize parser until we see hello from usbredir
+            and the parser can't work until it sees the hello response.
+            this is case of autoconnect when emulated device is attached
+            before the channel is up
+        */
+        SPICE_DEBUG("%s waiting until the channel is ready", __FUNCTION__);
+
+    } else {
+        ch->state = USB_CHANNEL_STATE_PARSER;
+    }
+    ch->wait_disconnect_ack = 0;
+    ch->attached = dev;
+    dev->attached_to = ch;
+    device_ops(dev->edev)->attach(dev->edev, ch->parser);
+    if (ch->state == USB_CHANNEL_STATE_PARSER) {
+        /* send device info */
+        usbredir_hello(ch, NULL);
+    }
+    return TRUE;
 }
 
 gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
@@ -919,12 +1217,19 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
 
     g_return_val_if_fail(dev != NULL, FALSE);
 
+    if (!dev->libusb_device) {
+        return attach_edev(ch, dev, error);
+    }
+
     // no physical device enabled
     if (ch->usbredirhost == NULL) {
         return FALSE;
     }
 
     libusb_device_handle *handle = NULL;
+    if (ch->state != USB_CHANNEL_STATE_INITIALIZING) {
+        ch->state = USB_CHANNEL_STATE_HOST;
+    }
 
     /*
        Under Windows we need to avoid updating
@@ -958,18 +1263,32 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
 
 void spice_usb_backend_channel_detach(SpiceUsbBackendChannel *ch)
 {
+    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     SPICE_DEBUG("%s >> ch %p, was attached %p", __FUNCTION__, ch, ch->attached);
-    if (!ch->attached) {
+    if (!d) {
         SPICE_DEBUG("%s: nothing to detach", __FUNCTION__);
         return;
     }
-    if (ch->usbredirhost) {
+    if (ch->state == USB_CHANNEL_STATE_HOST) {
         /* it will call libusb_close internally */
         usbredirhost_set_device(ch->usbredirhost, NULL);
+    } else {
+        if (edev) {
+            device_ops(edev)->detach(edev);
+        }
+        usbredirparser_send_device_disconnect(ch->parser);
+        usbredir_write_flush_callback(ch);
+        ch->wait_disconnect_ack =
+            usbredirparser_peer_has_cap(ch->parser, usb_redir_cap_device_disconnect_ack);
+        if (!ch->wait_disconnect_ack && ch->usbredirhost != NULL) {
+            ch->state = USB_CHANNEL_STATE_HOST;
+        }
     }
     SPICE_DEBUG("%s ch %p, detach done", __FUNCTION__, ch);
     ch->attached->attached_to = NULL;
     ch->attached = NULL;
+    ch->rejected = 0;
 }
 
 SpiceUsbBackendChannel *
@@ -983,23 +1302,25 @@ spice_usb_backend_channel_new(SpiceUsbBackend *be,
     ch->usbredir_channel = usbredir_channel;
     if (be->libusb_context) {
         ch->backend = be;
-        ch->usbredirhost = usbredirhost_open_full(
-            be->libusb_context,
-            NULL,
-            usbredir_log,
-            usbredir_read_callback,
-            usbredir_write_callback,
-            usbredir_write_flush_callback,
-            usbredir_alloc_lock,
-            usbredir_lock_lock,
-            usbredir_unlock_lock,
-            usbredir_free_lock,
-            ch, PACKAGE_STRING,
-            spice_util_get_debug() ? usbredirparser_debug : usbredirparser_warning,
-            usbredirhost_fl_write_cb_owns_buffer);
+        ch->usbredirhost =
+            usbredirhost_open_full(be->libusb_context,
+                                   NULL,
+                                   usbredir_log,
+                                   usbredir_read_callback,
+                                   usbredir_write_callback,
+                                   usbredir_write_flush_callback,
+                                   usbredir_alloc_lock,
+                                   usbredir_lock_lock,
+                                   usbredir_unlock_lock,
+                                   usbredir_free_lock,
+                                   ch, PACKAGE_STRING,
+                                   spice_util_get_debug() ? usbredirparser_debug :
+                                        usbredirparser_warning,
+                                   usbredirhost_fl_write_cb_owns_buffer);
         g_warn_if_fail(ch->usbredirhost != NULL);
-        if (ch->usbredirhost) {
-            usbredirhost_set_buffered_output_size_cb(ch->usbredirhost, usbredir_buffered_output_size_callback);
+        if (ch->usbredirhost != NULL) {
+            usbredirhost_set_buffered_output_size_cb(ch->usbredirhost,
+                                                     usbredir_buffered_output_size_callback);
             // force flush of HELLO packet and creation of parser
             usbredirhost_write_guest_data(ch->usbredirhost);
         }
@@ -1023,9 +1344,11 @@ spice_usb_backend_channel_new(SpiceUsbBackend *be,
 
 void spice_usb_backend_channel_flush_writes(SpiceUsbBackendChannel *ch)
 {
-    SPICE_DEBUG("%s %p, host %p", __FUNCTION__, ch, ch->usbredirhost);
-    if (ch->usbredirhost) {
+    SPICE_DEBUG("%s %p is up", __FUNCTION__, ch);
+    if (ch->state != USB_CHANNEL_STATE_PARSER && ch->usbredirhost != NULL) {
         usbredirhost_write_guest_data(ch->usbredirhost);
+    } else {
+        usbredirparser_do_write(ch->parser);
     }
 }
 
