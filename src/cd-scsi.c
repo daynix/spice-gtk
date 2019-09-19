@@ -114,133 +114,135 @@ struct CdScsiTarget {
 static const char* scsi_cmd_name[256];
 
 /* Predefined sense codes */
+#define SENSE_CODE(name) \
+    static const ScsiShortSense name G_GNUC_UNUSED
 
-const ScsiShortSense sense_code_NO_SENSE = {
+SENSE_CODE(sense_code_NO_SENSE) = {
     .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00,
     .descr = ""
 };
 
-const ScsiShortSense sense_code_NOT_READY_CAUSE_NOT_REPORTABLE = {
+SENSE_CODE(sense_code_NOT_READY_CAUSE_NOT_REPORTABLE) = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x00,
     .descr = "CAUSE NOT REPORTABLE"
 };
 
-const ScsiShortSense sense_code_BECOMING_READY = {
+SENSE_CODE(sense_code_BECOMING_READY) = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x01,
     .descr = "IN PROCESS OF BECOMING READY"
 };
 
-const ScsiShortSense sense_code_INIT_CMD_REQUIRED = {
+SENSE_CODE(sense_code_INIT_CMD_REQUIRED) = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x02,
     .descr = "INITIALIZING COMMAND REQUIRED"
 };
 
-const ScsiShortSense sense_code_INTERVENTION_REQUIRED = {
+SENSE_CODE(sense_code_INTERVENTION_REQUIRED) = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x03,
     .descr = "MANUAL INTERVENTION REQUIRED"
 };
 
-const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM = {
+SENSE_CODE(sense_code_NOT_READY_NO_MEDIUM) = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x00,
     .descr = "MEDIUM NOT PRESENT"
 };
 
-const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM_TRAY_CLOSED = {
+SENSE_CODE(sense_code_NOT_READY_NO_MEDIUM_TRAY_CLOSED) = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x01,
     .descr = "MEDIUM NOT PRESENT - TRAY CLOSED"
 };
 
-const ScsiShortSense sense_code_NOT_READY_NO_MEDIUM_TRAY_OPEN = {
+SENSE_CODE(sense_code_NOT_READY_NO_MEDIUM_TRAY_OPEN) = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x02,
     .descr = "MEDIUM NOT PRESENT - TRAY OPEN"
 };
 
-const ScsiShortSense sense_code_TARGET_FAILURE = {
+SENSE_CODE(sense_code_TARGET_FAILURE) = {
     .key = HARDWARE_ERROR, .asc = 0x44, .ascq = 0x00,
     .descr = "INTERNAL TARGET FAILURE"
 };
 
-const ScsiShortSense sense_code_INVALID_OPCODE = {
+SENSE_CODE(sense_code_INVALID_OPCODE) = {
     .key = ILLEGAL_REQUEST, .asc = 0x20, .ascq = 0x00,
     .descr = "INVALID COMMAND OPERATION CODE"
 };
 
-const ScsiShortSense sense_code_LBA_OUT_OF_RANGE = {
+SENSE_CODE(sense_code_LBA_OUT_OF_RANGE) = {
     .key = ILLEGAL_REQUEST, .asc = 0x21, .ascq = 0x00,
     .descr = "LOGICAL BLOCK ADDRESS OUT OF RANGE"
 };
 
-const ScsiShortSense sense_code_INVALID_CDB_FIELD = {
+SENSE_CODE(sense_code_INVALID_CDB_FIELD) = {
     .key = ILLEGAL_REQUEST, .asc = 0x24, .ascq = 0x00,
     .descr = "INVALID FIELD IN CDB"
 };
 
-const ScsiShortSense sense_code_INVALID_PARAM_FIELD = {
+SENSE_CODE(sense_code_INVALID_PARAM_FIELD) = {
     .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x00,
     .descr = "INVALID FIELD IN PARAMETER LIST"
 };
 
-const ScsiShortSense sense_code_INVALID_PARAM_LEN = {
+SENSE_CODE(sense_code_INVALID_PARAM_LEN) = {
     .key = ILLEGAL_REQUEST, .asc = 0x1a, .ascq = 0x00,
     .descr = "PARAMETER LIST LENGTH ERROR"
 };
 
-const ScsiShortSense sense_code_LUN_NOT_SUPPORTED = {
+SENSE_CODE(sense_code_LUN_NOT_SUPPORTED) = {
     .key = ILLEGAL_REQUEST, .asc = 0x25, .ascq = 0x00,
     .descr = "LOGICAL UNIT NOT SUPPORTED"
 };
 
-const ScsiShortSense sense_code_SAVING_PARAMS_NOT_SUPPORTED = {
+SENSE_CODE(sense_code_SAVING_PARAMS_NOT_SUPPORTED) = {
     .key = ILLEGAL_REQUEST, .asc = 0x39, .ascq = 0x00,
     .descr = "SAVING PARAMETERS NOT SUPPORTED"
 };
 
-const ScsiShortSense sense_code_INCOMPATIBLE_MEDIUM = {
+SENSE_CODE(sense_code_INCOMPATIBLE_MEDIUM) = {
     .key = ILLEGAL_REQUEST, .asc = 0x30, .ascq = 0x00,
     .descr = "INCOMPATIBLE MEDIUM INSTALLED"
 };
 
-const ScsiShortSense sense_code_MEDIUM_REMOVAL_PREVENTED = {
+SENSE_CODE(sense_code_MEDIUM_REMOVAL_PREVENTED) = {
     .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02,
     .descr = "MEDIUM REMOVAL PREVENTED"
 };
 
-const ScsiShortSense sense_code_PARAMETERS_CHANGED = {
+SENSE_CODE(sense_code_PARAMETERS_CHANGED) = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x00,
     .descr = "PARAMETERS CHANGED"
 };
 
-const ScsiShortSense sense_code_POWER_ON_RESET = {
+SENSE_CODE(sense_code_POWER_ON_RESET) = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x00,
     .descr = "POWER ON, RESET, OR BUS DEVICE RESET"
 };
 
-const ScsiShortSense sense_code_SCSI_BUS_RESET = {
+SENSE_CODE(sense_code_SCSI_BUS_RESET) = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x02,
     .descr = "SCSI BUS RESET"
 };
 
-const ScsiShortSense sense_code_UA_NO_MEDIUM = {
+SENSE_CODE(sense_code_UA_NO_MEDIUM) = {
     .key = UNIT_ATTENTION, .asc = 0x3a, .ascq = 0x00,
     .descr = "MEDIUM NOT PRESENT"
 };
 
-const ScsiShortSense sense_code_MEDIUM_CHANGED = {
+SENSE_CODE(sense_code_MEDIUM_CHANGED) = {
     .key = UNIT_ATTENTION, .asc = 0x28, .ascq = 0x00,
     .descr = "MEDIUM CHANGED"
 };
 
-const ScsiShortSense sense_code_REPORTED_LUNS_CHANGED = {
+SENSE_CODE(sense_code_REPORTED_LUNS_CHANGED) = {
     .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x0e,
     .descr = "REPORTED LUNS CHANGED"
 };
 
-const ScsiShortSense sense_code_DEVICE_INTERNAL_RESET = {
+SENSE_CODE(sense_code_DEVICE_INTERNAL_RESET) = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04,
     .descr = "DEVICE INTERNAL RESET"
 };
 
-const ScsiShortSense sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST = {
+SENSE_CODE(sense_code_UNIT_ATTENTION_MEDIUM_REMOVAL_REQUEST) = {
     .key = UNIT_ATTENTION, .asc = 0x5a, .ascq = 0x01,
     .descr = "OPERATOR MEDIUM REMOVAL REQUEST"
 };
