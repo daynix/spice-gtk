@@ -566,13 +566,13 @@ void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev)
     }
 }
 
-int spice_usb_backend_device_check_filter(
-    SpiceUsbBackendDevice *dev,
-    const struct usbredirfilter_rule *rules,
-    int count)
+G_GNUC_INTERNAL
+int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
+                                          const struct usbredirfilter_rule *rules,
+                                          int count)
 {
-    return usbredirhost_check_device_filter(
-        rules, count, dev->libusb_device, 0);
+    g_return_val_if_fail(dev->libusb_device != NULL, -EINVAL);
+    return usbredirhost_check_device_filter(rules, count, dev->libusb_device, 0);
 }
 
 static int usbredir_read_callback(void *user_data, uint8_t *data, int count)

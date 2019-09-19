@@ -70,7 +70,9 @@ void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev);
 gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbBackendDevice *dev);
 const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbBackendDevice *dev);
 gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev);
-/* returns 0 if the device passes the filter */
+
+/* returns 0 if the device passes the filter otherwise returns the error value from
+ * usbredirhost_check_device_filter() such as -EIO or -ENOMEM */
 int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
                                           const struct usbredirfilter_rule *rules, int count);
 
