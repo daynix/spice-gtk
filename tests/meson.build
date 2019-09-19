@@ -10,6 +10,10 @@ if spice_gtk_has_phodav
   tests_sources += 'pipe.c'
 endif
 
+if spice_gtk_has_usbredir
+  tests_sources += 'cd-emu.c'
+endif
+
 if spice_gtk_has_polkit
   tests_sources += [
     'usb-acl-helper.c',
