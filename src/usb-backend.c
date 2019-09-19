@@ -22,8 +22,6 @@
 
 #include "config.h"
 
-#ifdef USE_USBREDIR
-
 #include <glib-object.h>
 #include <inttypes.h>
 #include <gio/gio.h>
@@ -1523,5 +1521,3 @@ spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
 
     return TRUE;
 }
-
-#endif /* USB_REDIR */

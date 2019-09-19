@@ -119,11 +119,6 @@ spice_client_glib_sources = [
   'spice-uri-priv.h',
   'spice-util-priv.h',
   'usb-device-manager-priv.h',
-  'usbutil.c',
-  'usbutil.h',
-  'usb-backend.c',
-  'usb-emulation.h',
-  'usb-backend.h',
   'vmcstream.c',
   'vmcstream.h',
 ]
@@ -159,6 +154,11 @@ endif
 
 if spice_gtk_has_usbredir
   spice_client_glib_sources += [
+    'usbutil.c',
+    'usbutil.h',
+    'usb-backend.c',
+    'usb-emulation.h',
+    'usb-backend.h',
     'usb-device-cd.c',
     'usb-device-cd.h',
     'cd-scsi.c',

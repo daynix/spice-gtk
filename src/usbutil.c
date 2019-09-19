@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#ifdef USE_USBREDIR
 #include <stdio.h>
 #ifdef __linux__
 #include <unistd.h>
@@ -274,8 +273,6 @@ void spice_usb_util_get_device_strings(int bus, int address,
         g_strstrip(*product);
     }
 }
-
-#endif
 
 #ifdef USBUTIL_TEST
 int main()

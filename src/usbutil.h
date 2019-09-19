@@ -21,8 +21,6 @@
 #pragma once
 
 #include <glib.h>
-
-#ifdef USE_USBREDIR
 #include <libusb.h>
 
 G_BEGIN_DECLS
@@ -32,5 +30,3 @@ void spice_usb_util_get_device_strings(int bus, int address,
                                        gchar **manufacturer, gchar **product);
 
 G_END_DECLS
-
-#endif /* USE_USBREDIR */
