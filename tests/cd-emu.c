@@ -127,6 +127,66 @@ static void decrement_allocated(gpointer data G_GNUC_UNUSED, GObject *old_gobjec
         spice_usb_backend_read_guest_data(usb_ch, (uint8_t*)data, G_N_ELEMENTS(data)); \
     } while(0)
 
+static void
+device_iteration(const int loop, const bool attach_on_connect)
+{
+    GError *err = NULL;
+    unsigned int hellos_expected, messages_expected;
+
+    hellos_expected = hellos_sent;
+    messages_expected = messages_sent;
+
+    if (ch_state == SPICE_CHANNEL_STATE_UNCONNECTED) {
+        ch_state = SPICE_CHANNEL_STATE_CONNECTING;
+    }
+    if (attach_on_connect) {
+        g_assert_true(spice_usb_backend_channel_attach(usb_ch, device, &err));
+        g_assert_null(err);
+        if (ch_state == SPICE_CHANNEL_STATE_READY) {
+            hellos_expected = MIN(hellos_expected + 1, 1);
+            messages_expected++;
+        } else {
+            g_assert_cmpint(messages_sent, ==, messages_expected);
+        }
+    }
+    g_assert_cmpint(hellos_sent, ==, hellos_expected);
+    g_assert_cmpint(messages_sent, >=, messages_expected);
+
+    // try to get initial data
+    if (ch_state == SPICE_CHANNEL_STATE_CONNECTING) {
+        ch_state = SPICE_CHANNEL_STATE_READY;
+        spice_usb_backend_channel_flush_writes(usb_ch);
+        hellos_expected = MIN(hellos_expected + 1, 1);
+        messages_expected++;
+    }
+
+    // we should get an hello (only one!)
+    g_assert_cmpint(hellos_sent, ==, hellos_expected);
+    g_assert_cmpint(messages_sent, >=, messages_expected);
+
+    // send hello reply
+    if (loop == 0) {
+        DATA_START
+            0x00,0x00,0x00,0x00,0x44,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //000 ....D.......
+            0x71,0x65,0x6d,0x75,0x20,0x75,0x73,0x62,0x2d,0x72,0x65,0x64, //00c qemu usb-red
+            0x69,0x72,0x20,0x67,0x75,0x65,0x73,0x74,0x20,0x33,0x2e,0x30, //018 ir guest 3.0
+            0x2e,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //024 .1..........
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //030 ............
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //03c ............
+            0x00,0x00,0x00,0x00,0xff,0x00,0x00,0x00,                     //048 ........
+        DATA_SEND;
+    }
+
+    if (!attach_on_connect) {
+        g_assert_true(spice_usb_backend_channel_attach(usb_ch, device, &err));
+        g_assert_null(err);
+    }
+    g_assert_cmpint(hellos_sent, ==, 1);
+    g_assert_cmpint(messages_sent, >, 1);
+
+    spice_usb_backend_channel_detach(usb_ch);
+}
+
 static void attach(const void *param)
 {
     const bool attach_on_connect = !!GPOINTER_TO_UINT(param);
@@ -170,44 +230,30 @@ static void attach(const void *param)
     g_assert_true(create_emulated_cd(be, &params, &err));
     g_assert_null(err);
     g_assert_nonnull(device);
+    g_assert_false(device->edev_configured);
 
     usb_ch = spice_usb_backend_channel_new(be, SPICE_USBREDIR_CHANNEL(ch));
     g_assert_nonnull(usb_ch);
 
-    // attach on connect
-    ch_state = SPICE_CHANNEL_STATE_CONNECTING;
-    if (attach_on_connect) {
-        g_assert_true(spice_usb_backend_channel_attach(usb_ch, device, &err));
-        g_assert_null(err);
+    for (int loop = 0; loop < 2; loop++) {
+        device_iteration(loop, attach_on_connect);
     }
-    g_assert_cmpint(hellos_sent, ==, 0);
-    g_assert_cmpint(messages_sent, ==, 0);
 
-    // try to get initial data
-    ch_state = SPICE_CHANNEL_STATE_READY;
-    spice_usb_backend_channel_flush_writes(usb_ch);
+/*
 
-    // we should get an hello (only one!)
-    g_assert_cmpint(hellos_sent, ==, 1);
-    g_assert_cmpint(messages_sent, ==, 1);
+> to server/guest
+< to client from server/guest
 
-    // send hello reply
-    DATA_START
-        0x00,0x00,0x00,0x00,0x44,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //000 ....D.......
-        0x71,0x65,0x6d,0x75,0x20,0x75,0x73,0x62,0x2d,0x72,0x65,0x64, //00c qemu usb-red
-        0x69,0x72,0x20,0x67,0x75,0x65,0x73,0x74,0x20,0x33,0x2e,0x30, //018 ir guest 3.0
-        0x2e,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //024 .1..........
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //030 ............
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //03c ............
-        0x00,0x00,0x00,0x00,0xff,0x00,0x00,0x00,                     //048 ........
-    DATA_SEND;
+> usb_redir_interface_info,
+> usb_redir_ep_info,
+> usb_redir_device_connect
 
-    if (!attach_on_connect) {
-        g_assert_true(spice_usb_backend_channel_attach(usb_ch, device, &err));
-        g_assert_null(err);
-    }
-    g_assert_cmpint(hellos_sent, ==, 1);
-    g_assert_cmpint(messages_sent, >, 1);
+< usb_redir_reset
+< usb_redir_control_packet
+
+> usb_redir_control_packet
+
+*/
 
     // cleanup
     spice_usb_backend_device_unref(device);
