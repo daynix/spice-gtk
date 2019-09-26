@@ -2394,6 +2394,8 @@ static void main_handle_migrate_begin(SpiceChannel *channel, SpiceMsgIn *in)
 {
     SpiceMsgMainMigrationBegin *msg = spice_msg_in_parsed(in);
 
+    CHANNEL_DEBUG(channel, "migration message: migrate-begin");
+
     main_migrate_connect(channel, &msg->dst_info, false, 0);
 }
 
@@ -2402,6 +2404,8 @@ static void main_handle_migrate_begin_seamless(SpiceChannel *channel, SpiceMsgIn
 {
     SpiceMsgMainMigrateBeginSeamless *msg = spice_msg_in_parsed(in);
 
+    CHANNEL_DEBUG(channel, "migration message: migrate-begin-seamless");
+
     main_migrate_connect(channel, &msg->dst_info, true, msg->src_mig_version);
 }
 
@@ -2409,6 +2413,8 @@ static void main_handle_migrate_dst_seamless_ack(SpiceChannel *channel, SpiceMsg
 {
     SpiceChannelPrivate  *c = SPICE_CHANNEL(channel)->priv;
     SpiceMainChannelPrivate *main_priv = SPICE_MAIN_CHANNEL(channel)->priv;
+
+    CHANNEL_DEBUG(channel, "migration message: migrate-dst-seamless-ack");
 
     g_return_if_fail(c->state == SPICE_CHANNEL_STATE_MIGRATION_HANDSHAKE);
     main_priv->migrate_data->do_seamless = true;
@@ -2419,6 +2425,8 @@ static void main_handle_migrate_dst_seamless_nack(SpiceChannel *channel, SpiceMs
 {
     SpiceChannelPrivate  *c = SPICE_CHANNEL(channel)->priv;
     SpiceMainChannelPrivate *main_priv = SPICE_MAIN_CHANNEL(channel)->priv;
+
+    CHANNEL_DEBUG(channel, "migration message: migrate-dst-seamless-nack");
 
     g_return_if_fail(c->state == SPICE_CHANNEL_STATE_MIGRATION_HANDSHAKE);
     main_priv->migrate_data->do_seamless = false;
@@ -2444,7 +2452,7 @@ static void main_handle_migrate_end(SpiceChannel *channel, SpiceMsgIn *in)
 {
     SpiceMainChannelPrivate *c = SPICE_MAIN_CHANNEL(channel)->priv;
 
-    SPICE_DEBUG("migrate end");
+    CHANNEL_DEBUG(channel, "migration message: migrate-end");
 
     g_return_if_fail(c->migrate_delayed_id == 0);
     g_return_if_fail(spice_channel_test_capability(channel, SPICE_MAIN_CAP_SEMI_SEAMLESS_MIGRATE));
@@ -2478,6 +2486,8 @@ static void main_handle_migrate_switch_host(SpiceChannel *channel, SpiceMsgIn *i
     char *host = (char *)mig->host_data;
     char *subject = NULL;
     SpiceMainChannelPrivate *c = SPICE_MAIN_CHANNEL(channel)->priv;
+
+    CHANNEL_DEBUG(channel, "migration message: migrate-switch-host");
 
     g_return_if_fail(host[mig->host_size - 1] == '\0');
 
@@ -2513,7 +2523,8 @@ static void main_handle_migrate_cancel(SpiceChannel *channel,
 {
     SpiceSession *session;
 
-    SPICE_DEBUG("migrate_cancel");
+    CHANNEL_DEBUG(channel, "migration message: migrate-cancel");
+
     session = spice_channel_get_session(channel);
     spice_session_abort_migration(session);
 }
