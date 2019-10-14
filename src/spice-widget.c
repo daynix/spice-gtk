@@ -2847,6 +2847,14 @@ static void invalidate(SpiceChannel *channel,
                               &display_x, &display_y,
                               NULL, NULL);
 
+    gint scale_factor = gtk_widget_get_scale_factor(GTK_WIDGET(display));
+    if (s * scale_factor > 1) {
+        rect.x -= 1;
+        rect.y -= 1;
+        rect.width += 2;
+        rect.height += 2;
+    }
+
     x1 = floor ((rect.x - d->area.x) * s);
     y1 = floor ((rect.y - d->area.y) * s);
     x2 = ceil ((rect.x - d->area.x + rect.width) * s);
