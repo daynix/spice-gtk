@@ -1001,6 +1001,7 @@ static int create_canvas(SpiceChannel *channel, display_surface *surface)
             g_coroutine_signal_emit(channel, signals[SPICE_DISPLAY_PRIMARY_DESTROY], 0);
 
             g_hash_table_remove(c->surfaces, GINT_TO_POINTER(c->primary->surface_id));
+            c->primary = NULL;
         }
 
         CHANNEL_DEBUG(channel, "Create primary canvas");
