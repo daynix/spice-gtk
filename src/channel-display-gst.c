@@ -469,11 +469,19 @@ sink_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer data)
     return GST_PAD_PROBE_OK;
 }
 
+static inline const char *gst_element_name(GstElement *element)
+{
+   GstElementFactory *f = gst_element_get_factory(element);
+   return f ? GST_OBJECT_NAME(f) : GST_OBJECT_NAME(element);
+}
+
 /* This function is used to set a probe on the sink */
 static void
 deep_element_added_cb(GstBin *pipeline, GstBin *bin, GstElement *element,
                       SpiceGstDecoder *decoder)
 {
+     SPICE_DEBUG("A new element was added to Gstreamer's pipeline (%s)",
+                 gst_element_name(element));
     /* Attach a probe to the sink to update the statistics */
     if (GST_IS_BASE_SINK(element)) {
         GstPad *pad = gst_element_get_static_pad(element, "sink");
