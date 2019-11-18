@@ -84,5 +84,4 @@ spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
                                          SpiceUsbEmulatedDeviceCreate create_proc,
                                          void *create_params,
                                          GError **err);
-void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbBackendDevice *device);
-void spice_usb_backend_device_report_change(SpiceUsbBackend *be, SpiceUsbBackendDevice *device);
+
