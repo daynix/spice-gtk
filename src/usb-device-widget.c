@@ -131,6 +131,25 @@ static void spice_usb_device_widget_set_property(GObject       *gobject,
     }
 }
 
+static void spice_usb_device_widget_add_err_msg(SpiceUsbDeviceWidget *self,
+                                                gchar *new_err_msg)
+{
+    SpiceUsbDeviceWidgetPrivate *priv = self->priv;
+
+    if (priv->err_msg) {
+        /* Append the new error message to err_msg,
+           but only if it's *not* already there! */
+        if (!strstr(priv->err_msg, new_err_msg)) {
+            gchar *old_err_msg = priv->err_msg;
+            priv->err_msg = g_strdup_printf("%s\n%s", old_err_msg, new_err_msg);
+            g_free(old_err_msg);
+        }
+        g_free(new_err_msg);
+    } else {
+        priv->err_msg = new_err_msg;
+    }
+}
+
 static void spice_usb_device_widget_hide_info_bar(SpiceUsbDeviceWidget *self)
 {
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
@@ -359,19 +378,10 @@ static void check_can_redirect(GtkWidget *widget, gpointer user_data)
     } else {
         can_redirect = spice_usb_device_manager_can_redirect_device(priv->manager,
                                                                     device, &err);
-        /* If we cannot redirect this device, append the error message to
-           err_msg, but only if it is *not* already there! */
+
         if (!can_redirect) {
-            if (priv->err_msg) {
-                if (!strstr(priv->err_msg, err->message)) {
-                    gchar *old_err_msg = priv->err_msg;
-                    priv->err_msg = g_strdup_printf("%s\n%s", priv->err_msg,
-                                                    err->message);
-                    g_free(old_err_msg);
-                }
-            } else {
-                priv->err_msg = g_strdup(err->message);
-            }
+            gchar *err_msg = g_strdup_printf(_("Can't redirect: %s"), err->message);
+            spice_usb_device_widget_add_err_msg(self, err_msg);
         }
         g_clear_error(&err);
     }
