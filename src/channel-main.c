@@ -1074,7 +1074,7 @@ static void monitors_align(VDAgentMonConfig *monitors, int nmonitors)
 
 
 #define agent_msg_queue(Channel, Type, Size, Data) \
-    agent_msg_queue_many((Channel), (Type), (Data), (Size), NULL)
+    agent_msg_queue_many((Channel), (Type), (Data), (gsize)(Size), NULL)
 
 /**
  * spice_main_send_monitor_config:
@@ -1825,7 +1825,7 @@ static void file_xfer_queue_msg_to_agent(SpiceMainChannel *channel,
     msg.size = data_size;
     agent_msg_queue_many(channel, VD_AGENT_FILE_XFER_DATA,
                          &msg, sizeof(msg),
-                         buffer, data_size, NULL);
+                         buffer, (gsize) data_size, NULL);
     spice_channel_wakeup(SPICE_CHANNEL(channel), FALSE);
 }
 
