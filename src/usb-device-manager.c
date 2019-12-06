@@ -1257,12 +1257,6 @@ void spice_usb_device_manager_disconnect_device(SpiceUsbDeviceManager *manager,
     disconnect_device_sync(manager, device);
 }
 
-typedef struct _disconnect_cb_data
-{
-    SpiceUsbDeviceManager *manager;
-    SpiceUsbDevice        *device;
-} disconnect_cb_data;
-
 #ifdef USE_USBREDIR
 static
 void _disconnect_device_async_cb(GObject *gobject,
@@ -1272,8 +1266,7 @@ void _disconnect_device_async_cb(GObject *gobject,
     SpiceUsbredirChannel *channel = SPICE_USBREDIR_CHANNEL(gobject);
     GTask *task = user_data;
     GError *err = NULL;
-    disconnect_cb_data *data = g_task_get_task_data(task);
-    SpiceUsbDeviceManager *manager = SPICE_USB_DEVICE_MANAGER(data->manager);
+    SpiceUsbDeviceManager *manager = SPICE_USB_DEVICE_MANAGER(g_task_get_source_object(task));
 
     _set_redirecting(manager, FALSE);
 
@@ -1323,10 +1316,6 @@ void spice_usb_device_manager_disconnect_device_async(SpiceUsbDeviceManager *man
 
     channel = spice_usb_device_manager_get_channel_for_dev(manager, device);
     nested  = g_task_new(G_OBJECT(manager), cancellable, callback, user_data);
-    disconnect_cb_data *data = g_new(disconnect_cb_data, 1);
-    data->manager = manager;
-    data->device = device;
-    g_task_set_task_data(nested, data, g_free);
 
     spice_usbredir_channel_disconnect_device_async(channel, cancellable,
                                                    _disconnect_device_async_cb,
