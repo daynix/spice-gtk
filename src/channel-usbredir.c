@@ -329,13 +329,11 @@ _open_device_async_cb(GTask *task,
 }
 
 G_GNUC_INTERNAL
-void spice_usbredir_channel_connect_device_async(
-                                          SpiceUsbredirChannel *channel,
-                                          SpiceUsbBackendDevice *device,
-                                          SpiceUsbDevice       *spice_device,
-                                          GCancellable         *cancellable,
-                                          GAsyncReadyCallback   callback,
-                                          gpointer              user_data)
+void spice_usbredir_channel_connect_device_async(SpiceUsbredirChannel *channel,
+                                                 SpiceUsbDevice *device,
+                                                 GCancellable *cancellable,
+                                                 GAsyncReadyCallback callback,
+                                                 gpointer user_data)
 {
     SpiceUsbredirChannelPrivate *priv = channel->priv;
 #ifdef USE_POLKIT
@@ -347,9 +345,9 @@ void spice_usbredir_channel_connect_device_async(
     g_return_if_fail(device != NULL);
 
     CHANNEL_DEBUG(channel, "connecting device %04x:%04x (%p) to channel %p",
-                  spice_usb_device_get_vid(spice_device),
-                  spice_usb_device_get_pid(spice_device),
-                  spice_device, channel);
+                  spice_usb_device_get_vid(device),
+                  spice_usb_device_get_pid(device),
+                  device, channel);
 
     task = g_task_new(channel, cancellable, callback, user_data);
 
@@ -369,7 +367,7 @@ void spice_usbredir_channel_connect_device_async(
 
     priv->device = spice_usb_backend_device_ref(device);
     priv->spice_device = g_boxed_copy(spice_usb_device_get_type(),
-                                      spice_device);
+                                      device);
 #ifdef USE_POLKIT
     if (info->bus != BUS_NUMBER_FOR_EMULATED_USB) {
         priv->task = task;

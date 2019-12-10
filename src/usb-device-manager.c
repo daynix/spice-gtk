@@ -917,7 +917,7 @@ static void spice_usb_device_manager_check_redir_on_connect(SpiceUsbDeviceManage
                               spice_usb_device_ref(device));
 
             spice_usbredir_channel_connect_device_async(SPICE_USBREDIR_CHANNEL(channel),
-                                                        device, device, NULL,
+                                                        device, NULL,
                                                         spice_usb_device_manager_channel_connect_cb,
                                                         task);
             return; /* We've taken the channel! */
@@ -1099,7 +1099,8 @@ _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *manager,
             continue; /* Skip already used channels */
         }
 
-        spice_usbredir_channel_connect_device_async(channel, device, device,
+        spice_usbredir_channel_connect_device_async(channel,
+                                                    device,
                                                     cancellable,
                                                     spice_usb_device_manager_channel_connect_cb,
                                                     task);

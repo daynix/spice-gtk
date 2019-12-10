@@ -44,13 +44,11 @@ gboolean spice_usbredir_channel_disconnect_device_finish(SpiceUsbredirChannel *c
 
 /* Note the context must be set, and the channel must be brought up
    (through spice_channel_connect()), before calling this. */
-void spice_usbredir_channel_connect_device_async(
-                                        SpiceUsbredirChannel *channel,
-                                        SpiceUsbBackendDevice *device,
-                                        SpiceUsbDevice       *spice_device,
-                                        GCancellable         *cancellable,
-                                        GAsyncReadyCallback   callback,
-                                        gpointer              user_data);
+void spice_usbredir_channel_connect_device_async(SpiceUsbredirChannel *channel,
+                                                 SpiceUsbDevice *device,
+                                                 GCancellable *cancellable,
+                                                 GAsyncReadyCallback callback,
+                                                 gpointer user_data);
 gboolean spice_usbredir_channel_connect_device_finish(
                                         SpiceUsbredirChannel *channel,
                                         GAsyncResult         *res,
