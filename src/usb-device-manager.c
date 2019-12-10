@@ -143,9 +143,6 @@ static void _usbdk_hider_clear(SpiceUsbDeviceManager *manager);
 static gboolean spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
                                                     SpiceUsbDevice *device,
                                                     SpiceUsbBackendDevice *bdev);
-static SpiceUsbBackendDevice *
-spice_usb_device_manager_device_to_bdev(SpiceUsbDeviceManager *manager,
-                                        SpiceUsbDevice *device);
 
 static void
 _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *manager,
@@ -896,7 +893,6 @@ static void spice_usb_device_manager_check_redir_on_connect(SpiceUsbDeviceManage
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
     GTask *task;
     SpiceUsbDevice *device;
-    SpiceUsbBackendDevice *bdev;
     guint i;
 
     if (priv->redirect_on_connect == NULL) {
@@ -910,8 +906,7 @@ static void spice_usb_device_manager_check_redir_on_connect(SpiceUsbDeviceManage
             continue;
         }
 
-        bdev = spice_usb_device_manager_device_to_bdev(manager, device);
-        if (spice_usb_backend_device_check_filter(bdev,
+        if (spice_usb_backend_device_check_filter(device,
                                                   priv->redirect_on_connect_rules,
                                                   priv->redirect_on_connect_rules_count) == 0) {
             /* Note: re-uses spice_usb_device_manager_connect_device_async's
@@ -922,14 +917,11 @@ static void spice_usb_device_manager_check_redir_on_connect(SpiceUsbDeviceManage
                               spice_usb_device_ref(device));
 
             spice_usbredir_channel_connect_device_async(SPICE_USBREDIR_CHANNEL(channel),
-                                                        bdev, device, NULL,
+                                                        device, device, NULL,
                                                         spice_usb_device_manager_channel_connect_cb,
                                                         task);
-            spice_usb_backend_device_unref(bdev);
             return; /* We've taken the channel! */
         }
-
-        spice_usb_backend_device_unref(bdev);
     }
 }
 
@@ -1014,11 +1006,8 @@ GPtrArray* spice_usb_device_manager_get_devices_with_filter(SpiceUsbDeviceManage
         SpiceUsbDevice *device = g_ptr_array_index(priv->devices, i);
 
         if (rules) {
-            SpiceUsbBackendDevice *bdev =
-                spice_usb_device_manager_device_to_bdev(manager, device);
             gboolean filter_ok =
-                (spice_usb_backend_device_check_filter(bdev, rules, count) == 0);
-            spice_usb_backend_device_unref(bdev);
+                (spice_usb_backend_device_check_filter(device, rules, count) == 0);
             if (!filter_ok) {
                 continue;
             }
@@ -1094,7 +1083,6 @@ _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *manager,
     task = g_task_new(manager, cancellable, callback, user_data);
 
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
-    SpiceUsbBackendDevice *bdev;
     guint i;
 
     if (spice_usb_device_manager_is_device_connected(manager, device)) {
@@ -1111,12 +1099,10 @@ _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *manager,
             continue; /* Skip already used channels */
         }
 
-        bdev = spice_usb_device_manager_device_to_bdev(manager, device);
-        spice_usbredir_channel_connect_device_async(channel, bdev, device,
+        spice_usbredir_channel_connect_device_async(channel, device, device,
                                                     cancellable,
                                                     spice_usb_device_manager_channel_connect_cb,
                                                     task);
-        spice_usb_backend_device_unref(bdev);
         return;
     }
 
@@ -1372,13 +1358,10 @@ spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager *manager,
 
     if (guest_filter_rules) {
         gboolean filter_ok;
-        SpiceUsbBackendDevice *bdev;
 
-        bdev = spice_usb_device_manager_device_to_bdev(manager, device);
-        filter_ok = (spice_usb_backend_device_check_filter(bdev,
+        filter_ok = (spice_usb_backend_device_check_filter(device,
                                                            guest_filter_rules,
                                                            guest_filter_rules_count) == 0);
-        spice_usb_backend_device_unref(bdev);
         if (!filter_ok) {
             g_set_error_literal(err, SPICE_CLIENT_ERROR, SPICE_CLIENT_ERROR_FAILED,
                                 _("Some USB devices are blocked by host policy"));
@@ -1597,17 +1580,5 @@ spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
     }
 
     return info == bdev;
-}
-
-/*
- * Caller must libusb_unref_device the libusb_device returned by this function.
- * Returns a libusb_device, or NULL upon failure
- */
-static SpiceUsbBackendDevice *
-spice_usb_device_manager_device_to_bdev(SpiceUsbDeviceManager *manager,
-                                        SpiceUsbDevice *info)
-{
-    /* Simply return a ref to the cached libdev */
-    return spice_usb_backend_device_ref(info);
 }
 #endif /* USE_USBREDIR */
