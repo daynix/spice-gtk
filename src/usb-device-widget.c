@@ -56,12 +56,12 @@ struct _SpiceUsbDeviceWidgetClass
 
 /* ------------------------------------------------------------------ */
 /* Prototypes for callbacks  */
-static void device_added_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, gpointer user_data);
-static void device_removed_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, gpointer user_data);
-static void device_error_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, GError *err, gpointer user_data);
+static void device_added_cb(SpiceUsbDeviceManager *manager, SpiceUsbDevice *device,
+                            gpointer user_data);
+static void device_removed_cb(SpiceUsbDeviceManager *manager, SpiceUsbDevice *device,
+                              gpointer user_data);
+static void device_error_cb(SpiceUsbDeviceManager *manager, SpiceUsbDevice *device,
+                            GError *err, gpointer user_data);
 static gboolean spice_usb_device_widget_update_status(gpointer user_data);
 
 enum {
@@ -89,10 +89,10 @@ static guint signals[LAST_SIGNAL] = { 0, };
 
 G_DEFINE_TYPE_WITH_PRIVATE(SpiceUsbDeviceWidget, spice_usb_device_widget, GTK_TYPE_BOX)
 
-static void spice_usb_device_widget_get_property(GObject     *gobject,
-                                                 guint        prop_id,
-                                                 GValue      *value,
-                                                 GParamSpec  *pspec)
+static void spice_usb_device_widget_get_property(GObject *gobject,
+                                                 guint prop_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(gobject);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
@@ -110,10 +110,10 @@ static void spice_usb_device_widget_get_property(GObject     *gobject,
     }
 }
 
-static void spice_usb_device_widget_set_property(GObject       *gobject,
-                                                 guint          prop_id,
-                                                 const GValue  *value,
-                                                 GParamSpec    *pspec)
+static void spice_usb_device_widget_set_property(GObject *gobject,
+                                                 guint prop_id,
+                                                 const GValue *value,
+                                                 GParamSpec *pspec)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(gobject);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
@@ -159,9 +159,9 @@ static void spice_usb_device_widget_hide_info_bar(SpiceUsbDeviceWidget *self)
 
 static void
 spice_usb_device_widget_show_info_bar(SpiceUsbDeviceWidget *self,
-                                      const gchar          *message,
-                                      GtkMessageType        message_type,
-                                      const gchar          *stock_icon_id)
+                                      const gchar *message,
+                                      GtkMessageType message_type,
+                                      const gchar *stock_icon_id)
 {
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
     GtkWidget *info_bar, *content_area, *hbox, *widget;
@@ -259,8 +259,7 @@ static void spice_usb_device_widget_finalize(GObject *object)
         G_OBJECT_CLASS(spice_usb_device_widget_parent_class)->finalize(object);
 }
 
-static void spice_usb_device_widget_class_init(
-    SpiceUsbDeviceWidgetClass *klass)
+static void spice_usb_device_widget_class_init(SpiceUsbDeviceWidgetClass *klass)
 {
     GObjectClass *gobject_class = (GObjectClass *)klass;
     GParamSpec *pspec;
@@ -311,15 +310,15 @@ static void spice_usb_device_widget_class_init(
      **/
     signals[CONNECT_FAILED] =
         g_signal_new("connect-failed",
-                    G_OBJECT_CLASS_TYPE(gobject_class),
-                    G_SIGNAL_RUN_FIRST,
-                    G_STRUCT_OFFSET(SpiceUsbDeviceWidgetClass, connect_failed),
-                    NULL, NULL,
-                    g_cclosure_user_marshal_VOID__BOXED_BOXED,
-                    G_TYPE_NONE,
-                    2,
-                    SPICE_TYPE_USB_DEVICE,
-                    G_TYPE_ERROR);
+                     G_OBJECT_CLASS_TYPE(gobject_class),
+                     G_SIGNAL_RUN_FIRST,
+                     G_STRUCT_OFFSET(SpiceUsbDeviceWidgetClass, connect_failed),
+                     NULL, NULL,
+                     g_cclosure_user_marshal_VOID__BOXED_BOXED,
+                     G_TYPE_NONE,
+                     2,
+                     SPICE_TYPE_USB_DEVICE,
+                     G_TYPE_ERROR);
 }
 
 static void spice_usb_device_widget_init(SpiceUsbDeviceWidget *self)
@@ -340,8 +339,8 @@ static void spice_usb_device_widget_init(SpiceUsbDeviceWidget *self)
  *
  * Returns: a new #SpiceUsbDeviceWidget instance
  */
-GtkWidget *spice_usb_device_widget_new(SpiceSession    *session,
-                                       const gchar     *device_format_string)
+GtkWidget *spice_usb_device_widget_new(SpiceSession *session,
+                                       const gchar *device_format_string)
 {
     return g_object_new(SPICE_TYPE_USB_DEVICE_WIDGET,
                         "orientation", GTK_ORIENTATION_VERTICAL,
@@ -529,7 +528,8 @@ static void checkbox_usb_device_destroy_notify(gpointer data)
 }
 
 static void device_added_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, gpointer user_data)
+                            SpiceUsbDevice *device,
+                            gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
     SpiceUsbDeviceWidgetPrivate *priv = self->priv;
@@ -545,10 +545,9 @@ static void device_added_cb(SpiceUsbDeviceManager *manager,
                                                      device))
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check), TRUE);
 
-    g_object_set_data_full(
-            G_OBJECT(check), "usb-device",
-            g_boxed_copy(spice_usb_device_get_type(), device),
-            checkbox_usb_device_destroy_notify);
+    g_object_set_data_full(G_OBJECT(check), "usb-device",
+                           g_boxed_copy(spice_usb_device_get_type(), device),
+                           checkbox_usb_device_destroy_notify);
     g_signal_connect(G_OBJECT(check), "clicked",
                      G_CALLBACK(checkbox_clicked_cb), self);
 
@@ -565,7 +564,8 @@ static void destroy_widget_by_usb_device(GtkWidget *widget, gpointer user_data)
 }
 
 static void device_removed_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, gpointer user_data)
+                              SpiceUsbDevice *device,
+                              gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
 
@@ -584,7 +584,9 @@ static void set_inactive_by_usb_device(GtkWidget *widget, gpointer user_data)
 }
 
 static void device_error_cb(SpiceUsbDeviceManager *manager,
-    SpiceUsbDevice *device, GError *err, gpointer user_data)
+                            SpiceUsbDevice *device,
+                            GError *err,
+                            gpointer user_data)
 {
     SpiceUsbDeviceWidget *self = SPICE_USB_DEVICE_WIDGET(user_data);
 
