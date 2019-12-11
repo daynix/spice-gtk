@@ -199,8 +199,9 @@ static void spice_usb_device_widget_constructed(GObject *gobject)
 
     self = SPICE_USB_DEVICE_WIDGET(gobject);
     priv = self->priv;
-    if (!priv->session)
+    if (!priv->session) {
         g_error("SpiceUsbDeviceWidget constructed without a session");
+    }
 
     priv->label = gtk_label_new(NULL);
     str = g_strdup_printf("<b>%s</b>", _("Select USB devices to redirect"));
@@ -255,8 +256,9 @@ static void spice_usb_device_widget_finalize(GObject *object)
     g_object_unref(priv->session);
     g_free(priv->device_format_string);
 
-    if (G_OBJECT_CLASS(spice_usb_device_widget_parent_class)->finalize)
+    if (G_OBJECT_CLASS(spice_usb_device_widget_parent_class)->finalize) {
         G_OBJECT_CLASS(spice_usb_device_widget_parent_class)->finalize(object);
+    }
 }
 
 static void spice_usb_device_widget_class_init(SpiceUsbDeviceWidgetClass *klass)
@@ -367,8 +369,9 @@ static void check_can_redirect(GtkWidget *widget, gpointer user_data)
     GError *err = NULL;
 
     device = get_usb_device(widget);
-    if (!device)
+    if (!device) {
         return; /* Non device widget, ie the info_bar */
+    }
 
     priv->device_count++;
 
@@ -425,10 +428,11 @@ static gboolean spice_usb_device_widget_update_status(gpointer user_data)
         spice_usb_device_widget_hide_info_bar(self);
     }
 
-    if (priv->device_count == 0)
+    if (priv->device_count == 0) {
         spice_usb_device_widget_show_info_bar(self, _("No USB devices detected"),
                                               GTK_MESSAGE_INFO,
                                               "dialog-information");
+    }
     return FALSE;
 }
 
@@ -559,8 +563,9 @@ static void device_added_cb(SpiceUsbDeviceManager *manager,
 
 static void destroy_widget_by_usb_device(GtkWidget *widget, gpointer user_data)
 {
-    if (get_usb_device(widget) == user_data)
+    if (get_usb_device(widget) == user_data) {
         gtk_widget_destroy(widget);
+    }
 }
 
 static void device_removed_cb(SpiceUsbDeviceManager *manager,
