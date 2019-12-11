@@ -111,24 +111,24 @@ GPtrArray* spice_usb_device_manager_get_devices_with_filter(
 gboolean spice_usb_device_manager_is_device_connected(SpiceUsbDeviceManager *manager,
                                                       SpiceUsbDevice *device);
 void spice_usb_device_manager_connect_device_async(
-                                             SpiceUsbDeviceManager *self,
+                                             SpiceUsbDeviceManager *manager,
                                              SpiceUsbDevice *device,
                                              GCancellable *cancellable,
                                              GAsyncReadyCallback callback,
                                              gpointer user_data);
 
 void spice_usb_device_manager_disconnect_device_async(
-                                             SpiceUsbDeviceManager *self,
+                                             SpiceUsbDeviceManager *manager,
                                              SpiceUsbDevice *device,
                                              GCancellable *cancellable,
                                              GAsyncReadyCallback callback,
                                              gpointer user_data);
 
 gboolean spice_usb_device_manager_connect_device_finish(
-    SpiceUsbDeviceManager *self, GAsyncResult *res, GError **err);
+    SpiceUsbDeviceManager *manager, GAsyncResult *res, GError **err);
 
 gboolean spice_usb_device_manager_disconnect_device_finish(
-    SpiceUsbDeviceManager *self, GAsyncResult *res, GError **err);
+    SpiceUsbDeviceManager *manager, GAsyncResult *res, GError **err);
 
 #ifndef SPICE_DISABLE_DEPRECATED
 G_DEPRECATED_FOR(spice_usb_device_manager_disconnect_device_async)
@@ -137,11 +137,11 @@ void spice_usb_device_manager_disconnect_device(SpiceUsbDeviceManager *manager,
 #endif
 
 gboolean
-spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager  *self,
-                                             SpiceUsbDevice         *device,
+spice_usb_device_manager_can_redirect_device(SpiceUsbDeviceManager *manager,
+                                             SpiceUsbDevice        *device,
                                              GError                **err);
 
-gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *self);
+gboolean spice_usb_device_manager_is_redirecting(SpiceUsbDeviceManager *manager);
 
 G_END_DECLS
 
