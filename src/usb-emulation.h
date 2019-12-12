@@ -27,7 +27,7 @@
 typedef struct SpiceUsbEmulatedDevice SpiceUsbEmulatedDevice;
 typedef SpiceUsbEmulatedDevice*
 (*SpiceUsbEmulatedDeviceCreate)(SpiceUsbBackend *be,
-                                SpiceUsbBackendDevice *parent,
+                                SpiceUsbDevice *parent,
                                 void *create_params,
                                 GError **err);
 
@@ -84,4 +84,3 @@ spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
                                          SpiceUsbEmulatedDeviceCreate create_proc,
                                          void *create_params,
                                          GError **err);
-

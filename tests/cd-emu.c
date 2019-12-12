@@ -36,11 +36,11 @@
 
 #include "usb-device-cd.h"
 
-static SpiceUsbBackendDevice *device = NULL;
+static SpiceUsbDevice *device = NULL;
 
 /* simple usb manager hotplug callback emulation. */
 static void
-test_hotplug_callback(void *user_data, SpiceUsbBackendDevice *dev, gboolean added)
+test_hotplug_callback(void *user_data, SpiceUsbDevice *dev, gboolean added)
 {
     // ignore not emulated devices
     const UsbDeviceInformation *info = spice_usb_backend_device_get_info(dev);

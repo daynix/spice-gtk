@@ -96,7 +96,7 @@ struct _SpiceUsbBackendChannel
     int rules_count;
     uint32_t rejected          : 1;
     uint32_t wait_disconnect_ack : 1;
-    SpiceUsbBackendDevice *attached;
+    SpiceUsbDevice *attached;
     SpiceUsbredirChannel *usbredir_channel;
     SpiceUsbBackend *backend;
     GError **error;
@@ -116,7 +116,7 @@ static void get_usb_device_info_from_libusb_device(UsbDeviceInformation *info,
     info->protocol = desc.bDeviceProtocol;
 }
 
-static gboolean fill_usb_info(SpiceUsbBackendDevice *dev)
+static gboolean fill_usb_info(SpiceUsbDevice *dev)
 {
     UsbDeviceInformation *info = &dev->device_info;
     get_usb_device_info_from_libusb_device(info, dev->libusb_device);
@@ -129,9 +129,9 @@ static gboolean fill_usb_info(SpiceUsbBackendDevice *dev)
     return TRUE;
 }
 
-static SpiceUsbBackendDevice *allocate_backend_device(libusb_device *libdev)
+static SpiceUsbDevice *allocate_backend_device(libusb_device *libdev)
 {
-    SpiceUsbBackendDevice *dev = g_new0(SpiceUsbBackendDevice, 1);
+    SpiceUsbDevice *dev = g_new0(SpiceUsbDevice, 1);
     dev->ref_count = 1;
     dev->libusb_device = libdev;
     if (!fill_usb_info(dev)) {
@@ -146,7 +146,7 @@ static int LIBUSB_CALL hotplug_callback(libusb_context *ctx,
                                         void *user_data)
 {
     SpiceUsbBackend *be = user_data;
-    SpiceUsbBackendDevice *dev;
+    SpiceUsbDevice *dev;
     gboolean arrived = event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED;
 
     g_return_val_if_fail(be->hotplug_callback != NULL, 0);
@@ -359,7 +359,7 @@ static void usbredir_unlock_lock(void *user_data)
     g_mutex_unlock(mutex);
 }
 
-gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev)
+gboolean spice_usb_backend_device_isoch(SpiceUsbDevice *dev)
 {
     libusb_device *libdev = dev->libusb_device;
     struct libusb_config_descriptor *conf_desc;
@@ -548,24 +548,24 @@ void spice_usb_backend_delete(SpiceUsbBackend *be)
     SPICE_DEBUG("%s <<", __FUNCTION__);
 }
 
-const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbBackendDevice *dev)
+const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbDevice *dev)
 {
     return &dev->device_info;
 }
 
-gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbBackendDevice *dev)
+gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbDevice *dev)
 {
     return dev->libusb_device;
 }
 
-SpiceUsbBackendDevice *spice_usb_backend_device_ref(SpiceUsbBackendDevice *dev)
+SpiceUsbDevice *spice_usb_backend_device_ref(SpiceUsbDevice *dev)
 {
     LOUD_DEBUG("%s >> %p", __FUNCTION__, dev);
     g_atomic_int_inc(&dev->ref_count);
     return dev;
 }
 
-void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev)
+void spice_usb_backend_device_unref(SpiceUsbDevice *dev)
 {
     LOUD_DEBUG("%s >> %p(%d)", __FUNCTION__, dev, dev->ref_count);
     if (g_atomic_int_dec_and_test(&dev->ref_count)) {
@@ -580,7 +580,7 @@ void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev)
     }
 }
 
-static int check_edev_device_filter(SpiceUsbBackendDevice *dev,
+static int check_edev_device_filter(SpiceUsbDevice *dev,
                                     const struct usbredirfilter_rule *rules,
                                     int count)
 {
@@ -617,7 +617,7 @@ static int check_edev_device_filter(SpiceUsbBackendDevice *dev,
                                 dev->device_info.bcdUSB, 0);
 }
 
-int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
+int spice_usb_backend_device_check_filter(SpiceUsbDevice *dev,
                                           const struct usbredirfilter_rule *rules, int count)
 {
     if (dev->libusb_device != NULL) {
@@ -837,7 +837,7 @@ usbredir_control_packet(void *priv, uint64_t id, struct usb_redir_control_packet
                         uint8_t *data, int data_len)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     struct usb_redir_control_packet_header response = *h;
     uint8_t reqtype = h->requesttype & 0x7f;
@@ -892,7 +892,7 @@ usbredir_bulk_packet(void *priv, uint64_t id, struct usb_redir_bulk_packet_heade
                      uint8_t *data, int data_len)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     struct usb_redir_bulk_packet_header hout = *h;
     uint32_t len = (h->length_high << 16) | h->length;
@@ -924,7 +924,7 @@ usbredir_bulk_packet(void *priv, uint64_t id, struct usb_redir_bulk_packet_heade
 static void usbredir_device_reset(void *priv)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     SPICE_DEBUG("%s ch %p", __FUNCTION__, ch);
     if (edev) {
@@ -1000,7 +1000,7 @@ usbredir_get_alt_setting(void *priv, uint64_t id, struct usb_redir_get_alt_setti
 static void usbredir_cancel_data(void *priv, uint64_t id)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     if (!edev) {
         SPICE_DEBUG("%s: device not attached", __FUNCTION__);
@@ -1052,7 +1052,7 @@ static void
 usbredir_hello(void *priv, struct usb_redir_hello_header *hello)
 {
     SpiceUsbBackendChannel *ch = priv;
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     struct usb_redir_device_connect_header device_connect;
     struct usb_redir_ep_info_header ep_info = { 0 };
@@ -1175,7 +1175,7 @@ static struct usbredirparser *create_parser(SpiceUsbBackendChannel *ch)
 }
 
 static gboolean attach_edev(SpiceUsbBackendChannel *ch,
-                            SpiceUsbBackendDevice *dev,
+                            SpiceUsbDevice *dev,
                             GError **error)
 {
     if (!dev->edev) {
@@ -1207,7 +1207,7 @@ static gboolean attach_edev(SpiceUsbBackendChannel *ch,
 }
 
 gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
-                                          SpiceUsbBackendDevice *dev,
+                                          SpiceUsbDevice *dev,
                                           GError **error)
 {
     int rc;
@@ -1261,7 +1261,7 @@ gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
 
 void spice_usb_backend_channel_detach(SpiceUsbBackendChannel *ch)
 {
-    SpiceUsbBackendDevice *d = ch->attached;
+    SpiceUsbDevice *d = ch->attached;
     SpiceUsbEmulatedDevice *edev = d ? d->edev : NULL;
     SPICE_DEBUG("%s >> ch %p, was attached %p", __FUNCTION__, ch, ch->attached);
     if (!d) {
@@ -1398,7 +1398,7 @@ spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
     }
 }
 
-gchar *spice_usb_backend_device_get_description(SpiceUsbBackendDevice *dev,
+gchar *spice_usb_backend_device_get_description(SpiceUsbDevice *dev,
                                                 const gchar *format)
 {
     guint16 bus, address, vid, pid;
@@ -1439,7 +1439,7 @@ gchar *spice_usb_backend_device_get_description(SpiceUsbBackendDevice *dev,
 }
 
 void spice_usb_backend_device_report_change(SpiceUsbBackend *be,
-                                            SpiceUsbBackendDevice *dev)
+                                            SpiceUsbDevice *dev)
 {
     gchar *desc;
     g_return_if_fail(dev && dev->edev);
@@ -1449,7 +1449,7 @@ void spice_usb_backend_device_report_change(SpiceUsbBackend *be,
     g_free(desc);
 }
 
-void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbBackendDevice *dev)
+void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbDevice *dev)
 {
     g_return_if_fail(dev);
 
@@ -1468,7 +1468,7 @@ spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
                                          GError **err)
 {
     SpiceUsbEmulatedDevice *edev;
-    SpiceUsbBackendDevice *dev;
+    SpiceUsbDevice *dev;
     struct libusb_device_descriptor *desc;
     uint16_t device_desc_size;
     uint8_t address = 0;
@@ -1484,7 +1484,7 @@ spice_usb_backend_create_emulated_device(SpiceUsbBackend *be,
         }
     }
 
-    dev = g_new0(SpiceUsbBackendDevice, 1);
+    dev = g_new0(SpiceUsbDevice, 1);
     dev->device_info.bus = BUS_NUMBER_FOR_EMULATED_USB;
     dev->device_info.address = address;
     dev->ref_count = 1;

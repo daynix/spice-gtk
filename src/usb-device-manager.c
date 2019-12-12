@@ -126,12 +126,12 @@ static void channel_destroy(SpiceSession *session, SpiceChannel *channel,
 static void channel_event(SpiceChannel *channel, SpiceChannelEvent event,
                           gpointer user_data);
 static void spice_usb_device_manager_hotplug_cb(void *user_data,
-                                                SpiceUsbBackendDevice *dev,
+                                                SpiceUsbDevice *dev,
                                                 gboolean added);
 static void spice_usb_device_manager_check_redir_on_connect(SpiceUsbDeviceManager *manager,
                                                             SpiceChannel *channel);
 
-static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev);
+static SpiceUsbDevice *spice_usb_device_new(SpiceUsbDevice *bdev);
 static SpiceUsbDevice *spice_usb_device_ref(SpiceUsbDevice *device);
 static void spice_usb_device_unref(SpiceUsbDevice *device);
 
@@ -142,7 +142,7 @@ static void _usbdk_hider_clear(SpiceUsbDeviceManager *manager);
 
 static gboolean spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
                                                     SpiceUsbDevice *device,
-                                                    SpiceUsbBackendDevice *bdev);
+                                                    SpiceUsbDevice *bdev);
 
 static void
 _spice_usb_device_manager_connect_device_async(SpiceUsbDeviceManager *manager,
@@ -755,7 +755,7 @@ spice_usb_device_manager_find_device(SpiceUsbDeviceManager *manager,
 }
 
 static void spice_usb_device_manager_add_dev(SpiceUsbDeviceManager *manager,
-                                             SpiceUsbBackendDevice  *bdev)
+                                             SpiceUsbDevice *bdev)
 {
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
     const UsbDeviceInformation *b_info = spice_usb_backend_device_get_info(bdev);
@@ -803,7 +803,7 @@ static void spice_usb_device_manager_add_dev(SpiceUsbDeviceManager *manager,
 }
 
 static void spice_usb_device_manager_remove_dev(SpiceUsbDeviceManager *manager,
-                                                SpiceUsbBackendDevice *bdev)
+                                                SpiceUsbDevice *bdev)
 {
     SpiceUsbDeviceManagerPrivate *priv = manager->priv;
     SpiceUsbDevice *device;
@@ -831,7 +831,7 @@ static void spice_usb_device_manager_remove_dev(SpiceUsbDeviceManager *manager,
 
 struct hotplug_idle_cb_args {
     SpiceUsbDeviceManager *manager;
-    SpiceUsbBackendDevice *device;
+    SpiceUsbDevice *device;
     gboolean               added;
 };
 
@@ -854,7 +854,7 @@ static gboolean spice_usb_device_manager_hotplug_idle_cb(gpointer user_data)
 
 /* Can be called from both the main-thread as well as the event_thread */
 static void spice_usb_device_manager_hotplug_cb(void *user_data,
-                                                SpiceUsbBackendDevice *dev,
+                                                SpiceUsbDevice *dev,
                                                 gboolean added)
 {
     SpiceUsbDeviceManager *manager = SPICE_USB_DEVICE_MANAGER(user_data);
@@ -947,7 +947,7 @@ spice_usb_device_manager_get_channel_for_dev(SpiceUsbDeviceManager *manager,
     for (i = 0; i < priv->channels->len; i++) {
         SpiceUsbredirChannel *channel = g_ptr_array_index(priv->channels, i);
         spice_usbredir_channel_lock(channel);
-        SpiceUsbBackendDevice *bdev = spice_usbredir_channel_get_device(channel);
+        SpiceUsbDevice *bdev = spice_usbredir_channel_get_device(channel);
         if (spice_usb_manager_device_equal_bdev(manager, device, bdev)) {
             spice_usbredir_channel_unlock(channel);
             return channel;
@@ -1431,7 +1431,7 @@ gchar *spice_usb_device_get_description(SpiceUsbDevice *device, const gchar *for
 /*
  * SpiceUsbDevice
  */
-static SpiceUsbDevice *spice_usb_device_new(SpiceUsbBackendDevice *bdev)
+static SpiceUsbDevice *spice_usb_device_new(SpiceUsbDevice *bdev)
 {
     g_return_val_if_fail(bdev != NULL, NULL);
 
@@ -1482,7 +1482,7 @@ gboolean spice_usb_device_is_isochronous(const SpiceUsbDevice *info)
 {
     g_return_val_if_fail(info != NULL, 0);
 
-    return spice_usb_backend_device_isoch((SpiceUsbBackendDevice*) info);
+    return spice_usb_backend_device_isoch((SpiceUsbDevice*) info);
 }
 
 #ifdef G_OS_WIN32
@@ -1574,7 +1574,7 @@ static void spice_usb_device_unref(SpiceUsbDevice *info)
 static gboolean
 spice_usb_manager_device_equal_bdev(SpiceUsbDeviceManager *manager,
                                     SpiceUsbDevice *info,
-                                    SpiceUsbBackendDevice *bdev)
+                                    SpiceUsbDevice *bdev)
 {
     if ((info == NULL) || (bdev == NULL)) {
         return FALSE;

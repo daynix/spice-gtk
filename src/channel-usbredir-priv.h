@@ -56,7 +56,7 @@ gboolean spice_usbredir_channel_connect_device_finish(
 
 void spice_usbredir_channel_disconnect_device(SpiceUsbredirChannel *channel);
 
-SpiceUsbBackendDevice *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel);
+SpiceUsbDevice *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel);
 
 void spice_usbredir_channel_lock(SpiceUsbredirChannel *channel);
 

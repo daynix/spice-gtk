@@ -62,7 +62,7 @@ enum SpiceUsbredirChannelState {
 };
 
 struct _SpiceUsbredirChannelPrivate {
-    SpiceUsbBackendDevice *device;
+    SpiceUsbDevice *device;
     SpiceUsbDevice *spice_device;
     SpiceUsbBackend *context;
     SpiceUsbBackendChannel *host;
@@ -477,7 +477,7 @@ spice_usbredir_channel_get_spice_usb_device(SpiceUsbredirChannel *channel)
 #endif
 
 G_GNUC_INTERNAL
-SpiceUsbBackendDevice *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel)
+SpiceUsbDevice *spice_usbredir_channel_get_device(SpiceUsbredirChannel *channel)
 {
     return channel->priv->device;
 }

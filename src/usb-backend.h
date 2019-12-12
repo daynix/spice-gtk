@@ -27,7 +27,6 @@
 G_BEGIN_DECLS
 
 typedef struct _SpiceUsbBackend SpiceUsbBackend;
-typedef struct _SpiceUsbDevice SpiceUsbBackendDevice;
 typedef struct _SpiceUsbBackendChannel SpiceUsbBackendChannel;
 
 #define BUS_NUMBER_FOR_EMULATED_USB G_MAXUINT16
@@ -44,7 +43,7 @@ typedef struct UsbDeviceInformation
     uint8_t protocol;
 } UsbDeviceInformation;
 
-typedef void(*usb_hot_plug_callback)(void *user_data, SpiceUsbBackendDevice *dev, gboolean added);
+typedef void(*usb_hot_plug_callback)(void *user_data, SpiceUsbDevice *dev, gboolean added);
 
 enum {
     USB_REDIR_ERROR_IO = -1,
@@ -65,17 +64,17 @@ gboolean spice_usb_backend_register_hotplug(SpiceUsbBackend *be,
 void spice_usb_backend_deregister_hotplug(SpiceUsbBackend *be);
 
 /* Spice USB backend device API */
-SpiceUsbBackendDevice *spice_usb_backend_device_ref(SpiceUsbBackendDevice *dev);
-void spice_usb_backend_device_unref(SpiceUsbBackendDevice *dev);
-gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbBackendDevice *dev);
-const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbBackendDevice *dev);
-gboolean spice_usb_backend_device_isoch(SpiceUsbBackendDevice *dev);
-void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbBackendDevice *device);
-void spice_usb_backend_device_report_change(SpiceUsbBackend *be, SpiceUsbBackendDevice *device);
+SpiceUsbDevice *spice_usb_backend_device_ref(SpiceUsbDevice *dev);
+void spice_usb_backend_device_unref(SpiceUsbDevice *dev);
+gconstpointer spice_usb_backend_device_get_libdev(const SpiceUsbDevice *dev);
+const UsbDeviceInformation* spice_usb_backend_device_get_info(const SpiceUsbDevice *dev);
+gboolean spice_usb_backend_device_isoch(SpiceUsbDevice *dev);
+void spice_usb_backend_device_eject(SpiceUsbBackend *be, SpiceUsbDevice *device);
+void spice_usb_backend_device_report_change(SpiceUsbBackend *be, SpiceUsbDevice *device);
 
 /* returns 0 if the device passes the filter otherwise returns the error value from
  * usbredirhost_check_device_filter() such as -EIO or -ENOMEM */
-int spice_usb_backend_device_check_filter(SpiceUsbBackendDevice *dev,
+int spice_usb_backend_device_check_filter(SpiceUsbDevice *dev,
                                           const struct usbredirfilter_rule *rules, int count);
 
 /* Spice USB backend channel API */
@@ -86,7 +85,7 @@ void spice_usb_backend_channel_delete(SpiceUsbBackendChannel *ch);
 int spice_usb_backend_read_guest_data(SpiceUsbBackendChannel *ch, uint8_t *data, int count);
 GError *spice_usb_backend_get_error_details(int error_code, gchar *device_desc);
 gboolean spice_usb_backend_channel_attach(SpiceUsbBackendChannel *ch,
-                                          SpiceUsbBackendDevice *dev,
+                                          SpiceUsbDevice *dev,
                                           GError **error);
 void spice_usb_backend_channel_detach(SpiceUsbBackendChannel *ch);
 void spice_usb_backend_channel_flush_writes(SpiceUsbBackendChannel *ch);
@@ -94,6 +93,6 @@ void spice_usb_backend_channel_get_guest_filter(SpiceUsbBackendChannel *ch,
                                                 const struct usbredirfilter_rule  **rules,
                                                 int *count);
 void spice_usb_backend_return_write_data(SpiceUsbBackendChannel *ch, void *data);
-gchar *spice_usb_backend_device_get_description(SpiceUsbBackendDevice *dev, const gchar *format);
+gchar *spice_usb_backend_device_get_description(SpiceUsbDevice *dev, const gchar *format);
 
 G_END_DECLS

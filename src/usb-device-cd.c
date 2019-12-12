@@ -75,7 +75,7 @@ struct BufferedBulkRead {
 struct SpiceUsbEmulatedDevice {
     UsbDeviceOps dev_ops;
     SpiceUsbBackend *backend;
-    SpiceUsbBackendDevice *parent;
+    SpiceUsbDevice *parent;
     struct usbredirparser *parser;
     UsbCdBulkMsdDevice* msc;
     SpiceCdLU units[MAX_LUN_PER_DEVICE];
@@ -709,7 +709,7 @@ static const UsbDeviceOps devops =
 };
 
 static UsbCd* usb_cd_create(SpiceUsbBackend *be,
-                            SpiceUsbBackendDevice *parent,
+                            SpiceUsbDevice *parent,
                             void *opaque_param,
                             GError **err)
 {
