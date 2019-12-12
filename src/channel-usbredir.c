@@ -63,7 +63,6 @@ enum SpiceUsbredirChannelState {
 
 struct _SpiceUsbredirChannelPrivate {
     SpiceUsbDevice *device;
-    SpiceUsbDevice *spice_device;
     SpiceUsbBackend *context;
     SpiceUsbBackendChannel *host;
     enum SpiceUsbredirChannelState state;
@@ -285,8 +284,6 @@ static void spice_usbredir_channel_open_acl_cb(
     }
     if (err) {
         g_clear_pointer(&priv->device, spice_usb_backend_device_unref);
-        g_boxed_free(spice_usb_device_get_type(), priv->spice_device);
-        priv->spice_device = NULL;
         priv->state  = STATE_DISCONNECTED;
         g_task_return_error(priv->task, err);
     } else {
@@ -315,8 +312,6 @@ _open_device_async_cb(GTask *task,
 
     if (!spice_usbredir_channel_open_device(channel, &err)) {
         g_clear_pointer(&priv->device, spice_usb_backend_device_unref);
-        g_boxed_free(spice_usb_device_get_type(), priv->spice_device);
-        priv->spice_device = NULL;
     }
 
     spice_usbredir_channel_unlock(channel);
@@ -366,8 +361,6 @@ void spice_usbredir_channel_connect_device_async(SpiceUsbredirChannel *channel,
     }
 
     priv->device = spice_usb_backend_device_ref(device);
-    priv->spice_device = g_boxed_copy(spice_usb_device_get_type(),
-                                      device);
 #ifdef USE_POLKIT
     if (info->bus != BUS_NUMBER_FOR_EMULATED_USB) {
         priv->task = task;
@@ -427,8 +420,6 @@ void spice_usbredir_channel_disconnect_device(SpiceUsbredirChannel *channel)
         /* This also closes the libusb handle we passed from open_device */
         spice_usb_backend_channel_detach(priv->host);
         g_clear_pointer(&priv->device, spice_usb_backend_device_unref);
-        g_boxed_free(spice_usb_device_get_type(), priv->spice_device);
-        priv->spice_device = NULL;
         priv->state  = STATE_DISCONNECTED;
         break;
     }
@@ -472,7 +463,7 @@ void spice_usbredir_channel_disconnect_device_async(SpiceUsbredirChannel *channe
 static SpiceUsbDevice *
 spice_usbredir_channel_get_spice_usb_device(SpiceUsbredirChannel *channel)
 {
-    return channel->priv->spice_device;
+    return channel->priv->device;
 }
 #endif
 
@@ -604,7 +595,7 @@ void spice_usbredir_channel_unlock(SpiceUsbredirChannel *channel)
 
 typedef struct device_error_data {
     SpiceUsbredirChannel *channel;
-    SpiceUsbDevice *spice_device;
+    SpiceUsbDevice *device;
     GError *error;
     struct coroutine *caller;
 } device_error_data;
@@ -617,12 +608,11 @@ static gboolean device_error(gpointer user_data)
     SpiceUsbredirChannelPrivate *priv = channel->priv;
 
     /* Check that the device has not changed before we manage to run */
-    if (data->spice_device == priv->spice_device) {
+    if (data->device == priv->device) {
+        SpiceUsbDeviceManager *manager =
+            spice_usb_device_manager_get(spice_channel_get_session(SPICE_CHANNEL(channel)), NULL);
         spice_usbredir_channel_disconnect_device(channel);
-        spice_usb_device_manager_device_error(
-                spice_usb_device_manager_get(
-                    spice_channel_get_session(SPICE_CHANNEL(channel)), NULL),
-                data->spice_device, data->error);
+        spice_usb_device_manager_device_error(manager, data->device, data->error);
     }
 
     coroutine_yieldto(data->caller, NULL);
@@ -703,13 +693,13 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
     spice_usbredir_channel_lock(channel);
     if (r == 0)
         r = spice_usb_backend_read_guest_data(priv->host, buf, size);
-    if (r != 0 && priv->spice_device != NULL) {
-        SpiceUsbDevice *spice_device = priv->spice_device;
+    if (r != 0 && priv->device != NULL) {
+        SpiceUsbDevice *device = priv->device;
         device_error_data err_data;
         gchar *desc;
         GError *err;
 
-        desc = spice_usb_device_get_description(spice_device, NULL);
+        desc = spice_usb_device_get_description(device, NULL);
         err = spice_usb_backend_get_error_details(r, desc);
         g_free(desc);
 
@@ -717,13 +707,13 @@ static void usbredir_handle_msg(SpiceChannel *c, SpiceMsgIn *in)
 
         err_data.channel = channel;
         err_data.caller = coroutine_self();
-        err_data.spice_device = g_boxed_copy(spice_usb_device_get_type(), spice_device);
+        err_data.device = spice_usb_backend_device_ref(device);
         err_data.error = err;
         spice_usbredir_channel_unlock(channel);
         g_idle_add(device_error, &err_data);
         coroutine_yield(NULL);
 
-        g_boxed_free(spice_usb_device_get_type(), err_data.spice_device);
+        spice_usb_backend_device_unref(err_data.device);
 
         g_error_free(err);
     } else {
