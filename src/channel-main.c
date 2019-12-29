@@ -944,9 +944,9 @@ static void agent_send_msg_queue(SpiceMainChannel *channel)
         task = g_hash_table_lookup(c->flushing, out);
         if (task) {
             /* if there's a flush task waiting for this message, finish it */
+            g_hash_table_remove(c->flushing, out);
             g_task_return_boolean(task, TRUE);
             g_object_unref(task);
-            g_hash_table_remove(c->flushing, out);
         }
     }
     if (g_queue_is_empty(c->agent_msg_queue) &&
