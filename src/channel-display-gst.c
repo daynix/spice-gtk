@@ -469,7 +469,7 @@ sink_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer data)
     return GST_PAD_PROBE_OK;
 }
 
-/* This function is called to used to set a probe on the sink */
+/* This function is used to set a probe on the sink */
 static void
 deep_element_added_cb(GstBin *pipeline, GstBin *bin, GstElement *element,
                       SpiceGstDecoder *decoder)
